@@ -62,8 +62,6 @@ func TestGoodCase1(t *testing.T) {
 	p, err = a.RemoveHost(p, h2)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.02, "good case1 remove 2")
-
-	print(p.(placementSnapshot))
 }
 
 func TestOverSizedRack(t *testing.T) {
@@ -117,8 +115,6 @@ func TestOverSizedRack(t *testing.T) {
 	p, err = a.AddHost(p, r4h12)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.14, "TestOverSizedRack add 1")
-
-	print(p.(placementSnapshot))
 }
 
 func TestInitPlacementOn0Host(t *testing.T) {
