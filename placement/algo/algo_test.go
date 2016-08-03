@@ -152,7 +152,6 @@ func TestOneRack(t *testing.T) {
 	p, err = a.AddHost(p, r1h6)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestOneRack addhost 1")
-	print(p.(placementSnapshot))
 }
 
 func TestRFGreaterThanRackLen(t *testing.T) {
