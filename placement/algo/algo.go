@@ -1,3 +1,23 @@
+// Copyright (c) 2016 Uber Technologies, Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 package algo
 
 import (
@@ -9,22 +29,19 @@ import (
 )
 
 var (
-	errNotEnoughRacks = errors.New("not enough host to take shards, please make sure RF <= number of racks")
-	errHostAbsent     = errors.New("could not remove or replace a host that does not exist")
+	errNotEnoughRacks          = errors.New("not enough host to take shards, please make sure RF <= number of racks")
+	errHostAbsent              = errors.New("could not remove or replace a host that does not exist")
+	errCouldNotReachTargetLoad = errors.New("new host could not reach target load")
 )
 
-type placementAlgorithm struct {
+type rackAwarePlacementAlgorithm struct {
 }
 
-func newM3DBPlacementAlgorithm() placement.Algorithm {
-	return placementAlgorithm{}
+func newRackAwarePlacementAlgorithm() placement.Algorithm {
+	return rackAwarePlacementAlgorithm{}
 }
 
-func newM3DBDeploymentPlanner() placement.DeploymentPlanner {
-	return placementAlgorithm{}
-}
-
-func (a placementAlgorithm) InitPlacement(hosts []placement.Host, ids []int) (placement.Snapshot, error) {
+func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Host, ids []int) (placement.Snapshot, error) {
 	ph := newInitPlacementHelper(hosts, ids)
 
 	if err := ph.placeShards(ph.uniqueShards, nil); err != nil {
@@ -33,7 +50,7 @@ func (a placementAlgorithm) InitPlacement(hosts []placement.Host, ids []int) (pl
 	return ph.generatePlacement(), nil
 }
 
-func (a placementAlgorithm) AddReplica(ps placement.Snapshot) (placement.Snapshot, error) {
+func (a rackAwarePlacementAlgorithm) AddReplica(ps placement.Snapshot) (placement.Snapshot, error) {
 	ph := newReplicaPlacementHelper(ps, ps.Replicas()+1)
 	if err := ph.placeShards(ph.uniqueShards, nil); err != nil {
 		return nil, err
@@ -41,7 +58,7 @@ func (a placementAlgorithm) AddReplica(ps placement.Snapshot) (placement.Snapsho
 	return ph.generatePlacement(), nil
 }
 
-func (a placementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHost placement.Host) (placement.Snapshot, error) {
+func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHost placement.Host) (placement.Snapshot, error) {
 	if a.isHostAbsent(ps, leavingHost) {
 		return nil, errHostAbsent
 	}
@@ -53,38 +70,37 @@ func (a placementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHost placem
 	return ph.generatePlacement(), nil
 }
 
-func (a placementAlgorithm) AddHost(ps placement.Snapshot, addingHost placement.Host) (placement.Snapshot, error) {
+func (a rackAwarePlacementAlgorithm) AddHost(ps placement.Snapshot, addingHost placement.Host) (placement.Snapshot, error) {
 	ph, addingHostShards := newAddHostPlacementHelper(ps, addingHost)
 	targetLoad := ph.hostHeap.getTargetLoadForHost(addingHostShards.hostAddress())
 	// try to steal shards from the most loaded hosts until the adding host reaches target load
 outer:
 	for len(addingHostShards.shardsSet) < targetLoad {
-		if ph.hostHeap.Len() > 0 {
-			tryHost := heap.Pop(ph.hostHeap).(*hostShards)
-			for shard := range tryHost.shardsSet {
-				if ph.canAssignHost(shard, tryHost, addingHostShards) {
-					ph.assignShardToHost(shard, addingHostShards)
-					ph.removeShardFromHost(shard, tryHost)
-					heap.Push(ph.hostHeap, tryHost)
-					continue outer
-				}
+		if ph.hostHeap.Len() == 0 {
+			return nil, errCouldNotReachTargetLoad
+		}
+		tryHost := heap.Pop(ph.hostHeap).(*hostShards)
+		for shard := range tryHost.shardsSet {
+			if ph.canAssignHost(shard, tryHost, addingHostShards) {
+				ph.assignShardToHost(shard, addingHostShards)
+				ph.removeShardFromHost(shard, tryHost)
+				heap.Push(ph.hostHeap, tryHost)
+				continue outer
 			}
-		} else {
-			return nil, errors.New("new host could not reach target load")
 		}
 	}
 
 	return ph.generatePlacement(), nil
 }
 
-func (a placementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost, addingHost placement.Host) (placement.Snapshot, error) {
+func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost, addingHost placement.Host) (placement.Snapshot, error) {
 	if a.isHostAbsent(ps, leavingHost) {
 		return nil, errHostAbsent
 	}
 	addingHostShards := newEmptyHostShardsFromHost(addingHost)
 	ph, leavingHostShards := newRemoveHostPlacementHelper(ps, leavingHost)
 
-	var shardsUnAssigned []int
+	var shardsUnassigned []int
 	// move shards from leaving host to adding host
 	for _, shard := range leavingHostShards.Shards() {
 		if ph.canAssignHost(shard, leavingHostShards, addingHostShards) {
@@ -92,14 +108,12 @@ func (a placementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost, addi
 
 			addingHostShards.addShard(shard)
 		} else {
-			shardsUnAssigned = append(shardsUnAssigned, shard)
+			shardsUnassigned = append(shardsUnassigned, shard)
 		}
 	}
 	// if there are shards that can not be moved to adding host
 	// distribute them to the cluster
-	err := ph.placeShards(shardsUnAssigned, leavingHostShards)
-
-	if err != nil {
+	if err := ph.placeShards(shardsUnassigned, leavingHostShards); err != nil {
 		return nil, err
 	}
 
@@ -109,10 +123,25 @@ func (a placementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost, addi
 	return a.AddHost(cl, addingHost)
 }
 
-// DeploymentSteps returns the steps that could be used in deployment
-// it returns a list of hosts that can be deployed at the same time
-// without making more than 1 replica of any shard unavailable
-func (a placementAlgorithm) DeploymentSteps(ps placement.Snapshot) [][]placement.HostShards {
+func (a rackAwarePlacementAlgorithm) isHostAbsent(ps placement.Snapshot, h placement.Host) bool {
+	for _, hs := range ps.HostShards() {
+		if hs.Host().Address() == h.Address() {
+			return false
+		}
+	}
+	return true
+}
+
+// shardAwareDeploymentPlanner plans the deployment so that as many hosts can be deployed
+// at the same time without making more than 1 replica of any shard unavailable
+type shardAwareDeploymentPlanner struct {
+}
+
+func newShardAwareDeploymentPlanner() placement.DeploymentPlanner {
+	return shardAwareDeploymentPlanner{}
+}
+
+func (dp shardAwareDeploymentPlanner) DeploymentSteps(ps placement.Snapshot) [][]placement.HostShards {
 	ph := newReplicaPlacementHelper(ps, ps.Replicas())
 	var steps [][]placement.HostShards
 	for ph.hostHeap.Len() > 0 {
@@ -134,15 +163,6 @@ func (a placementAlgorithm) DeploymentSteps(ps placement.Snapshot) [][]placement
 		steps = append(steps, parallel)
 	}
 	return steps
-}
-
-func (a placementAlgorithm) isHostAbsent(ps placement.Snapshot, h placement.Host) bool {
-	for _, hs := range ps.HostShards() {
-		if hs.Host().Address() == h.Address() {
-			return false
-		}
-	}
-	return true
 }
 
 type placementHelper struct {

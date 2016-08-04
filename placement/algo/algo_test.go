@@ -1,3 +1,23 @@
+// Copyright (c) 2016 Uber Technologies, Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 package algo
 
 import (
@@ -26,8 +46,8 @@ func TestGoodCase1(t *testing.T) {
 		ids[i] = int(i)
 	}
 
-	a := newM3DBPlacementAlgorithm()
-	p, err := a.InitPlacement(hosts, ids)
+	a := newRackAwarePlacementAlgorithm()
+	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 replica 1")
 
@@ -85,8 +105,8 @@ func TestOverSizedRack(t *testing.T) {
 		ids[i] = int(i)
 	}
 
-	a := placementAlgorithm{}
-	p, err := a.InitPlacement(hosts, ids)
+	a := rackAwarePlacementAlgorithm{}
+	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestOverSizedRack replica 1")
 
@@ -124,8 +144,8 @@ func TestInitPlacementOn0Host(t *testing.T) {
 		ids[i] = int(i)
 	}
 
-	a := placementAlgorithm{}
-	p, err := a.InitPlacement(hosts, ids)
+	a := rackAwarePlacementAlgorithm{}
+	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.Error(t, err)
 	assert.Nil(t, p)
 }
@@ -141,8 +161,8 @@ func TestOneRack(t *testing.T) {
 		ids[i] = int(i)
 	}
 
-	a := placementAlgorithm{}
-	p, err := a.InitPlacement(hosts, ids)
+	a := rackAwarePlacementAlgorithm{}
+	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestOneRack replica 1")
 
@@ -166,8 +186,8 @@ func TestRFGreaterThanRackLen(t *testing.T) {
 		ids[i] = int(i)
 	}
 
-	a := placementAlgorithm{}
-	p, err := a.InitPlacement(hosts, ids)
+	a := rackAwarePlacementAlgorithm{}
+	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestRFGreaterThanRackLen replica 1")
 
@@ -192,8 +212,8 @@ func TestRFGreaterThanRackLenAfterHostRemoval(t *testing.T) {
 		ids[i] = int(i)
 	}
 
-	a := placementAlgorithm{}
-	p, err := a.InitPlacement(hosts, ids)
+	a := rackAwarePlacementAlgorithm{}
+	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestRFGreaterThanRackLenAfterHostRemoval replica 1")
 
@@ -218,8 +238,8 @@ func TestRFGreaterThanRackLenAfterHostReplace(t *testing.T) {
 		ids[i] = int(i)
 	}
 
-	a := placementAlgorithm{}
-	p, err := a.InitPlacement(hosts, ids)
+	a := rackAwarePlacementAlgorithm{}
+	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestRFGreaterThanRackLenAfterHostRemoval replica 1")
 
@@ -245,8 +265,8 @@ func TestRemoveAbsentHost(t *testing.T) {
 		ids[i] = int(i)
 	}
 
-	a := placementAlgorithm{}
-	p, err := a.InitPlacement(hosts, ids)
+	a := rackAwarePlacementAlgorithm{}
+	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestRemoveAbsentHost replica 1")
 
@@ -269,8 +289,8 @@ func TestReplaceAbsentHost(t *testing.T) {
 		ids[i] = int(i)
 	}
 
-	a := placementAlgorithm{}
-	p, err := a.InitPlacement(hosts, ids)
+	a := rackAwarePlacementAlgorithm{}
+	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestReplaceAbsentHost replica 1")
 
@@ -317,7 +337,7 @@ func TestDeployment(t *testing.T) {
 
 	mp := placementSnapshot{hostShards: hss, shardsLen: 6, rf: 3, uniqueShards: []int{1, 2, 3, 4, 5, 6}}
 
-	dp := newM3DBDeploymentPlanner()
+	dp := newShardAwareDeploymentPlanner()
 	steps := dp.DeploymentSteps(mp)
 	total := 0
 	for _, step := range steps {
@@ -326,7 +346,7 @@ func TestDeployment(t *testing.T) {
 	assert.Equal(t, total, 6)
 	assert.True(t, len(steps) == 3)
 
-	algo := newM3DBPlacementAlgorithm()
+	algo := newRackAwarePlacementAlgorithm()
 
 	ids := make([]int, 1024)
 	for i := 0; i < len(ids); i++ {
@@ -340,7 +360,7 @@ func TestDeployment(t *testing.T) {
 		hosts = append(hosts, newHost(fmt.Sprintf("r%vh%v", i/2, i), fmt.Sprintf("r%v", i/2)))
 	}
 
-	p, err := algo.InitPlacement(hosts, ids)
+	p, err := algo.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 
 	p, err = algo.AddReplica(p)
@@ -359,11 +379,12 @@ func TestDeployment(t *testing.T) {
 
 	hosts = hosts[:0]
 	// The following case shows that the load on 1 host is pretty evenly replicated on other hosts.
+	// So that no 2 hosts can be deployed together because of the limited length of shards
 	for i := 1; i <= 20; i++ {
 		hosts = append(hosts, newHost(fmt.Sprintf("r%vh%v", i, i), fmt.Sprintf("r%v", i)))
 	}
 
-	p, err = algo.InitPlacement(hosts, ids)
+	p, err = algo.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 
 	p, err = algo.AddReplica(p)
