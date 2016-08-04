@@ -41,7 +41,7 @@ func newEmptyPlacement(hosts []placement.Host, ids []int) placementSnapshot {
 	return placementSnapshot{hostShards: hostShards, shardsLen: len(ids), uniqueShards: ids, rf: 0}
 }
 
-func newM3DBPlacementFromPlacement(p placement.Snapshot) placementSnapshot {
+func newPlacementFromGenericSnapshot(p placement.Snapshot) placementSnapshot {
 	hss := make([]*hostShards, p.HostsLen())
 	for i, phs := range p.HostShards() {
 		hss[i] = newHostShards(phs)
@@ -49,7 +49,7 @@ func newM3DBPlacementFromPlacement(p placement.Snapshot) placementSnapshot {
 	return placementSnapshot{hostShards: hss, shardsLen: p.ShardsLen(), rf: p.Replicas(), uniqueShards: p.Shards()}
 }
 
-func newM3DBPlacement(hss []*hostShards, shards []int, rf int) placementSnapshot {
+func newPlacement(hss []*hostShards, shards []int, rf int) placementSnapshot {
 	return placementSnapshot{hostShards: hss, shardsLen: len(shards), rf: rf, uniqueShards: shards}
 }
 

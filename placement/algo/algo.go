@@ -180,7 +180,7 @@ func newInitPlacementHelper(hosts []placement.Host, ids []int) *placementHelper 
 }
 
 func newReplicaPlacementHelper(ps placement.Snapshot, targetRF int) *placementHelper {
-	mps := newM3DBPlacementFromPlacement(ps)
+	mps := newPlacementFromGenericSnapshot(ps)
 	return newPlaceShardingHelper(mps, targetRF, true)
 }
 
@@ -200,7 +200,7 @@ func newAddHostPlacementHelper(ps placement.Snapshot, host placement.Host) (*pla
 		hosts = append(hosts, addingHost)
 	}
 
-	mps := newM3DBPlacement(hosts, ps.Shards(), ps.Replicas())
+	mps := newPlacement(hosts, ps.Shards(), ps.Replicas())
 	return newPlaceShardingHelper(mps, ps.Replicas(), false), addingHost
 }
 
@@ -215,7 +215,7 @@ func newRemoveHostPlacementHelper(ps placement.Snapshot, host placement.Host) (*
 		}
 		hosts = append(hosts, h)
 	}
-	mps := newM3DBPlacement(hosts, ps.Shards(), ps.Replicas())
+	mps := newPlacement(hosts, ps.Shards(), ps.Replicas())
 	return newPlaceShardingHelper(mps, ps.Replicas(), true), leavingHost
 }
 
