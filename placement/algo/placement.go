@@ -9,10 +9,10 @@ type placementSnapshot struct {
 	hostShards   sortableHostShards
 	shardsLen    int
 	rf           int
-	uniqueShards []uint32
+	uniqueShards []int
 }
 
-func newEmptyPlacement(hosts []placement.Host, ids []uint32) placementSnapshot {
+func newEmptyPlacement(hosts []placement.Host, ids []int) placementSnapshot {
 	hostShards := make([]*hostShards, len(hosts), len(hosts))
 	for i, ph := range hosts {
 		hostShards[i] = newEmptyHostShardsFromHost(ph)
@@ -29,7 +29,7 @@ func newM3DBPlacementFromPlacement(p placement.Snapshot) placementSnapshot {
 	return placementSnapshot{hostShards: hss, shardsLen: p.ShardsLen(), rf: p.Replicas(), uniqueShards: p.Shards()}
 }
 
-func newM3DBPlacement(hss []*hostShards, shards []uint32, rf int) placementSnapshot {
+func newM3DBPlacement(hss []*hostShards, shards []int, rf int) placementSnapshot {
 	return placementSnapshot{hostShards: hss, shardsLen: len(shards), rf: rf, uniqueShards: shards}
 }
 
@@ -53,7 +53,7 @@ func (ps placementSnapshot) ShardsLen() int {
 	return ps.shardsLen
 }
 
-func (ps placementSnapshot) Shards() []uint32 {
+func (ps placementSnapshot) Shards() []int {
 	return ps.uniqueShards
 }
 
@@ -76,19 +76,19 @@ func (shs sortableHostShards) Swap(i, j int) {
 // hostShards implements placement.HostShards
 type hostShards struct {
 	h         host
-	shardsSet map[uint32]struct{}
+	shardsSet map[int]struct{}
 }
 
 func newEmptyHostShardsFromHost(hs placement.Host) *hostShards {
 	host := host{address: hs.Address(), rack: hs.Rack()}
-	m := make(map[uint32]struct{})
+	m := make(map[int]struct{})
 	return &hostShards{h: host, shardsSet: m}
 }
 
 func newHostShards(hs placement.HostShards) *hostShards {
 	host := host{address: hs.Host().Address(), rack: hs.Host().Rack()}
 	shards := hs.Shards()
-	m := make(map[uint32]struct{}, len(shards))
+	m := make(map[int]struct{}, len(shards))
 	for _, s := range shards {
 		m[s] = struct{}{}
 	}
@@ -96,26 +96,26 @@ func newHostShards(hs placement.HostShards) *hostShards {
 }
 
 func newEmptyHostShards(address, rack string) *hostShards {
-	return &hostShards{h: newHost(address, rack), shardsSet: make(map[uint32]struct{})}
+	return &hostShards{h: newHost(address, rack), shardsSet: make(map[int]struct{})}
 }
 
 func (h hostShards) Host() placement.Host {
 	return h.h
 }
 
-func (h hostShards) Shards() []uint32 {
-	s := make([]uint32, 0, len(h.shardsSet))
+func (h hostShards) Shards() []int {
+	s := make([]int, 0, len(h.shardsSet))
 	for shard := range h.shardsSet {
 		s = append(s, shard)
 	}
 	return s
 }
 
-func (h hostShards) addShard(s uint32) {
+func (h hostShards) addShard(s int) {
 	h.shardsSet[s] = struct{}{}
 }
 
-func (h hostShards) removeShard(shard uint32) {
+func (h hostShards) removeShard(shard int) {
 	delete(h.shardsSet, shard)
 }
 
