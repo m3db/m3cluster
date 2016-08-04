@@ -6,7 +6,7 @@ import (
 
 // placementSnapshot implements placement.Snapshot
 type placementSnapshot struct {
-	hostShards   sortableHostShards
+	hostShards   []*hostShards
 	shardsLen    int
 	rf           int
 	uniqueShards []int
@@ -55,22 +55,6 @@ func (ps placementSnapshot) ShardsLen() int {
 
 func (ps placementSnapshot) Shards() []int {
 	return ps.uniqueShards
-}
-
-// sortableHostShards is purely for readable printing now
-// might be helpful when it comes to generating the config file
-type sortableHostShards []*hostShards
-
-func (shs sortableHostShards) Len() int {
-	return len(shs)
-}
-
-func (shs sortableHostShards) Less(i, j int) bool {
-	return shs[i].hostAddress() < shs[j].hostAddress()
-}
-
-func (shs sortableHostShards) Swap(i, j int) {
-	shs[i], shs[j] = shs[j], shs[i]
 }
 
 // hostShards implements placement.HostShards

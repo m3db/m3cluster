@@ -2,7 +2,6 @@ package algo
 
 import (
 	"fmt"
-	"sort"
 	"testing"
 
 	"github.com/m3db/m3cluster/placement"
@@ -442,34 +441,4 @@ func validateDistribution(t *testing.T, mp placementSnapshot, expectPeakOverAvg 
 			testCase, hostShard.hostAddress(), hostOverTarget, hostLoad, target))
 	}
 	assert.Equal(t, total, mp.rf*mp.shardsLen, fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.rf*mp.shardsLen, total))
-}
-
-// print is used to see the placement in a more readable way
-func print(mp placementSnapshot) {
-	sh := newPlaceShardingHelper(mp, mp.Replicas(), true)
-	total := 0
-	sort.Sort(mp.hostShards)
-	for _, hostShard := range mp.hostShards {
-		hostLoad := hostShard.shardLen()
-		total += hostLoad
-
-		target := sh.hostHeap.getTargetLoadForHost(hostShard.hostAddress())
-		fmt.Printf("%s\t cur load: %v, target load: %v, avg load: %v \n", hostShard.hostAddress(), hostLoad, target, sh.getAvgLoad())
-	}
-	var rackNames []string
-	for rack := range sh.rackToHostsMap {
-		rackNames = append(rackNames, rack)
-	}
-	sort.Strings(rackNames)
-	for _, rack := range rackNames {
-		rackLoad := 0
-		for hs := range sh.rackToHostsMap[rack] {
-			rackLoad += len(hs.shardsSet)
-		}
-		rackLen := len(sh.rackToHostsMap[rack])
-		rackAvgLoad := rackLoad / len(sh.rackToHostsMap[rack])
-		fmt.Println(rack, "avg load:", rackAvgLoad,
-			"rack size:", float64(rackLen)/float64(mp.HostsLen()))
-	}
-	fmt.Printf("Total shards: %v, replica: %v\n", total, mp.rf)
 }
