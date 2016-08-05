@@ -3,7 +3,7 @@ package placement
 // Algorithm places shards on hosts
 type Algorithm interface {
 	// InitPlacement initialize a sharding placement with RF = 1
-	BuildInitialPlacement(hosts []Host, ids []int) (Snapshot, error)
+	BuildInitialPlacement(hosts []Host, ids []uint32) (Snapshot, error)
 
 	// AddReplica up the RF by 1 in the cluster
 	AddReplica(p Snapshot) (Snapshot, error)
@@ -38,14 +38,14 @@ type Snapshot interface {
 	// ShardsLen returns the number of shards in a replica
 	ShardsLen() int
 
-	// ShardIDs returns all the unique shard ids for a replica
-	Shards() []int
+	// Shards returns all the unique shard ids for a replica
+	Shards() []uint32
 }
 
 // HostShards represents a host and its assigned shards
 type HostShards interface {
 	Host() Host
-	Shards() []int
+	Shards() []uint32
 }
 
 // Host is where the shards are being placed

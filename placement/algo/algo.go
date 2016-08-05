@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	errNotEnoughRacks          = errors.New("not enough host to take shards, please make sure RF <= number of racks")
+	errNotEnoughRacks          = errors.New("not enough racks to take shards, please make sure RF <= number of racks")
 	errHostAbsent              = errors.New("could not remove or replace a host that does not exist")
 	errCouldNotReachTargetLoad = errors.New("new host could not reach target load")
 )
@@ -41,8 +41,8 @@ func newRackAwarePlacementAlgorithm() placement.Algorithm {
 	return rackAwarePlacementAlgorithm{}
 }
 
-func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Host, ids []int) (placement.Snapshot, error) {
-	ph := newInitPlacementHelper(hosts, ids)
+func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Host, shards []uint32) (placement.Snapshot, error) {
+	ph := newInitPlacementHelper(hosts, shards)
 
 	if err := ph.placeShards(ph.uniqueShards, nil); err != nil {
 		return nil, err
@@ -100,7 +100,7 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 	addingHostShards := newEmptyHostShardsFromHost(addingHost)
 	ph, leavingHostShards := newRemoveHostPlacementHelper(ps, leavingHost)
 
-	var shardsUnassigned []int
+	var shardsUnassigned []uint32
 	// move shards from leaving host to adding host
 	for _, shard := range leavingHostShards.Shards() {
 		if ph.canAssignHost(shard, leavingHostShards, addingHostShards) {
@@ -167,14 +167,14 @@ func (dp shardAwareDeploymentPlanner) DeploymentSteps(ps placement.Snapshot) [][
 
 type placementHelper struct {
 	hostHeap       *hostHeap
-	shardToHostMap map[int]map[*hostShards]struct{}
+	shardToHostMap map[uint32]map[*hostShards]struct{}
 	rackToHostsMap map[string]map[*hostShards]struct{}
 	rf             int
-	uniqueShards   []int
+	uniqueShards   []uint32
 	hostShards     []*hostShards
 }
 
-func newInitPlacementHelper(hosts []placement.Host, ids []int) *placementHelper {
+func newInitPlacementHelper(hosts []placement.Host, ids []uint32) *placementHelper {
 	emptyPlacement := newEmptyPlacement(hosts, ids)
 	return newPlaceShardingHelper(emptyPlacement, emptyPlacement.rf+1, true)
 }
@@ -221,7 +221,7 @@ func newRemoveHostPlacementHelper(ps placement.Snapshot, host placement.Host) (*
 
 func newPlaceShardingHelper(ps placementSnapshot, targetRF int, hostCapacityAscending bool) *placementHelper {
 	ph := &placementHelper{
-		shardToHostMap: make(map[int]map[*hostShards]struct{}),
+		shardToHostMap: make(map[uint32]map[*hostShards]struct{}),
 		rackToHostsMap: make(map[string]map[*hostShards]struct{}),
 		rf:             targetRF,
 		hostShards:     ps.hostShards,
@@ -291,15 +291,15 @@ func (ph placementHelper) getAvgLoad() int {
 	return totalLoad / numberOfHosts
 }
 
-func (ph placementHelper) getShardSet(shards []int) map[int]struct{} {
-	shardSet := make(map[int]struct{}, len(shards))
+func (ph placementHelper) getShardSet(shards []uint32) map[uint32]struct{} {
+	shardSet := make(map[uint32]struct{}, len(shards))
 	for _, shard := range shards {
 		shardSet[shard] = struct{}{}
 	}
 	return shardSet
 }
 
-func (ph placementHelper) canAssignRack(shard int, from *hostShards, toRack string) bool {
+func (ph placementHelper) canAssignRack(shard uint32, from *hostShards, toRack string) bool {
 	if from != nil {
 		if from.hostRack() == toRack {
 			return true
@@ -313,7 +313,7 @@ func (ph placementHelper) canAssignRack(shard int, from *hostShards, toRack stri
 	return true
 }
 
-func (ph placementHelper) canAssignHost(shard int, from, to *hostShards) bool {
+func (ph placementHelper) canAssignHost(shard uint32, from, to *hostShards) bool {
 	if to == nil {
 		return false
 	}
@@ -323,7 +323,7 @@ func (ph placementHelper) canAssignHost(shard int, from, to *hostShards) bool {
 	return ph.canAssignRack(shard, from, to.hostRack())
 }
 
-func (ph placementHelper) assignShardToHost(shard int, to *hostShards) {
+func (ph placementHelper) assignShardToHost(shard uint32, to *hostShards) {
 	to.addShard(shard)
 
 	if _, exist := ph.shardToHostMap[shard]; !exist {
@@ -332,13 +332,13 @@ func (ph placementHelper) assignShardToHost(shard int, to *hostShards) {
 	ph.shardToHostMap[shard][to] = struct{}{}
 }
 
-func (ph placementHelper) removeShardFromHost(shard int, from *hostShards) {
+func (ph placementHelper) removeShardFromHost(shard uint32, from *hostShards) {
 	from.removeShard(shard)
 
 	delete(ph.shardToHostMap[shard], from)
 }
 
-func (ph placementHelper) placeShards(shards []int, from *hostShards) error {
+func (ph placementHelper) placeShards(shards []uint32, from *hostShards) error {
 	shardSet := ph.getShardSet(shards)
 	var tried []*hostShards
 
@@ -372,7 +372,7 @@ func (ph placementHelper) placeShards(shards []int, from *hostShards) error {
 
 // placeToRacksOtherThanOrigin move shards from a host to the rest of the cluster
 // the goal of this function is to assign "some" of the shards to the hosts in other racks
-func (ph placementHelper) placeToRacksOtherThanOrigin(shards map[int]struct{}, from *hostShards) {
+func (ph placementHelper) placeToRacksOtherThanOrigin(shards map[uint32]struct{}, from *hostShards) {
 	var triedHosts []*hostShards
 	var sameRack []*hostShards
 outer:

@@ -41,9 +41,9 @@ func TestGoodCase1(t *testing.T) {
 
 	hosts := []placement.Host{h1, h2, h3, h4, h5, h6, h7, h8, h9}
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	a := newRackAwarePlacementAlgorithm()
@@ -80,7 +80,7 @@ func TestGoodCase1(t *testing.T) {
 
 	p, err = a.RemoveHost(p, h2)
 	assert.NoError(t, err)
-	validateDistribution(t, p.(placementSnapshot), 1.03, "good case1 remove 2")
+	validateDistribution(t, p.(placementSnapshot), 1.02, "good case1 remove 2")
 }
 
 func TestOverSizedRack(t *testing.T) {
@@ -100,9 +100,9 @@ func TestOverSizedRack(t *testing.T) {
 
 	hosts := []placement.Host{r1h1, r2h2, r2h3, r3h4, r4h5, r1h6, r1h7, r3h8, r5h9}
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	a := rackAwarePlacementAlgorithm{}
@@ -139,9 +139,9 @@ func TestOverSizedRack(t *testing.T) {
 func TestInitPlacementOn0Host(t *testing.T) {
 	hosts := []placement.Host{}
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	a := rackAwarePlacementAlgorithm{}
@@ -156,15 +156,16 @@ func TestOneRack(t *testing.T) {
 
 	hosts := []placement.Host{r1h1, r1h2}
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	a := rackAwarePlacementAlgorithm{}
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestOneRack replica 1")
+
 
 	r1h6 := newHost("r1h6", "r1")
 	p, err = a.AddHost(p, r1h6)
@@ -181,9 +182,9 @@ func TestRFGreaterThanRackLen(t *testing.T) {
 
 	hosts := []placement.Host{r1h1, r2h2, r2h3, r1h6}
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	a := rackAwarePlacementAlgorithm{}
@@ -207,9 +208,9 @@ func TestRFGreaterThanRackLenAfterHostRemoval(t *testing.T) {
 
 	hosts := []placement.Host{r1h1, r2h2}
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	a := rackAwarePlacementAlgorithm{}
@@ -233,9 +234,9 @@ func TestRFGreaterThanRackLenAfterHostReplace(t *testing.T) {
 
 	hosts := []placement.Host{r1h1, r2h2}
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	a := rackAwarePlacementAlgorithm{}
@@ -260,9 +261,9 @@ func TestRemoveAbsentHost(t *testing.T) {
 
 	hosts := []placement.Host{r1h1, r2h2}
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	a := rackAwarePlacementAlgorithm{}
@@ -284,9 +285,9 @@ func TestReplaceAbsentHost(t *testing.T) {
 
 	hosts := []placement.Host{r1h1, r2h2}
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	a := rackAwarePlacementAlgorithm{}
@@ -335,7 +336,7 @@ func TestDeployment(t *testing.T) {
 
 	hss := []*hostShards{h1, h2, h3, h4, h5, h6}
 
-	mp := placementSnapshot{hostShards: hss, shardsLen: 6, rf: 3, uniqueShards: []int{1, 2, 3, 4, 5, 6}}
+	mp := placementSnapshot{hostShards: hss, shardsLen: 6, rf: 3, uniqueShards: []uint32{1, 2, 3, 4, 5, 6}}
 
 	dp := newShardAwareDeploymentPlanner()
 	steps := dp.DeploymentSteps(mp)
@@ -348,9 +349,9 @@ func TestDeployment(t *testing.T) {
 
 	algo := newRackAwarePlacementAlgorithm()
 
-	ids := make([]int, 1024)
+	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {
-		ids[i] = int(i)
+		ids[i] = uint32(i)
 	}
 
 	// a more real case
@@ -435,7 +436,7 @@ func TestCanAssignHost(t *testing.T) {
 
 	hss := []*hostShards{h1, h2, h3, h4, h5, h6}
 
-	mp := placementSnapshot{hostShards: hss, shardsLen: 6, rf: 3, uniqueShards: []int{1, 2, 3, 4, 5, 6}}
+	mp := placementSnapshot{hostShards: hss, shardsLen: 6, rf: 3, uniqueShards: []uint32{1, 2, 3, 4, 5, 6}}
 
 	ph := newReplicaPlacementHelper(mp, 3)
 	assert.True(t, ph.canAssignHost(2, h6, h5))
@@ -453,13 +454,13 @@ func validateDistribution(t *testing.T, mp placementSnapshot, expectPeakOverAvg 
 		hostLoad := hostShard.shardLen()
 		total += hostLoad
 		hostOverAvg := float64(hostLoad) / float64(sh.getAvgLoad())
-		assert.True(t, hostOverAvg <= expectPeakOverAvg, fmt.Sprintf("Bad distribution in %s, peak/Avg is too high. %s: %.2f, expected: %v, load on host: %v, avg load: %v",
-			testCase, hostShard.hostAddress(), hostOverAvg, expectPeakOverAvg, hostLoad, sh.getAvgLoad()))
+		assert.True(t, hostOverAvg <= expectPeakOverAvg, fmt.Sprintf("Bad distribution in %s, peak/Avg is too high. %s: %v, load on host: %v, avg load: %v",
+			testCase, hostShard.hostAddress(), hostOverAvg, hostLoad, sh.getAvgLoad()))
 
 		target := sh.hostHeap.getTargetLoadForHost(hostShard.hostAddress())
 		hostOverTarget := float64(hostLoad) / float64(target)
-		assert.True(t, hostOverTarget <= 1.02, fmt.Sprintf("Bad distribution in %s, peak/Target is too high. %s: %.2f, load on host: %v, target load: %v",
+		assert.True(t, hostOverTarget <= 1.02, fmt.Sprintf("Bad distribution in %s, peak/Target is too high. %s: %v, load on host: %v, target load: %v",
 			testCase, hostShard.hostAddress(), hostOverTarget, hostLoad, target))
 	}
-	assert.Equal(t, total, mp.rf*mp.shardsLen, fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.rf*mp.shardsLen, total))
+	assert.Equal(t, total, mp.rf* mp.shardsLen, fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.rf* mp.shardsLen, total))
 }
