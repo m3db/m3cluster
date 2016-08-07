@@ -79,32 +79,30 @@ func (ps placementSnapshot) Shards() []uint32 {
 
 // hostShards implements placement.HostShards
 type hostShards struct {
-	h         host
+	host      placement.Host
 	shardsSet map[uint32]struct{}
 }
 
-func newEmptyHostShardsFromHost(hs placement.Host) *hostShards {
-	host := host{address: hs.Address(), rack: hs.Rack()}
+func newEmptyHostShardsFromHost(host placement.Host) *hostShards {
 	m := make(map[uint32]struct{})
-	return &hostShards{h: host, shardsSet: m}
+	return &hostShards{host: host, shardsSet: m}
 }
 
 func newHostShards(hs placement.HostShards) *hostShards {
-	host := host{address: hs.Host().Address(), rack: hs.Host().Rack()}
 	shards := hs.Shards()
 	m := make(map[uint32]struct{}, len(shards))
 	for _, s := range shards {
 		m[s] = struct{}{}
 	}
-	return &hostShards{h: host, shardsSet: m}
+	return &hostShards{host: hs.Host(), shardsSet: m}
 }
 
 func newEmptyHostShards(address, rack string) *hostShards {
-	return &hostShards{h: newHost(address, rack), shardsSet: make(map[uint32]struct{})}
+	return &hostShards{host: newHost(address, rack), shardsSet: make(map[uint32]struct{})}
 }
 
 func (h hostShards) Host() placement.Host {
-	return h.h
+	return h.host
 }
 
 func (h hostShards) Shards() []uint32 {
@@ -128,11 +126,12 @@ func (h hostShards) shardLen() int {
 }
 
 func (h hostShards) hostAddress() string {
-	return h.h.Address()
+	return h.host.Address
+
 }
 
 func (h hostShards) hostRack() string {
-	return h.h.Rack()
+	return h.host.Rack
 }
 
 func (h hostShards) isSharingShard(other hostShards) bool {
@@ -144,20 +143,6 @@ func (h hostShards) isSharingShard(other hostShards) bool {
 	return false
 }
 
-// host implements placement.Host
-type host struct {
-	rack    string
-	address string
-}
-
-func (h host) Address() string {
-	return h.address
-}
-
-func (h host) Rack() string {
-	return h.rack
-}
-
-func newHost(address, rack string) host {
-	return host{address: address, rack: rack}
+func newHost(address, rack string) placement.Host {
+	return placement.Host{Address: address, Rack: rack}
 }

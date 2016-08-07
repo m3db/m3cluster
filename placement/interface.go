@@ -48,11 +48,7 @@ type HostShards interface {
 	Shards() []uint32
 }
 
-// Host is where the shards are being placed
-type Host interface {
-	// Address returns the address of the host
-	Address() string
-
-	// Rack returns the rack of the host
-	Rack() string
+type Host struct {
+	Rack    string
+	Address string
 }

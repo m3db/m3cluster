@@ -124,7 +124,7 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 
 func (a rackAwarePlacementAlgorithm) isHostAbsent(ps placement.Snapshot, h placement.Host) bool {
 	for _, hs := range ps.HostShards() {
-		if hs.Host().Address() == h.Address() {
+		if hs.Host().Address == h.Address {
 			return false
 		}
 	}
@@ -188,7 +188,7 @@ func newAddHostPlacementHelper(s placement.Snapshot, host placement.Host) (*plac
 	var addingHost *hostShards
 	for _, phs := range s.HostShards() {
 		h := newHostShards(phs)
-		if phs.Host().Address() == host.Address() {
+		if phs.Host().Address == host.Address {
 			addingHost = h
 		}
 		hosts = append(hosts, h)
@@ -208,7 +208,7 @@ func newRemoveHostPlacementHelper(s placement.Snapshot, host placement.Host) (*p
 	var hosts []*hostShards
 	for _, phs := range s.HostShards() {
 		h := newHostShards(phs)
-		if phs.Host().Address() == host.Address() {
+		if phs.Host().Address == host.Address {
 			leavingHost = h
 			continue
 		}
