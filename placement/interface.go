@@ -53,3 +53,32 @@ type Host struct {
 	Rack    string
 	Address string
 }
+
+// Service handles the placement related operations for registered services
+// all write or update operations will persist the generated snapshot before returning success
+type Service interface {
+	BuildInitialPlacement(service string, hosts []string, shardLen int) error
+	AddReplica(service string) error
+	AddHost(service string, host string) error
+	AddHostFromPool(service string, pool string) error
+	RemoveHost(service string, host string) error
+	ReplaceHost(service string, leavingHostName string, addingHostName string) error
+	ReplaceHostFromPool(service string, leavingHostName string, pool string) error
+
+	// Snapshot gets the persisted snapshot for service
+	Snapshot(service string) (Snapshot, error)
+}
+
+// HostInventory provides inventory information
+type HostInventory interface {
+	// RackForHost returns the rack for the host
+	RackForHost(address string) (string, error)
+	// Dump returns all the hosts in the pool
+	Dump(pool string) []Host
+}
+
+// SnapshotStorage provides read and write access to placement snapshots
+type SnapshotStorage interface {
+	SaveSnapshotForService(service string, p Snapshot) error
+	ReadSnapshotForService(service string) (Snapshot, error)
+}

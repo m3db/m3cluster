@@ -20,7 +20,17 @@
 
 package algo
 
-import "github.com/m3db/m3cluster/placement"
+import (
+	"encoding/json"
+	"errors"
+	"sort"
+
+	"github.com/m3db/m3cluster/placement"
+)
+
+var (
+	errShardsWithDifferentReplicas = errors.New("invalid placement, found shards with different replicas")
+)
 
 // placementSnapshot implements placement.Snapshot
 type placementSnapshot struct {
@@ -73,6 +83,116 @@ func (ps placementSnapshot) ShardsLen() int {
 
 func (ps placementSnapshot) Shards() []uint32 {
 	return ps.uniqueShards
+}
+
+// NewPlacementFromJSON creates a Snapshot from JSON
+func NewPlacementFromJSON(data []byte) (placement.Snapshot, error) {
+	var ps placementSnapshot
+	if err := json.Unmarshal(data, &ps); err != nil {
+		return nil, err
+	}
+	return ps, nil
+}
+
+func (ps placementSnapshot) MarshalJSON() ([]byte, error) {
+	return json.Marshal(placementSnapshotToJSON(ps))
+}
+
+func placementSnapshotToJSON(ps placementSnapshot) hostShardsJSONs {
+	hsjs := make(hostShardsJSONs, ps.HostsLen())
+	for i, hs := range ps.hostShards {
+		hsjs[i] = hostShardsToJSON(*hs)
+	}
+	sort.Sort(hsjs)
+	return hsjs
+}
+
+func hostShardsToJSON(hs hostShards) hostShardsJSON {
+	shards := hs.Shards()
+	uintShards := sortableUInt32(shards)
+	sort.Sort(uintShards)
+	return hostShardsJSON{Address: hs.Host().Address, Rack: hs.Host().Rack, Shards: shards}
+}
+
+type sortableUInt32 []uint32
+
+func (su sortableUInt32) Len() int {
+	return len(su)
+}
+
+func (su sortableUInt32) Less(i, j int) bool {
+	return int(su[i]) < int(su[j])
+}
+
+func (su sortableUInt32) Swap(i, j int) {
+	su[i], su[j] = su[j], su[i]
+}
+
+func (ps *placementSnapshot) UnmarshalJSON(data []byte) error {
+	var hsj hostShardsJSONs
+	var err error
+	if err = json.Unmarshal(data, &hsj); err != nil {
+		return err
+	}
+	if *ps, err = placementSnapshotFromJSON(hsj); err != nil {
+		return err
+	}
+	return nil
+}
+
+func placementSnapshotFromJSON(hsjs hostShardsJSONs) (placementSnapshot, error) {
+	hss := make([]*hostShards, len(hsjs))
+	shardsReplicaMap := make(map[uint32]int)
+	for i, hsj := range hsjs {
+		hss[i] = hostShardsFromJSON(hsj)
+		for shard := range hss[i].shardsSet {
+			shardsReplicaMap[shard] = shardsReplicaMap[shard] + 1
+		}
+	}
+	shards := make([]uint32, 0, len(shardsReplicaMap))
+	snapshotReplica := -1
+	for shard, r := range shardsReplicaMap {
+		shards = append(shards, shard)
+		if snapshotReplica < 0 {
+			snapshotReplica = r
+			continue
+		}
+		if snapshotReplica != r {
+			return placementSnapshot{}, errShardsWithDifferentReplicas
+		}
+	}
+	return newPlacement(hss, shards, snapshotReplica), nil
+}
+
+type hostShardsJSONs []hostShardsJSON
+
+func (hsj hostShardsJSONs) Len() int {
+	return len(hsj)
+}
+
+func (hsj hostShardsJSONs) Less(i, j int) bool {
+	if hsj[i].Rack == hsj[j].Rack {
+		return hsj[i].Address < hsj[j].Address
+	}
+	return hsj[i].Rack < hsj[j].Rack
+}
+
+func (hsj hostShardsJSONs) Swap(i, j int) {
+	hsj[i], hsj[j] = hsj[j], hsj[i]
+}
+
+type hostShardsJSON struct {
+	Address string
+	Rack    string
+	Shards  []uint32
+}
+
+func hostShardsFromJSON(hsj hostShardsJSON) *hostShards {
+	hs := newEmptyHostShards(hsj.Address, hsj.Rack)
+	for _, shard := range hsj.Shards {
+		hs.shardsSet[shard] = struct{}{}
+	}
+	return hs
 }
 
 // hostShards implements placement.HostShards
