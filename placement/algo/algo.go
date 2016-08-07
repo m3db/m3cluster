@@ -37,7 +37,8 @@ var (
 type rackAwarePlacementAlgorithm struct {
 }
 
-func newRackAwarePlacementAlgorithm() placement.Algorithm {
+// NewRackAwarePlacementAlgorithm returns a rack aware placement algorithm
+func NewRackAwarePlacementAlgorithm() placement.Algorithm {
 	return rackAwarePlacementAlgorithm{}
 }
 

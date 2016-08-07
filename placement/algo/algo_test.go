@@ -46,7 +46,7 @@ func TestGoodCase1(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := newRackAwarePlacementAlgorithm()
+	a := NewRackAwarePlacementAlgorithm()
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 replica 1")
@@ -166,8 +166,8 @@ func TestOneRack(t *testing.T) {
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestOneRack replica 1")
 
-
 	r1h6 := newHost("r1h6", "r1")
+
 	p, err = a.AddHost(p, r1h6)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "TestOneRack addhost 1")
@@ -347,7 +347,7 @@ func TestDeployment(t *testing.T) {
 	assert.Equal(t, total, 6)
 	assert.True(t, len(steps) == 3)
 
-	algo := newRackAwarePlacementAlgorithm()
+	algo := NewRackAwarePlacementAlgorithm()
 
 	ids := make([]uint32, 1024)
 	for i := 0; i < len(ids); i++ {

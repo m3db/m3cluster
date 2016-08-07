@@ -20,9 +20,7 @@
 
 package algo
 
-import (
-	"github.com/m3db/m3cluster/placement"
-)
+import "github.com/m3db/m3cluster/placement"
 
 // placementSnapshot implements placement.Snapshot
 type placementSnapshot struct {

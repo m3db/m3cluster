@@ -48,6 +48,7 @@ type HostShards interface {
 	Shards() []uint32
 }
 
+// Host contains the information needed for placement
 type Host struct {
 	Rack    string
 	Address string
