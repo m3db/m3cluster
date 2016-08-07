@@ -105,7 +105,6 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 	for _, shard := range leavingHostShards.Shards() {
 		if ph.canAssignHost(shard, leavingHostShards, addingHostShards) {
 			ph.removeShardFromHost(shard, leavingHostShards)
-
 			addingHostShards.addShard(shard)
 		} else {
 			shardsUnassigned = append(shardsUnassigned, shard)
@@ -179,15 +178,15 @@ func newInitPlacementHelper(hosts []placement.Host, ids []uint32) *placementHelp
 	return newPlaceShardingHelper(emptyPlacement, emptyPlacement.rf+1, true)
 }
 
-func newReplicaPlacementHelper(ps placement.Snapshot, targetRF int) *placementHelper {
-	mps := newPlacementFromGenericSnapshot(ps)
-	return newPlaceShardingHelper(mps, targetRF, true)
+func newReplicaPlacementHelper(s placement.Snapshot, targetRF int) *placementHelper {
+	ps := newPlacementFromGenericSnapshot(s)
+	return newPlaceShardingHelper(ps, targetRF, true)
 }
 
-func newAddHostPlacementHelper(ps placement.Snapshot, host placement.Host) (*placementHelper, *hostShards) {
+func newAddHostPlacementHelper(s placement.Snapshot, host placement.Host) (*placementHelper, *hostShards) {
 	var hosts []*hostShards
 	var addingHost *hostShards
-	for _, phs := range ps.HostShards() {
+	for _, phs := range s.HostShards() {
 		h := newHostShards(phs)
 		if phs.Host().Address() == host.Address() {
 			addingHost = h
@@ -200,14 +199,14 @@ func newAddHostPlacementHelper(ps placement.Snapshot, host placement.Host) (*pla
 		hosts = append(hosts, addingHost)
 	}
 
-	mps := newPlacement(hosts, ps.Shards(), ps.Replicas())
-	return newPlaceShardingHelper(mps, ps.Replicas(), false), addingHost
+	ps := newPlacement(hosts, s.Shards(), s.Replicas())
+	return newPlaceShardingHelper(ps, s.Replicas(), false), addingHost
 }
 
-func newRemoveHostPlacementHelper(ps placement.Snapshot, host placement.Host) (*placementHelper, *hostShards) {
+func newRemoveHostPlacementHelper(s placement.Snapshot, host placement.Host) (*placementHelper, *hostShards) {
 	var leavingHost *hostShards
 	var hosts []*hostShards
-	for _, phs := range ps.HostShards() {
+	for _, phs := range s.HostShards() {
 		h := newHostShards(phs)
 		if phs.Host().Address() == host.Address() {
 			leavingHost = h
@@ -215,8 +214,8 @@ func newRemoveHostPlacementHelper(ps placement.Snapshot, host placement.Host) (*
 		}
 		hosts = append(hosts, h)
 	}
-	mps := newPlacement(hosts, ps.Shards(), ps.Replicas())
-	return newPlaceShardingHelper(mps, ps.Replicas(), true), leavingHost
+	ps := newPlacement(hosts, s.Shards(), s.Replicas())
+	return newPlaceShardingHelper(ps, s.Replicas(), true), leavingHost
 }
 
 func newPlaceShardingHelper(ps placementSnapshot, targetRF int, hostCapacityAscending bool) *placementHelper {
@@ -266,7 +265,7 @@ func (ph *placementHelper) buildHostHeap(hostCapacityAscending bool) {
 	for _, host := range ph.hostShards {
 		rackSize := rackSizeMap[host.hostRack()]
 		if float64(rackSize)/float64(totalHostNumber) >= 1.0/float64(ph.rf) {
-			// if the host is on a over-sized rack, the target load is peaked by shardLen / rackSize
+			// if the host is on a over-sized rack, the target load is topped at shardLen / rackSize
 			targetLoad[host.hostAddress()] = int(math.Ceil(float64(ph.getShardLen()) / float64(rackSize)))
 		} else {
 			// if the host is on a normal rack, get the target load with aware of other over-sized rack
@@ -413,7 +412,7 @@ func (ph placementHelper) generatePlacement() placementSnapshot {
 	return placementSnapshot{uniqueShards: ph.uniqueShards, rf: ph.rf, shardsLen: ph.getShardLen(), hostShards: ph.hostShards}
 }
 
-// hostHeap provide an easy way to get best candidate host to assign/steal a shard
+// hostHeap provides an easy way to get best candidate host to assign/steal a shard
 type hostHeap struct {
 	hosts                 []*hostShards
 	rackToHostsMap        map[string]map[*hostShards]struct{}
