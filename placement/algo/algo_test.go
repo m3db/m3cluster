@@ -254,6 +254,28 @@ func TestRFGreaterThanRackLenAfterHostReplace(t *testing.T) {
 	assert.Nil(t, p)
 }
 
+func TestAddExistHost(t *testing.T) {
+	r1h1 := newHost("r1h1", "r1")
+
+	r2h2 := newHost("r2h2", "r2")
+
+	hosts := []placement.Host{r1h1, r2h2}
+
+	ids := make([]uint32, 1024)
+	for i := 0; i < len(ids); i++ {
+		ids[i] = uint32(i)
+	}
+
+	a := rackAwarePlacementAlgorithm{}
+	p, err := a.BuildInitialPlacement(hosts, ids)
+	assert.NoError(t, err)
+	validateDistribution(t, p.(placementSnapshot), 1.01, "TestAddExistHost replica 1")
+
+	p, err = a.AddHost(p, r2h2)
+	assert.Error(t, err)
+	assert.Nil(t, p)
+}
+
 func TestRemoveAbsentHost(t *testing.T) {
 	r1h1 := newHost("r1h1", "r1")
 

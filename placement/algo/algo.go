@@ -31,6 +31,7 @@ import (
 var (
 	errNotEnoughRacks          = errors.New("not enough racks to take shards, please make sure RF <= number of racks")
 	errHostAbsent              = errors.New("could not remove or replace a host that does not exist")
+	errHostAlreadyExist        = errors.New("the adding host is already in the placement")
 	errCouldNotReachTargetLoad = errors.New("new host could not reach target load")
 )
 
@@ -74,7 +75,17 @@ func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHo
 }
 
 func (a rackAwarePlacementAlgorithm) AddHost(ps placement.Snapshot, addingHost placement.Host) (placement.Snapshot, error) {
-	ph, addingHostShards := newAddHostPlacementHelper(ps, addingHost)
+	addingHostShards := newEmptyHostShardsFromHost(addingHost)
+	return a.addHostShards(ps, addingHostShards)
+}
+
+func (a rackAwarePlacementAlgorithm) addHostShards(ps placement.Snapshot, addingHostShard *hostShards) (placement.Snapshot, error) {
+	var ph *placementHelper
+	var addingHostShards *hostShards
+	var err error
+	if ph, addingHostShards, err = newAddHostShardsPlacementHelper(ps, addingHostShard); err != nil {
+		return nil, err
+	}
 	targetLoad := ph.hostHeap.getTargetLoadForHost(addingHostShards.hostAddress())
 	// try to steal shards from the most loaded hosts until the adding host reaches target load
 outer:
@@ -120,10 +131,9 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 		return nil, err
 	}
 
-	cl := ph.generatePlacement()
 	// add the adding host to the cluster and bring its load up to target load
-	cl.hostShards = append(cl.hostShards, addingHostShards)
-	return a.AddHost(cl, addingHost)
+	cl := ph.generatePlacement()
+	return a.addHostShards(cl, addingHostShards)
 }
 
 func isHostAbsent(ps placement.Snapshot, h placement.Host) bool {
@@ -187,24 +197,20 @@ func newReplicaPlacementHelper(s placement.Snapshot, targetRF int) *placementHel
 	return newPlaceShardingHelper(ps, targetRF, true)
 }
 
-func newAddHostPlacementHelper(s placement.Snapshot, host placement.Host) (*placementHelper, *hostShards) {
-	var hosts []*hostShards
-	var addingHost *hostShards
+func newAddHostShardsPlacementHelper(s placement.Snapshot, hs *hostShards) (*placementHelper, *hostShards, error) {
+	var hss []*hostShards
 	for _, phs := range s.HostShards() {
 		h := newHostShards(phs)
-		if phs.Host().Address == host.Address {
-			addingHost = h
+		if phs.Host().Address == hs.hostAddress() {
+			return nil, nil, errHostAlreadyExist
 		}
-		hosts = append(hosts, h)
+		hss = append(hss, h)
 	}
 
-	if addingHost == nil {
-		addingHost = newEmptyHostShardsFromHost(host)
-		hosts = append(hosts, addingHost)
-	}
+	hss = append(hss, hs)
 
-	ps := newPlacement(hosts, s.Shards(), s.Replicas())
-	return newPlaceShardingHelper(ps, s.Replicas(), false), addingHost
+	ps := newPlacement(hss, s.Shards(), s.Replicas())
+	return newPlaceShardingHelper(ps, s.Replicas(), false), hs, nil
 }
 
 func newRemoveHostPlacementHelper(s placement.Snapshot, leavingHost placement.Host) (*placementHelper, *hostShards, error) {
