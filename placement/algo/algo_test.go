@@ -336,7 +336,7 @@ func TestDeployment(t *testing.T) {
 
 	hss := []*hostShards{h1, h2, h3, h4, h5, h6}
 
-	mp := placementSnapshot{hostShards: hss, shardsLen: 6, rf: 3, uniqueShards: []uint32{1, 2, 3, 4, 5, 6}}
+	mp := placementSnapshot{hostShards: hss, rf: 3, uniqueShards: []uint32{1, 2, 3, 4, 5, 6}}
 
 	dp := newShardAwareDeploymentPlanner()
 	steps := dp.DeploymentSteps(mp)
@@ -436,7 +436,7 @@ func TestCanAssignHost(t *testing.T) {
 
 	hss := []*hostShards{h1, h2, h3, h4, h5, h6}
 
-	mp := placementSnapshot{hostShards: hss, shardsLen: 6, rf: 3, uniqueShards: []uint32{1, 2, 3, 4, 5, 6}}
+	mp := placementSnapshot{hostShards: hss, rf: 3, uniqueShards: []uint32{1, 2, 3, 4, 5, 6}}
 
 	ph := newReplicaPlacementHelper(mp, 3)
 	assert.True(t, ph.canAssignHost(2, h6, h5))
@@ -462,5 +462,5 @@ func validateDistribution(t *testing.T, mp placementSnapshot, expectPeakOverAvg 
 		assert.True(t, hostOverTarget <= 1.03, fmt.Sprintf("Bad distribution in %s, peak/Target is too high. %s: %v, load on host: %v, target load: %v",
 			testCase, hostShard.hostAddress(), hostOverTarget, hostLoad, target))
 	}
-	assert.Equal(t, total, mp.rf* mp.shardsLen, fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.rf* mp.shardsLen, total))
+	assert.Equal(t, total, mp.rf*mp.ShardsLen(), fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.rf*mp.ShardsLen(), total))
 }

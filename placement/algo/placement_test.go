@@ -21,9 +21,8 @@
 package algo
 
 import (
-	"testing"
-
 	"encoding/json"
+	"testing"
 
 	"github.com/m3db/m3cluster/placement"
 	"github.com/stretchr/testify/assert"

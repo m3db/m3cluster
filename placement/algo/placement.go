@@ -35,7 +35,6 @@ var (
 // placementSnapshot implements placement.Snapshot
 type placementSnapshot struct {
 	hostShards   []*hostShards
-	shardsLen    int
 	rf           int
 	uniqueShards []uint32
 }
@@ -46,7 +45,7 @@ func newEmptyPlacement(hosts []placement.Host, ids []uint32) placementSnapshot {
 		hostShards[i] = newEmptyHostShardsFromHost(ph)
 	}
 
-	return placementSnapshot{hostShards: hostShards, shardsLen: len(ids), uniqueShards: ids, rf: 0}
+	return placementSnapshot{hostShards: hostShards, uniqueShards: ids, rf: 0}
 }
 
 func newPlacementFromGenericSnapshot(p placement.Snapshot) placementSnapshot {
@@ -54,11 +53,11 @@ func newPlacementFromGenericSnapshot(p placement.Snapshot) placementSnapshot {
 	for i, phs := range p.HostShards() {
 		hss[i] = newHostShards(phs)
 	}
-	return placementSnapshot{hostShards: hss, shardsLen: p.ShardsLen(), rf: p.Replicas(), uniqueShards: p.Shards()}
+	return placementSnapshot{hostShards: hss, rf: p.Replicas(), uniqueShards: p.Shards()}
 }
 
 func newPlacement(hss []*hostShards, shards []uint32, rf int) placementSnapshot {
-	return placementSnapshot{hostShards: hss, shardsLen: len(shards), rf: rf, uniqueShards: shards}
+	return placementSnapshot{hostShards: hss, rf: rf, uniqueShards: shards}
 }
 
 func (ps placementSnapshot) HostShards() []placement.HostShards {
@@ -78,7 +77,7 @@ func (ps placementSnapshot) Replicas() int {
 }
 
 func (ps placementSnapshot) ShardsLen() int {
-	return ps.shardsLen
+	return len(ps.uniqueShards)
 }
 
 func (ps placementSnapshot) Shards() []uint32 {

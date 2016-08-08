@@ -60,10 +60,12 @@ func (a rackAwarePlacementAlgorithm) AddReplica(ps placement.Snapshot) (placemen
 }
 
 func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHost placement.Host) (placement.Snapshot, error) {
-	if a.isHostAbsent(ps, leavingHost) {
-		return nil, errHostAbsent
+	var ph *placementHelper
+	var leavingHostShards *hostShards
+	var err error
+	if ph, leavingHostShards, err = newRemoveHostPlacementHelper(ps, leavingHost); err != nil {
+		return nil, err
 	}
-	ph, leavingHostShards := newRemoveHostPlacementHelper(ps, leavingHost)
 	// place the shards from the leaving host to the rest of the cluster
 	if err := ph.placeShards(leavingHostShards.Shards(), leavingHostShards); err != nil {
 		return nil, err
@@ -95,12 +97,13 @@ outer:
 }
 
 func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost, addingHost placement.Host) (placement.Snapshot, error) {
-	if a.isHostAbsent(ps, leavingHost) {
-		return nil, errHostAbsent
+	var ph *placementHelper
+	var leavingHostShards *hostShards
+	var err error
+	if ph, leavingHostShards, err = newRemoveHostPlacementHelper(ps, leavingHost); err != nil {
+		return nil, err
 	}
 	addingHostShards := newEmptyHostShardsFromHost(addingHost)
-	ph, leavingHostShards := newRemoveHostPlacementHelper(ps, leavingHost)
-
 	var shardsUnassigned []uint32
 	// move shards from leaving host to adding host
 	for _, shard := range leavingHostShards.Shards() {
@@ -123,7 +126,7 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 	return a.AddHost(cl, addingHost)
 }
 
-func (a rackAwarePlacementAlgorithm) isHostAbsent(ps placement.Snapshot, h placement.Host) bool {
+func isHostAbsent(ps placement.Snapshot, h placement.Host) bool {
 	for _, hs := range ps.HostShards() {
 		if hs.Host().Address == h.Address {
 			return false
@@ -204,19 +207,22 @@ func newAddHostPlacementHelper(s placement.Snapshot, host placement.Host) (*plac
 	return newPlaceShardingHelper(ps, s.Replicas(), false), addingHost
 }
 
-func newRemoveHostPlacementHelper(s placement.Snapshot, host placement.Host) (*placementHelper, *hostShards) {
-	var leavingHost *hostShards
+func newRemoveHostPlacementHelper(s placement.Snapshot, leavingHost placement.Host) (*placementHelper, *hostShards, error) {
+	if isHostAbsent(s, leavingHost) {
+		return nil, nil, errHostAbsent
+	}
+	var leavingHostShards *hostShards
 	var hosts []*hostShards
 	for _, phs := range s.HostShards() {
 		h := newHostShards(phs)
-		if phs.Host().Address == host.Address {
-			leavingHost = h
+		if phs.Host().Address == leavingHost.Address {
+			leavingHostShards = h
 			continue
 		}
 		hosts = append(hosts, h)
 	}
 	ps := newPlacement(hosts, s.Shards(), s.Replicas())
-	return newPlaceShardingHelper(ps, s.Replicas(), true), leavingHost
+	return newPlaceShardingHelper(ps, s.Replicas(), true), leavingHostShards, nil
 }
 
 func newPlaceShardingHelper(ps placementSnapshot, targetRF int, hostCapacityAscending bool) *placementHelper {
@@ -410,25 +416,25 @@ outer:
 }
 
 func (ph placementHelper) generatePlacement() placementSnapshot {
-	return placementSnapshot{uniqueShards: ph.uniqueShards, rf: ph.rf, shardsLen: ph.getShardLen(), hostShards: ph.hostShards}
+	return placementSnapshot{uniqueShards: ph.uniqueShards, rf: ph.rf, hostShards: ph.hostShards}
 }
 
 // hostHeap provides an easy way to get best candidate host to assign/steal a shard
 type hostHeap struct {
 	hosts                 []*hostShards
 	rackToHostsMap        map[string]map[*hostShards]struct{}
-	targetLoad2           map[string]int
+	targetLoad            map[string]int
 	hostCapacityAscending bool
 }
 
 func newHostHeap(hosts []*hostShards, hostCapacityAscending bool, targetLoad map[string]int, rackToHostMap map[string]map[*hostShards]struct{}) *hostHeap {
-	hHeap := &hostHeap{hostCapacityAscending: hostCapacityAscending, hosts: hosts, targetLoad2: targetLoad, rackToHostsMap: rackToHostMap}
+	hHeap := &hostHeap{hostCapacityAscending: hostCapacityAscending, hosts: hosts, targetLoad: targetLoad, rackToHostsMap: rackToHostMap}
 	heap.Init(hHeap)
 	return hHeap
 }
 
 func (hh hostHeap) getTargetLoadForHost(hostAddress string) int {
-	return hh.targetLoad2[hostAddress]
+	return hh.targetLoad[hostAddress]
 }
 func (hh hostHeap) Len() int {
 	return len(hh.hosts)
