@@ -84,6 +84,15 @@ func (ps placementSnapshot) Shards() []uint32 {
 	return ps.uniqueShards
 }
 
+func (ps placementSnapshot) HostShard(address string) placement.HostShards {
+	for _, phs := range ps.HostShards() {
+		if phs.Host().Address == address {
+			return phs
+		}
+	}
+	return nil
+}
+
 // NewPlacementFromJSON creates a Snapshot from JSON
 func NewPlacementFromJSON(data []byte) (placement.Snapshot, error) {
 	var ps placementSnapshot

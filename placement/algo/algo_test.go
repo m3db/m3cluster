@@ -37,7 +37,7 @@ func TestGoodCase1(t *testing.T) {
 	h6 := newHost("r4h6", "r4")
 	h7 := newHost("r5h7", "r5")
 	h8 := newHost("r6h8", "r6")
-	h9 := newHost("r6h9", "r6")
+	h9 := newHost("r7h9", "r7")
 
 	hosts := []placement.Host{h1, h2, h3, h4, h5, h6, h7, h8, h9}
 
@@ -51,6 +51,23 @@ func TestGoodCase1(t *testing.T) {
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 replica 1")
 
+	p, err = a.AddHost(p, newHost("r6h21", "r6"))
+	assert.NoError(t, err)
+	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 add 1")
+
+	p, err = a.RemoveHost(p, h1)
+	assert.NoError(t, err)
+	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 remove 1")
+
+	h12 := newHost("r3h12", "r3")
+	p, err = a.ReplaceHost(p, h5, h12)
+	assert.NoError(t, err)
+	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 add 1")
+
+	p, err = a.RemoveHost(p, h2)
+	assert.NoError(t, err)
+	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 remove 1")
+
 	p, err = a.AddReplica(p)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 replica 2")
@@ -59,26 +76,22 @@ func TestGoodCase1(t *testing.T) {
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 replica 3")
 
-	p, err = a.RemoveHost(p, h4)
-	assert.NoError(t, err)
-	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 remove 1")
-
 	h10 := newHost("r4h10", "r4")
-	a.AddHost(p, h10)
+	p, err = a.AddHost(p, h10)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 add 1")
 
-	h11 := newHost("r3h11", "r3")
-	a.AddHost(p, h11)
+	h11 := newHost("r7h11", "r7")
+	p, err = a.AddHost(p, h11)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 add 2")
 
-	h12 := newHost("r5h11", "r5")
-	a.ReplaceHost(p, h1, h12)
+	h13 := newHost("r5h13", "r5")
+	p, err = a.ReplaceHost(p, h3, h13)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.01, "good case1 replace 1")
 
-	p, err = a.RemoveHost(p, h2)
+	p, err = a.RemoveHost(p, h4)
 	assert.NoError(t, err)
 	validateDistribution(t, p.(placementSnapshot), 1.02, "good case1 remove 2")
 }
@@ -464,7 +477,6 @@ func TestCanAssignHost(t *testing.T) {
 	assert.True(t, ph.canAssignHost(2, h6, h5))
 	assert.True(t, ph.canAssignHost(1, h1, h6))
 	assert.False(t, ph.canAssignHost(2, h6, h1))
-	assert.False(t, ph.canAssignHost(2, h6, nil))
 	assert.False(t, ph.canAssignHost(2, h6, h3))
 }
 
@@ -475,9 +487,9 @@ func validateDistribution(t *testing.T, mp placementSnapshot, expectPeakOverAvg 
 	for _, hostShard := range mp.hostShards {
 		hostLoad := hostShard.shardLen()
 		total += hostLoad
-		hostOverAvg := float64(hostLoad) / float64(sh.getAvgLoad())
+		hostOverAvg := float64(hostLoad) / float64(getAvgLoad(sh))
 		assert.True(t, hostOverAvg <= expectPeakOverAvg, fmt.Sprintf("Bad distribution in %s, peak/Avg on %s is too high: %v, expecting %v, load on host: %v, avg load: %v",
-			testCase, hostShard.hostAddress(), hostOverAvg, expectPeakOverAvg, hostLoad, sh.getAvgLoad()))
+			testCase, hostShard.hostAddress(), hostOverAvg, expectPeakOverAvg, hostLoad, getAvgLoad(sh)))
 
 		target := sh.hostHeap.getTargetLoadForHost(hostShard.hostAddress())
 		hostOverTarget := float64(hostLoad) / float64(target)
@@ -485,4 +497,10 @@ func validateDistribution(t *testing.T, mp placementSnapshot, expectPeakOverAvg 
 			testCase, hostShard.hostAddress(), hostOverTarget, hostLoad, target))
 	}
 	assert.Equal(t, total, mp.rf*mp.ShardsLen(), fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.rf*mp.ShardsLen(), total))
+}
+
+func getAvgLoad(ph *placementHelper) int {
+	totalLoad := ph.rf * ph.getShardLen()
+	numberOfHosts := ph.getHostLen()
+	return totalLoad / numberOfHosts
 }

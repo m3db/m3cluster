@@ -44,16 +44,10 @@ func TestGoodWorkflow(t *testing.T) {
 	err = ps.AddHost("serviceA", "r3h3")
 	assert.NoError(t, err)
 
-	err = ps.AddHostFromPool("serviceA", "a pool")
-	assert.NoError(t, err)
-
 	err = ps.RemoveHost("serviceA", "r1h1")
 	assert.NoError(t, err)
 
 	err = ps.ReplaceHost("serviceA", "r2h2", "r2h3")
-	assert.NoError(t, err)
-
-	err = ps.ReplaceHostFromPool("serviceA", "r3h3", "a pool")
 	assert.NoError(t, err)
 
 	cleanUpTestFiles(t, "serviceA")
@@ -115,24 +109,27 @@ func TestBadAddHost(t *testing.T) {
 }
 
 func TestBadAddHostFromPool(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{})
+	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{}).(placementService)
 
 	err := ps.BuildInitialPlacement("serviceA", []string{"r1h1"}, 10)
 	assert.NoError(t, err)
 
 	// could not find host in inventory
-	psWithEmptyInventory := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), emptyInventory{})
+	psWithEmptyInventory := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), emptyInventory{}).(placementService)
 	err = psWithEmptyInventory.AddHostFromPool("serviceA", "poolNotExist")
 	assert.Error(t, err)
 
 	// algo error
-	psWithErrorAlgo := NewPlacementService(errorAlgorithm{}, NewMockStorage(), mockInventory{})
+	psWithErrorAlgo := NewPlacementService(errorAlgorithm{}, NewMockStorage(), mockInventory{}).(placementService)
 	psWithErrorAlgo.AddHostFromPool("serviceA", "pool")
 	assert.Error(t, err)
 
 	// could not find snapshot for service
 	err = ps.AddHostFromPool("badService", "r2h2")
 	assert.Error(t, err)
+
+	err = ps.AddHostFromPool("serviceA", "pool")
+	assert.NoError(t, err)
 
 	cleanUpTestFiles(t, "serviceA")
 }
@@ -187,7 +184,7 @@ func TestBadReplaceHost(t *testing.T) {
 }
 
 func TestBadReplaceHostFromPool(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{})
+	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{}).(placementService)
 
 	err := ps.BuildInitialPlacement("serviceA", []string{"r1h1", "r4h4"}, 10)
 	assert.NoError(t, err)
@@ -197,20 +194,23 @@ func TestBadReplaceHostFromPool(t *testing.T) {
 	assert.Error(t, err)
 
 	// could not find host in inventory
-	psWithEmptyInventory := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), emptyInventory{})
+	psWithEmptyInventory := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), emptyInventory{}).(placementService)
 	err = psWithEmptyInventory.ReplaceHostFromPool("serviceA", "r1h1", "emptyPool")
 	assert.Error(t, err)
 
 	// not enough rack after replace
 	err = ps.AddReplica("serviceA")
 	assert.NoError(t, err)
-	psWithSmallInventory := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), inventoryWithRackOneOnly{})
+	psWithSmallInventory := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), inventoryWithRackOneOnly{}).(placementService)
 	err = psWithSmallInventory.ReplaceHostFromPool("serviceA", "r4h4", "pool")
 	assert.Error(t, err)
 
 	// could not find snapshot for service
 	err = ps.ReplaceHostFromPool("badService", "r1h1", "pool")
 	assert.Error(t, err)
+
+	err = ps.ReplaceHostFromPool("serviceA", "r4h4", "pool")
+	assert.NoError(t, err)
 
 	cleanUpTestFiles(t, "serviceA")
 }

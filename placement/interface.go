@@ -60,6 +60,9 @@ type Snapshot interface {
 
 	// Shards returns all the unique shard ids for a replica
 	Shards() []uint32
+
+	// HostShard returns the HostShards for the requested host
+	HostShard(address string) HostShards
 }
 
 // HostShards represents a host and its assigned shards
@@ -80,10 +83,8 @@ type Service interface {
 	BuildInitialPlacement(service string, hosts []string, shardLen int) error
 	AddReplica(service string) error
 	AddHost(service string, host string) error
-	AddHostFromPool(service string, pool string) error
 	RemoveHost(service string, host string) error
 	ReplaceHost(service string, leavingHostName string, addingHostName string) error
-	ReplaceHostFromPool(service string, leavingHostName string, pool string) error
 
 	// Snapshot gets the persisted snapshot for service
 	Snapshot(service string) (Snapshot, error)
