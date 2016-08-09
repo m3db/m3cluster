@@ -112,7 +112,7 @@ func (a rackAwarePlacementAlgorithm) addHostShards(ps placement.Snapshot, adding
 	if ph, err = newAddHostShardsPlacementHelper(ps, addingHostShard); err != nil {
 		return nil, err
 	}
-	targetLoad := ph.GetTargetLoadForHost(addingHostShard.HostAddress())
+	targetLoad := ph.GetTargetLoadForHost(addingHostShard.Host().Address())
 	// try to steal shards from the most loaded hosts until the adding host reaches target load
 	hh := ph.GetHostHeap()
 	for addingHostShard.ShardsLen() < targetLoad {

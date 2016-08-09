@@ -145,7 +145,7 @@ func (ps placementService) Snapshot(service string) (placement.Snapshot, error) 
 func getHostFromPlacement(s placement.Snapshot, host string) (placement.Host, error) {
 	hs := s.HostShard(host)
 	if hs == nil {
-		return placement.Host{}, errHostAbsent
+		return nil, errHostAbsent
 	}
 	return hs.Host(), nil
 }
@@ -177,7 +177,7 @@ func (ps placementService) getHostsFromInventory(hosts []string) ([]placement.Ho
 func (ps placementService) getHostFromInventory(host string) (placement.Host, error) {
 	rack, err := ps.hi.RackForHost(host)
 	if err != nil {
-		return placement.Host{}, err
+		return nil, err
 	}
-	return placement.Host{Address: host, Rack: rack}, nil
+	return placement.NewHost(host, rack), nil
 }

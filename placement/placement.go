@@ -78,7 +78,7 @@ func (ps snapshot) Shards() []uint32 {
 
 func (ps snapshot) HostShard(address string) HostShards {
 	for _, phs := range ps.HostShards() {
-		if phs.Host().Address == address {
+		if phs.Host().Address() == address {
 			return phs
 		}
 	}
@@ -111,7 +111,7 @@ func hostShardsToJSON(hs HostShards) hostShardsJSON {
 	shards := hs.Shards()
 	uintShards := sortableUInt32(shards)
 	sort.Sort(uintShards)
-	return hostShardsJSON{Address: hs.Host().Address, Rack: hs.Host().Rack, Shards: shards}
+	return hostShardsJSON{Address: hs.Host().Address(), Rack: hs.Host().Rack(), Shards: shards}
 }
 
 type sortableUInt32 []uint32
@@ -161,7 +161,7 @@ func convertJSONtoSnapshot(hsjs hostShardsJSONs) (snapshot, error) {
 			return snapshot{}, errShardsWithDifferentReplicas
 		}
 	}
-	return snapshot{hostShards:hss, uniqueShards:shards, rf:snapshotReplica}, nil
+	return snapshot{hostShards: hss, uniqueShards: shards, rf: snapshotReplica}, nil
 	//return NewPlacement(hss, shards, snapshotReplica), nil
 }
 
@@ -244,16 +244,20 @@ func (h hostShards) ShardsLen() int {
 	return len(h.shardsSet)
 }
 
-func (h hostShards) HostAddress() string {
-	return h.host.Address
-
-}
-
-func (h hostShards) HostRack() string {
-	return h.host.Rack
-}
-
 // NewHost returns a Host
 func NewHost(address, rack string) Host {
-	return Host{Address: address, Rack: rack}
+	return host{address: address, rack: rack}
+}
+
+type host struct {
+	rack    string
+	address string
+}
+
+func (h host) Address() string {
+	return h.address
+}
+
+func (h host) Rack() string {
+	return h.rack
 }

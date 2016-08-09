@@ -121,7 +121,7 @@ func newReplicaPlacementHelper(s placement.Snapshot, targetRF int) PlacementHelp
 func newAddHostShardsPlacementHelper(s placement.Snapshot, hs placement.HostShards) (PlacementHelper, error) {
 	var hss []placement.HostShards
 
-	if s.HostShard(hs.HostAddress()) != nil {
+	if s.HostShard(hs.Host().Address()) != nil {
 		return nil, errHostAlreadyExist
 	}
 
@@ -136,14 +136,13 @@ func newAddHostShardsPlacementHelper(s placement.Snapshot, hs placement.HostShar
 }
 
 func newRemoveHostPlacementHelper(s placement.Snapshot, leavingHost placement.Host) (PlacementHelper, placement.HostShards, error) {
-	if s.HostShard(leavingHost.Address) == nil {
+	if s.HostShard(leavingHost.Address()) == nil {
 		return nil, nil, errHostAbsent
 	}
 	var leavingHostShards placement.HostShards
 	var hosts []placement.HostShards
 	for _, phs := range s.HostShards() {
-		//h := placement.NewHostShards(phs)
-		if phs.HostAddress() == leavingHost.Address {
+		if phs.Host().Address() == leavingHost.Address() {
 			leavingHostShards = phs
 			continue
 		}
@@ -171,10 +170,10 @@ func newPlaceShardingHelper(ps placement.Snapshot, targetRF int, hostCapacityAsc
 
 func (ph *placementHelper) buildRackToHostMap() {
 	for _, h := range ph.hostShards {
-		if _, exist := ph.rackToHostsMap[h.Host().Rack]; !exist {
-			ph.rackToHostsMap[h.Host().Rack] = make(map[placement.HostShards]struct{})
+		if _, exist := ph.rackToHostsMap[h.Host().Rack()]; !exist {
+			ph.rackToHostsMap[h.Host().Rack()] = make(map[placement.HostShards]struct{})
 		}
-		ph.rackToHostsMap[h.Host().Rack][h] = struct{}{}
+		ph.rackToHostsMap[h.Host().Rack()][h] = struct{}{}
 		for _, shard := range h.Shards() {
 			ph.assignShardToHost(shard, h)
 		}
@@ -202,13 +201,13 @@ func (ph *placementHelper) buildHostHeap(hostCapacityAscending bool) {
 func (ph *placementHelper) buildTargetLoadMap(rackSizeMap map[string]int, overSizedRackLen, overSizedHostLen int) map[string]int {
 	targetLoad := make(map[string]int)
 	for _, host := range ph.hostShards {
-		rackSize := rackSizeMap[host.Host().Rack]
+		rackSize := rackSizeMap[host.Host().Rack()]
 		if float64(rackSize)/float64(ph.getHostLen()) >= 1.0/float64(ph.rf) {
 			// if the host is on a over-sized rack, the target load is topped at shardLen / rackSize
-			targetLoad[host.HostAddress()] = int(math.Ceil(float64(ph.getShardLen()) / float64(rackSize)))
+			targetLoad[host.Host().Address()] = int(math.Ceil(float64(ph.getShardLen()) / float64(rackSize)))
 		} else {
 			// if the host is on a normal rack, get the target load with aware of other over-sized rack
-			targetLoad[host.HostAddress()] = ph.getShardLen() * (ph.rf - overSizedRackLen) / (ph.getHostLen() - overSizedHostLen)
+			targetLoad[host.Host().Address()] = ph.getShardLen() * (ph.rf - overSizedRackLen) / (ph.getHostLen() - overSizedHostLen)
 		}
 	}
 	return targetLoad
@@ -224,12 +223,12 @@ func (ph placementHelper) getShardLen() int {
 
 func (ph placementHelper) canAssignRack(shard uint32, from placement.HostShards, toRack string) bool {
 	if from != nil {
-		if from.Host().Rack == toRack {
+		if from.Host().Rack() == toRack {
 			return true
 		}
 	}
 	for host := range ph.shardToHostMap[shard] {
-		if host.Host().Rack == toRack {
+		if host.Host().Rack() == toRack {
 			return false
 		}
 	}
@@ -240,7 +239,7 @@ func (ph placementHelper) canAssignHost(shard uint32, from, to placement.HostSha
 	if to.ContainsShard(shard) {
 		return false
 	}
-	return ph.canAssignRack(shard, from, to.Host().Rack)
+	return ph.canAssignRack(shard, from, to.Host().Rack())
 }
 
 func (ph placementHelper) assignShardToHost(shard uint32, to placement.HostShards) {
@@ -265,7 +264,7 @@ func (ph placementHelper) placeToRacksOtherThanOrigin(shards map[uint32]struct{}
 	var triedHosts []placement.HostShards
 	for ph.hostHeap.Len() > 0 {
 		tryHost := heap.Pop(ph.hostHeap).(placement.HostShards)
-		if from != nil && tryHost.HostRack() == from.HostRack() {
+		if from != nil && tryHost.Host().Rack() == from.Host().Rack() {
 			// do not place to same rack for now
 			sameRack = append(sameRack, tryHost)
 		} else {
@@ -283,7 +282,7 @@ outer:
 		for ph.hostHeap.Len() > 0 {
 			tryHost := heap.Pop(ph.hostHeap).(placement.HostShards)
 			triedHosts = append(triedHosts, tryHost)
-			if ph.GetTargetLoadForHost(tryHost.HostAddress())-tryHost.ShardsLen() <= 0 {
+			if ph.GetTargetLoadForHost(tryHost.Host().Address())-tryHost.ShardsLen() <= 0 {
 				// this is where "some" is, at this point the best host option in the cluster
 				// from a different rack has reached its target load, time to break out of the loop
 				break outer
@@ -333,13 +332,13 @@ func (hh hostHeap) Len() int {
 func (hh hostHeap) Less(i, j int) bool {
 	hostI := hh.hosts[i]
 	hostJ := hh.hosts[j]
-	leftLoadOnI := hh.getTargetLoadForHost(hostI.HostAddress()) - hostI.ShardsLen()
-	leftLoadOnJ := hh.getTargetLoadForHost(hostJ.HostAddress()) - hostJ.ShardsLen()
+	leftLoadOnI := hh.getTargetLoadForHost(hostI.Host().Address()) - hostI.ShardsLen()
+	leftLoadOnJ := hh.getTargetLoadForHost(hostJ.Host().Address()) - hostJ.ShardsLen()
 	// if both host has tokens to be filled, prefer the one on a bigger rack
 	// since it tends to be more picky in accepting shards
 	if leftLoadOnI > 0 && leftLoadOnJ > 0 {
-		if hostI.HostRack() != hostJ.HostRack() {
-			return len(hh.rackToHostsMap[hostI.HostRack()]) > len(hh.rackToHostsMap[hostJ.HostRack()])
+		if hostI.Host().Rack() != hostJ.Host().Rack() {
+			return len(hh.rackToHostsMap[hostI.Host().Rack()]) > len(hh.rackToHostsMap[hostJ.Host().Rack()])
 		}
 	}
 	// compare left capacity on both hosts

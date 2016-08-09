@@ -247,43 +247,10 @@ func (mockInventory) RackForHost(address string) (string, error) {
 	return "", errors.New("can't find host")
 }
 
-func (mockInventory) Dump(pool string) []placement.Host {
-	var hosts []placement.Host
-	for rack, hs := range mockInventoryMap {
-		for _, host := range hs {
-			hosts = append(hosts, placement.Host{Address: host, Rack: rack})
-		}
-	}
-	return hosts
-}
-
 type emptyInventory struct{}
 
 func (emptyInventory) RackForHost(address string) (string, error) {
 	return "", errors.New("can't find host")
-}
-
-func (emptyInventory) Dump(pool string) []placement.Host {
-	return nil
-}
-
-type inventoryWithRackOneOnly struct{}
-
-func (inventoryWithRackOneOnly) RackForHost(address string) (string, error) {
-	for _, host := range mockInventoryMap["r1"] {
-		if host == address {
-			return "r1", nil
-		}
-	}
-	return "", errors.New("can't find host")
-}
-
-func (inventoryWithRackOneOnly) Dump(pool string) []placement.Host {
-	var hosts []placement.Host
-	for _, host := range mockInventoryMap["r1"] {
-		hosts = append(hosts, placement.Host{Address: host, Rack: "r1"})
-	}
-	return hosts
 }
 
 // file based snapshot storage

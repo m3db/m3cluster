@@ -408,12 +408,12 @@ func validateDistribution(t *testing.T, mp placement.Snapshot, expectPeakOverAvg
 		total += hostLoad
 		hostOverAvg := float64(hostLoad) / float64(getAvgLoad(mp))
 		assert.True(t, hostOverAvg <= expectPeakOverAvg, fmt.Sprintf("Bad distribution in %s, peak/Avg on %s is too high: %v, expecting %v, load on host: %v, avg load: %v",
-			testCase, hostShard.HostAddress(), hostOverAvg, expectPeakOverAvg, hostLoad, getAvgLoad(mp)))
+			testCase, hostShard.Host().Address(), hostOverAvg, expectPeakOverAvg, hostLoad, getAvgLoad(mp)))
 
-		target := sh.GetTargetLoadForHost(hostShard.HostAddress())
+		target := sh.GetTargetLoadForHost(hostShard.Host().Address())
 		hostOverTarget := float64(hostLoad) / float64(target)
 		assert.True(t, hostOverTarget <= 1.03, fmt.Sprintf("Bad distribution in %s, peak/Target is too high. %s: %v, load on host: %v, target load: %v",
-			testCase, hostShard.HostAddress(), hostOverTarget, hostLoad, target))
+			testCase, hostShard.Host().Address(), hostOverTarget, hostLoad, target))
 	}
 	assert.Equal(t, total, mp.Replicas()*mp.ShardsLen(), fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.Replicas()*mp.ShardsLen(), total))
 }

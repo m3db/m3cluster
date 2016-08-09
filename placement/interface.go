@@ -68,8 +68,6 @@ type Snapshot interface {
 // HostShards represents a host and its assigned shards
 type HostShards interface {
 	Host() Host
-	HostRack() string
-	HostAddress() string
 	Shards() []uint32
 	ShardsLen() int
 	AddShard(uint32)
@@ -78,9 +76,9 @@ type HostShards interface {
 }
 
 // Host contains the information needed for placement
-type Host struct {
-	Rack    string
-	Address string
+type Host interface {
+	Address() string
+	Rack() string
 }
 
 // Service handles the placement related operations for registered services
