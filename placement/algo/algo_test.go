@@ -415,7 +415,7 @@ func validateDistribution(t *testing.T, mp placement.Snapshot, expectPeakOverAvg
 			testCase, hostShard.Host().ID(), hostOverTarget, hostLoad, target))
 	}
 	assert.Equal(t, total, mp.Replicas()*mp.ShardsLen(), fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.Replicas()*mp.ShardsLen(), total))
-	assert.True(t, mp.Validate(), "snapshot validation failed")
+	assert.NoError(t, mp.Validate(), "snapshot validation failed")
 }
 
 func getAvgLoad(ps placement.Snapshot) int {

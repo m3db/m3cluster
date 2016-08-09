@@ -29,6 +29,9 @@ import (
 var (
 	errShardsWithDifferentReplicas = errors.New("invalid placement, found shards with different number of replications")
 	errInvalidHostShards           = errors.New("invalid shards assigned to a host")
+	errDuplicatedShards            = errors.New("invalid placement, there are duplicated shards in one replica")
+	errUnexpectedShardsOnHost      = errors.New("invalid placement, there are unexpected shard ids on host")
+	errTotalShardsMismatch         = errors.New("invalid placement, the total shards on all the hosts does not match expected number")
 )
 
 // snapshot implements Snapshot
@@ -86,10 +89,10 @@ func (ps snapshot) HostShard(id string) HostShards {
 	return nil
 }
 
-func (ps snapshot) Validate() bool {
+func (ps snapshot) Validate() error {
 	set := ConvertShardSliceToSet(ps.shards)
 	if len(set) != len(ps.shards) {
-		return false
+		return errDuplicatedShards
 	}
 
 	expectedTotal := len(ps.shards) * ps.rf
@@ -97,16 +100,16 @@ func (ps snapshot) Validate() bool {
 	for _, hs := range ps.hostShards {
 		for _, id := range hs.Shards() {
 			if _, exist := set[id]; !exist {
-				return false
+				return errUnexpectedShardsOnHost
 			}
 		}
 		actualTotal += hs.ShardsLen()
 	}
 
 	if expectedTotal != actualTotal {
-		return false
+		return errTotalShardsMismatch
 	}
-	return true
+	return nil
 }
 
 // NewPlacementFromJSON creates a Snapshot from JSON

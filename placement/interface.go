@@ -65,7 +65,7 @@ type Snapshot interface {
 	HostShard(id string) HostShards
 
 	// Validate checks if the snapshot is valid
-	Validate() bool
+	Validate() error
 }
 
 // HostShards represents a host and its assigned shards
