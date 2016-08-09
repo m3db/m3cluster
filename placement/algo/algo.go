@@ -45,117 +45,85 @@ func NewRackAwarePlacementAlgorithm() placement.Algorithm {
 func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Host, shards []uint32) (placement.Snapshot, error) {
 	ph := newInitPlacementHelper(hosts, shards)
 
-	if err := ph.placeShards(ph.uniqueShards, nil); err != nil {
+	if err := ph.PlaceShards(shards, nil); err != nil {
 		return nil, err
 	}
-	return ph.generatePlacement(), nil
+	return ph.GeneratePlacement(), nil
 }
 
 func (a rackAwarePlacementAlgorithm) AddReplica(ps placement.Snapshot) (placement.Snapshot, error) {
 	ph := newReplicaPlacementHelper(ps, ps.Replicas()+1)
-	if err := ph.placeShards(ph.uniqueShards, nil); err != nil {
+	if err := ph.PlaceShards(ps.Shards(), nil); err != nil {
 		return nil, err
 	}
-	return ph.generatePlacement(), nil
+	return ph.GeneratePlacement(), nil
 }
 
 func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHost placement.Host) (placement.Snapshot, error) {
-	var ph *placementHelper
-	var leavingHostShards *hostShards
+	var ph PlacementHelper
+	var leavingHostShards placement.HostShards
 	var err error
 	if ph, leavingHostShards, err = newRemoveHostPlacementHelper(ps, leavingHost); err != nil {
 		return nil, err
 	}
 	// place the shards from the leaving host to the rest of the cluster
-	if err := ph.placeShards(leavingHostShards.Shards(), leavingHostShards); err != nil {
+	if err := ph.PlaceShards(leavingHostShards.Shards(), leavingHostShards); err != nil {
 		return nil, err
 	}
-	return ph.generatePlacement(), nil
+	return ph.GeneratePlacement(), nil
 }
 
 func (a rackAwarePlacementAlgorithm) AddHost(ps placement.Snapshot, addingHost placement.Host) (placement.Snapshot, error) {
-	addingHostShards := newEmptyHostShardsFromHost(addingHost)
-	return a.addHostShards(ps, addingHostShards)
+	addingHostShards := placement.NewEmptyHostShardsFromHost(addingHost)
+	return a.AddHostShards(ps, addingHostShards)
 }
 
 func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost, addingHost placement.Host) (placement.Snapshot, error) {
-	var ph *placementHelper
-	var leavingHostShards *hostShards
+	var ph PlacementHelper
+	var leavingHostShards placement.HostShards
 	var err error
 	if ph, leavingHostShards, err = newRemoveHostPlacementHelper(ps, leavingHost); err != nil {
 		return nil, err
 	}
-	addingHostShards := newEmptyHostShardsFromHost(addingHost)
+	addingHostShards := placement.NewEmptyHostShardsFromHost(addingHost)
 	var shardsUnassigned []uint32
 	// move shards from leaving host to adding host
 	for _, shard := range leavingHostShards.Shards() {
-		if moved := ph.moveShard(shard, leavingHostShards, addingHostShards); !moved {
+		if moved := ph.MoveShard(shard, leavingHostShards, addingHostShards); !moved {
 			shardsUnassigned = append(shardsUnassigned, shard)
 		}
 	}
 
 	// if there are shards that can not be moved to adding host
 	// distribute them to the cluster
-	if err := ph.placeShards(shardsUnassigned, leavingHostShards); err != nil {
+	if err := ph.PlaceShards(shardsUnassigned, leavingHostShards); err != nil {
 		return nil, err
 	}
 
 	// add the adding host to the cluster and bring its load up to target load
-	cl := ph.generatePlacement()
+	cl := ph.GeneratePlacement()
 
-	return a.addHostShards(cl, addingHostShards)
+	return a.AddHostShards(cl, addingHostShards)
 }
 
-func (a rackAwarePlacementAlgorithm) addHostShards(ps placement.Snapshot, addingHostShard *hostShards) (placement.Snapshot, error) {
-	var ph *placementHelper
+func (a rackAwarePlacementAlgorithm) AddHostShards(ps placement.Snapshot, addingHostShard placement.HostShards) (placement.Snapshot, error) {
+	var ph PlacementHelper
 	var err error
 	if ph, err = newAddHostShardsPlacementHelper(ps, addingHostShard); err != nil {
 		return nil, err
 	}
-	targetLoad := ph.hostHeap.getTargetLoadForHost(addingHostShard.hostAddress())
+	targetLoad := ph.GetTargetLoadForHost(addingHostShard.HostAddress())
 	// try to steal shards from the most loaded hosts until the adding host reaches target load
-	for len(addingHostShard.shardsSet) < targetLoad {
-		if ph.hostHeap.Len() == 0 {
+	hh := ph.GetHostHeap()
+	for addingHostShard.ShardsLen() < targetLoad {
+		if hh.Len() == 0 {
 			return nil, errCouldNotReachTargetLoad
 		}
-		tryHost := heap.Pop(ph.hostHeap).(*hostShards)
-		if moved := ph.moveOneShard(tryHost, addingHostShard); moved {
-			heap.Push(ph.hostHeap, tryHost)
+		tryHost := heap.Pop(hh).(placement.HostShards)
+		if moved := ph.MoveOneShard(tryHost, addingHostShard); moved {
+			heap.Push(hh, tryHost)
 		}
 	}
 
-	return ph.generatePlacement(), nil
-}
-
-// shardAwareDeploymentPlanner plans the deployment so that as many hosts can be deployed
-// at the same time without making more than 1 replica of any shard unavailable
-type shardAwareDeploymentPlanner struct {
-}
-
-func newShardAwareDeploymentPlanner() placement.DeploymentPlanner {
-	return shardAwareDeploymentPlanner{}
-}
-
-func (dp shardAwareDeploymentPlanner) DeploymentSteps(ps placement.Snapshot) [][]placement.HostShards {
-	ph := newReplicaPlacementHelper(ps, ps.Replicas())
-	hh := ph.hostHeap
-	var steps [][]placement.HostShards
-	for hh.Len() > 0 {
-		h := heap.Pop(hh).(*hostShards)
-		var parallel []placement.HostShards
-		parallel = append(parallel, h)
-		var tried hostHeap
-		heap.Init(&tried)
-		for hh.Len() > 0 {
-			tryHost := heap.Pop(hh).(*hostShards)
-			if !h.isSharingShard(*tryHost) {
-				parallel = append(parallel, tryHost)
-			} else {
-				heap.Push(&tried, tryHost)
-			}
-		}
-		hh = &tried
-		steps = append(steps, parallel)
-	}
-	return steps
+	return ph.GeneratePlacement(), nil
 }

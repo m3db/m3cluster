@@ -407,5 +407,5 @@ func (ms mockStorage) ReadSnapshotForService(service string) (placement.Snapshot
 	if data, err = ioutil.ReadFile(getSnapshotFileName(service)); err != nil {
 		return nil, err
 	}
-	return algo.NewPlacementFromJSON(data)
+	return placement.NewPlacementFromJSON(data)
 }

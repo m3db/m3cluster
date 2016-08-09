@@ -18,73 +18,65 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package algo
+package placement
 
 import (
 	"encoding/json"
 	"errors"
 	"sort"
-
-	"github.com/m3db/m3cluster/placement"
 )
 
 var (
 	errShardsWithDifferentReplicas = errors.New("invalid placement, found shards with different replicas")
 )
 
-// placementSnapshot implements placement.Snapshot
-type placementSnapshot struct {
-	hostShards   []*hostShards
+// snapshot implements Snapshot
+type snapshot struct {
+	hostShards   []HostShards
 	rf           int
 	uniqueShards []uint32
 }
 
-func newEmptyPlacement(hosts []placement.Host, ids []uint32) placementSnapshot {
-	hostShards := make([]*hostShards, len(hosts), len(hosts))
+// NewEmptyPlacementSnapshot returns an empty placement
+func NewEmptyPlacementSnapshot(hosts []Host, ids []uint32) Snapshot {
+	hostShards := make([]HostShards, len(hosts), len(hosts))
 	for i, ph := range hosts {
-		hostShards[i] = newEmptyHostShardsFromHost(ph)
+		hostShards[i] = NewEmptyHostShardsFromHost(ph)
 	}
 
-	return placementSnapshot{hostShards: hostShards, uniqueShards: ids, rf: 0}
+	return snapshot{hostShards: hostShards, uniqueShards: ids, rf: 0}
 }
 
-func newPlacementFromGenericSnapshot(p placement.Snapshot) placementSnapshot {
-	hss := make([]*hostShards, p.HostsLen())
-	for i, phs := range p.HostShards() {
-		hss[i] = newHostShards(phs)
-	}
-	return placementSnapshot{hostShards: hss, rf: p.Replicas(), uniqueShards: p.Shards()}
+// NewPlacementSnapshot returns a placement
+func NewPlacementSnapshot(hss []HostShards, shards []uint32, rf int) Snapshot {
+	return snapshot{hostShards: hss, rf: rf, uniqueShards: shards}
 }
 
-func newPlacement(hss []*hostShards, shards []uint32, rf int) placementSnapshot {
-	return placementSnapshot{hostShards: hss, rf: rf, uniqueShards: shards}
-}
-
-func (ps placementSnapshot) HostShards() []placement.HostShards {
-	result := make([]placement.HostShards, len(ps.hostShards))
+func (ps snapshot) HostShards() []HostShards {
+	result := make([]HostShards, ps.HostsLen())
 	for i, hs := range ps.hostShards {
 		result[i] = hs
 	}
 	return result
 }
 
-func (ps placementSnapshot) HostsLen() int {
+func (ps snapshot) HostsLen() int {
 	return len(ps.hostShards)
 }
 
-func (ps placementSnapshot) Replicas() int {
+func (ps snapshot) Replicas() int {
 	return ps.rf
 }
 
-func (ps placementSnapshot) ShardsLen() int {
+func (ps snapshot) ShardsLen() int {
 	return len(ps.uniqueShards)
 }
 
-func (ps placementSnapshot) Shards() []uint32 {
+func (ps snapshot) Shards() []uint32 {
 	return ps.uniqueShards
 }
 
-func (ps placementSnapshot) HostShard(address string) placement.HostShards {
+func (ps snapshot) HostShard(address string) HostShards {
 	for _, phs := range ps.HostShards() {
 		if phs.Host().Address == address {
 			return phs
@@ -94,28 +86,28 @@ func (ps placementSnapshot) HostShard(address string) placement.HostShards {
 }
 
 // NewPlacementFromJSON creates a Snapshot from JSON
-func NewPlacementFromJSON(data []byte) (placement.Snapshot, error) {
-	var ps placementSnapshot
+func NewPlacementFromJSON(data []byte) (Snapshot, error) {
+	var ps snapshot
 	if err := json.Unmarshal(data, &ps); err != nil {
 		return nil, err
 	}
 	return ps, nil
 }
 
-func (ps placementSnapshot) MarshalJSON() ([]byte, error) {
+func (ps snapshot) MarshalJSON() ([]byte, error) {
 	return json.Marshal(placementSnapshotToJSON(ps))
 }
 
-func placementSnapshotToJSON(ps placementSnapshot) hostShardsJSONs {
+func placementSnapshotToJSON(ps snapshot) hostShardsJSONs {
 	hsjs := make(hostShardsJSONs, ps.HostsLen())
 	for i, hs := range ps.hostShards {
-		hsjs[i] = hostShardsToJSON(*hs)
+		hsjs[i] = hostShardsToJSON(hs)
 	}
 	sort.Sort(hsjs)
 	return hsjs
 }
 
-func hostShardsToJSON(hs hostShards) hostShardsJSON {
+func hostShardsToJSON(hs HostShards) hostShardsJSON {
 	shards := hs.Shards()
 	uintShards := sortableUInt32(shards)
 	sort.Sort(uintShards)
@@ -136,24 +128,24 @@ func (su sortableUInt32) Swap(i, j int) {
 	su[i], su[j] = su[j], su[i]
 }
 
-func (ps *placementSnapshot) UnmarshalJSON(data []byte) error {
+func (ps *snapshot) UnmarshalJSON(data []byte) error {
 	var hsj hostShardsJSONs
 	var err error
 	if err = json.Unmarshal(data, &hsj); err != nil {
 		return err
 	}
-	if *ps, err = placementSnapshotFromJSON(hsj); err != nil {
+	if *ps, err = convertJSONtoSnapshot(hsj); err != nil {
 		return err
 	}
 	return nil
 }
 
-func placementSnapshotFromJSON(hsjs hostShardsJSONs) (placementSnapshot, error) {
-	hss := make([]*hostShards, len(hsjs))
+func convertJSONtoSnapshot(hsjs hostShardsJSONs) (snapshot, error) {
+	hss := make([]HostShards, len(hsjs))
 	shardsReplicaMap := make(map[uint32]int)
 	for i, hsj := range hsjs {
 		hss[i] = hostShardsFromJSON(hsj)
-		for shard := range hss[i].shardsSet {
+		for _, shard := range hss[i].Shards() {
 			shardsReplicaMap[shard] = shardsReplicaMap[shard] + 1
 		}
 	}
@@ -166,10 +158,11 @@ func placementSnapshotFromJSON(hsjs hostShardsJSONs) (placementSnapshot, error) 
 			continue
 		}
 		if snapshotReplica != r {
-			return placementSnapshot{}, errShardsWithDifferentReplicas
+			return snapshot{}, errShardsWithDifferentReplicas
 		}
 	}
-	return newPlacement(hss, shards, snapshotReplica), nil
+	return snapshot{hostShards:hss, uniqueShards:shards, rf:snapshotReplica}, nil
+	//return NewPlacement(hss, shards, snapshotReplica), nil
 }
 
 type hostShardsJSONs []hostShardsJSON
@@ -195,39 +188,32 @@ type hostShardsJSON struct {
 	Shards  []uint32
 }
 
-func hostShardsFromJSON(hsj hostShardsJSON) *hostShards {
-	hs := newEmptyHostShards(hsj.Address, hsj.Rack)
+func hostShardsFromJSON(hsj hostShardsJSON) HostShards {
+	hs := NewEmptyHostShards(hsj.Address, hsj.Rack)
 	for _, shard := range hsj.Shards {
-		hs.shardsSet[shard] = struct{}{}
+		hs.AddShard(shard)
 	}
 	return hs
 }
 
-// hostShards implements placement.HostShards
+// hostShards implements HostShards
 type hostShards struct {
-	host      placement.Host
+	host      Host
 	shardsSet map[uint32]struct{}
 }
 
-func newEmptyHostShardsFromHost(host placement.Host) *hostShards {
+// NewEmptyHostShardsFromHost returns a HostShards with no shards assigned
+func NewEmptyHostShardsFromHost(host Host) HostShards {
 	m := make(map[uint32]struct{})
 	return &hostShards{host: host, shardsSet: m}
 }
 
-func newHostShards(hs placement.HostShards) *hostShards {
-	shards := hs.Shards()
-	m := make(map[uint32]struct{}, len(shards))
-	for _, s := range shards {
-		m[s] = struct{}{}
-	}
-	return &hostShards{host: hs.Host(), shardsSet: m}
+// NewEmptyHostShards returns a HostShards with no shards assigned
+func NewEmptyHostShards(address, rack string) HostShards {
+	return NewEmptyHostShardsFromHost(NewHost(address, rack))
 }
 
-func newEmptyHostShards(address, rack string) *hostShards {
-	return &hostShards{host: newHost(address, rack), shardsSet: make(map[uint32]struct{})}
-}
-
-func (h hostShards) Host() placement.Host {
+func (h hostShards) Host() Host {
 	return h.host
 }
 
@@ -239,36 +225,35 @@ func (h hostShards) Shards() []uint32 {
 	return s
 }
 
-func (h hostShards) addShard(s uint32) {
+func (h hostShards) AddShard(s uint32) {
 	h.shardsSet[s] = struct{}{}
 }
 
-func (h hostShards) removeShard(shard uint32) {
+func (h hostShards) RemoveShard(shard uint32) {
 	delete(h.shardsSet, shard)
 }
 
-func (h hostShards) shardLen() int {
-	return len(h.shardsSet)
-}
-
-func (h hostShards) hostAddress() string {
-	return h.host.Address
-
-}
-
-func (h hostShards) hostRack() string {
-	return h.host.Rack
-}
-
-func (h hostShards) isSharingShard(other hostShards) bool {
-	for p := range other.shardsSet {
-		if _, exist := h.shardsSet[p]; exist {
-			return true
-		}
+func (h hostShards) ContainsShard(shard uint32) bool {
+	if _, exist := h.shardsSet[shard]; exist {
+		return true
 	}
 	return false
 }
 
-func newHost(address, rack string) placement.Host {
-	return placement.Host{Address: address, Rack: rack}
+func (h hostShards) ShardsLen() int {
+	return len(h.shardsSet)
+}
+
+func (h hostShards) HostAddress() string {
+	return h.host.Address
+
+}
+
+func (h hostShards) HostRack() string {
+	return h.host.Rack
+}
+
+// NewHost returns a Host
+func NewHost(address, rack string) Host {
+	return Host{Address: address, Rack: rack}
 }
