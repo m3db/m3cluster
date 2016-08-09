@@ -75,7 +75,7 @@ func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHo
 
 func (a rackAwarePlacementAlgorithm) AddHost(ps placement.Snapshot, addingHost placement.Host) (placement.Snapshot, error) {
 	addingHostShards := placement.NewEmptyHostShardsFromHost(addingHost)
-	return a.AddHostShards(ps, addingHostShards)
+	return a.addHostShards(ps, addingHostShards)
 }
 
 func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost, addingHost placement.Host) (placement.Snapshot, error) {
@@ -103,10 +103,10 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 	// add the adding host to the cluster and bring its load up to target load
 	cl := ph.GeneratePlacement()
 
-	return a.AddHostShards(cl, addingHostShards)
+	return a.addHostShards(cl, addingHostShards)
 }
 
-func (a rackAwarePlacementAlgorithm) AddHostShards(ps placement.Snapshot, addingHostShard placement.HostShards) (placement.Snapshot, error) {
+func (a rackAwarePlacementAlgorithm) addHostShards(ps placement.Snapshot, addingHostShard placement.HostShards) (placement.Snapshot, error) {
 	var ph PlacementHelper
 	var err error
 	if ph, err = newAddHostShardsPlacementHelper(ps, addingHostShard); err != nil {

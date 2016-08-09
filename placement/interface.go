@@ -20,8 +20,6 @@
 
 package placement
 
-import "encoding/json"
-
 // Algorithm places shards on hosts
 type Algorithm interface {
 	// InitPlacement initialize a sharding placement with RF = 1
@@ -48,7 +46,6 @@ type DeploymentPlanner interface {
 
 // Snapshot describes how shards are placed on hosts
 type Snapshot interface {
-	json.Marshaler
 	// HostShards returns all HostShards in the placement
 	HostShards() []HostShards
 
@@ -103,8 +100,6 @@ type Service interface {
 type HostInventory interface {
 	// RackForHost returns the rack for the host
 	RackForHost(address string) (string, error)
-	// Dump returns all the hosts in the pool
-	Dump(pool string) []Host
 }
 
 // SnapshotStorage provides read and write access to placement snapshots

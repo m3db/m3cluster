@@ -22,7 +22,6 @@ package service
 
 import (
 	"errors"
-	"sort"
 
 	"github.com/m3db/m3cluster/placement"
 )
@@ -30,7 +29,6 @@ import (
 var (
 	errInvalidShardLen = errors.New("shardLen should be greater than 0")
 	errHostAbsent      = errors.New("could not remove or replace a host that does not exist")
-	errNoValidHost     = errors.New("could not find valid host to be added")
 	errDuplicatedHost  = errors.New("could not place shards on duplicated hosts")
 )
 
@@ -45,14 +43,14 @@ func NewPlacementService(algo placement.Algorithm, ss placement.SnapshotStorage,
 	return placementService{algo: algo, ss: ss, hi: hi}
 }
 
-func (ps placementService) BuildInitialPlacement(service string, hosts []string, shardLen int) error {
+func (ps placementService) BuildInitialPlacement(service string, addresses []string, shardLen int) error {
 	if shardLen <= 0 {
 		return errInvalidShardLen
 	}
 
 	var phs []placement.Host
 	var err error
-	if phs, err = ps.getHostsFromInventory(hosts); err != nil {
+	if phs, err = ps.getHostsFromInventory(addresses); err != nil {
 		return err
 	}
 
@@ -81,7 +79,7 @@ func (ps placementService) AddReplica(service string) error {
 	return ps.ss.SaveSnapshotForService(service, s)
 }
 
-func (ps placementService) AddHost(service string, host string) error {
+func (ps placementService) AddHost(service string, address string) error {
 	var s placement.Snapshot
 	var err error
 	if s, err = ps.Snapshot(service); err != nil {
@@ -89,7 +87,7 @@ func (ps placementService) AddHost(service string, host string) error {
 	}
 
 	var ph placement.Host
-	if ph, err = ps.getHostFromInventory(host); err != nil {
+	if ph, err = ps.getHostFromInventory(address); err != nil {
 		return err
 	}
 
@@ -99,37 +97,19 @@ func (ps placementService) AddHost(service string, host string) error {
 	return ps.ss.SaveSnapshotForService(service, s)
 }
 
-func (ps placementService) AddHostFromPool(service string, pool string) error {
+func (ps placementService) RemoveHost(service string, leavingHostName string) error {
 	var s placement.Snapshot
 	var err error
 	if s, err = ps.Snapshot(service); err != nil {
 		return err
 	}
 
-	var ph placement.Host
-	if ph, err = ps.findBestHostFromPool(s, pool, nil); err != nil {
+	leavingHost, err := getHostFromPlacement(s, leavingHostName)
+	if err != nil {
 		return err
 	}
 
-	if s, err = ps.algo.AddHost(s, ph); err != nil {
-		return err
-	}
-	return ps.ss.SaveSnapshotForService(service, s)
-}
-
-func (ps placementService) RemoveHost(service string, host string) error {
-	var s placement.Snapshot
-	var err error
-	if s, err = ps.Snapshot(service); err != nil {
-		return err
-	}
-
-	var ph placement.Host
-	if ph, err = ps.getHostFromPlacement(s, host); err != nil {
-		return err
-	}
-
-	if s, err = ps.algo.RemoveHost(s, ph); err != nil {
+	if s, err = ps.algo.RemoveHost(s, leavingHost); err != nil {
 		return err
 	}
 	return ps.ss.SaveSnapshotForService(service, s)
@@ -142,8 +122,8 @@ func (ps placementService) ReplaceHost(service string, leavingHostName string, a
 		return err
 	}
 
-	var leavingHost placement.Host
-	if leavingHost, err = ps.getHostFromPlacement(s, leavingHostName); err != nil {
+	leavingHost, err := getHostFromPlacement(s, leavingHostName)
+	if err != nil {
 		return err
 	}
 
@@ -158,110 +138,16 @@ func (ps placementService) ReplaceHost(service string, leavingHostName string, a
 	return ps.ss.SaveSnapshotForService(service, s)
 }
 
-func (ps placementService) ReplaceHostFromPool(service string, leavingHostName string, pool string) error {
-	var s placement.Snapshot
-	var err error
-	if s, err = ps.Snapshot(service); err != nil {
-		return err
-	}
-
-	var leavingHost placement.Host
-	if leavingHost, err = ps.getHostFromPlacement(s, leavingHostName); err != nil {
-		return err
-	}
-
-	leavingRack := leavingHost.Rack
-	var addingHost placement.Host
-	if addingHost, err = ps.findBestHostFromPool(s, pool, &leavingRack); err != nil {
-		return err
-	}
-
-	if s, err = ps.algo.ReplaceHost(s, leavingHost, addingHost); err != nil {
-		return err
-	}
-	return ps.ss.SaveSnapshotForService(service, s)
-}
-
 func (ps placementService) Snapshot(service string) (placement.Snapshot, error) {
 	return ps.ss.ReadSnapshotForService(service)
 }
 
-func (ps placementService) getHostFromPlacement(p placement.Snapshot, host string) (placement.Host, error) {
-	for _, ph := range p.HostShards() {
-		if ph.Host().Address == host {
-			return ph.Host(), nil
-		}
+func getHostFromPlacement(s placement.Snapshot, host string) (placement.Host, error) {
+	hs := s.HostShard(host)
+	if hs == nil {
+		return placement.Host{}, errHostAbsent
 	}
-	return placement.Host{}, errHostAbsent
-}
-
-func (ps placementService) findBestHostFromPool(p placement.Snapshot, pool string, preferRack *string) (placement.Host, error) {
-	placementRackHostMap := make(map[string]map[string]struct{})
-	for _, phs := range p.HostShards() {
-		if _, exist := placementRackHostMap[phs.Host().Rack]; !exist {
-			placementRackHostMap[phs.Host().Rack] = make(map[string]struct{})
-		}
-		placementRackHostMap[phs.Host().Rack][phs.Host().Address] = struct{}{}
-	}
-
-	// build rackHostMap from pool
-	poolRackHostMap := ps.getRackHostMapFromPool(pool)
-
-	// if there is a host from the preferred rack can be added, return it.
-	if preferRack != nil {
-		if hs, exist := poolRackHostMap[*preferRack]; exist {
-			for _, host := range hs {
-				if ps.isNewHostToPlacement(*preferRack, host, placementRackHostMap) {
-					return ps.getHostFromInventory(host)
-				}
-			}
-		}
-	}
-
-	// otherwise if there is a rack not in the current placement, prefer that rack
-	for r, hosts := range poolRackHostMap {
-		if _, exist := placementRackHostMap[r]; !exist {
-			return ps.getHostFromInventory(hosts[0])
-		}
-	}
-
-	// otherwise sort the racks in the current placement by capacity and find a valid host from inventory
-	rackLens := make(rackLens, 0, len(placementRackHostMap))
-	for rack, hs := range placementRackHostMap {
-		rackLens = append(rackLens, rackLen{rack: rack, len: len(hs)})
-	}
-	sort.Sort(rackLens)
-
-	for _, rackLen := range rackLens {
-		if hs, exist := poolRackHostMap[rackLen.rack]; exist {
-			for _, host := range hs {
-				if ps.isNewHostToPlacement(rackLen.rack, host, placementRackHostMap) {
-					return ps.getHostFromInventory(host)
-				}
-			}
-		}
-	}
-	// no host in the inventory can be added to the placement
-	return placement.Host{}, errNoValidHost
-}
-
-type rackLen struct {
-	rack string
-	len  int
-}
-
-type rackLens []rackLen
-
-func (rls rackLens) Len() int {
-	return len(rls)
-}
-
-func (rls rackLens) Less(i, j int) bool {
-	return rls[i].len < rls[j].len
-}
-
-func (rls rackLens) Swap(i, j int) {
-	rls[i], rls[j] = rls[j], rls[i]
+	return hs.Host(), nil
 }
 
 func (ps placementService) isNewHostToPlacement(rack, host string, rackHost map[string]map[string]struct{}) bool {
@@ -294,16 +180,4 @@ func (ps placementService) getHostFromInventory(host string) (placement.Host, er
 		return placement.Host{}, err
 	}
 	return placement.Host{Address: host, Rack: rack}, nil
-}
-
-func (ps placementService) getRackHostMapFromPool(pool string) map[string][]string {
-	hostsInPool := ps.hi.Dump(pool)
-	result := make(map[string][]string, len(hostsInPool))
-	for _, ph := range hostsInPool {
-		if _, exist := result[ph.Rack]; !exist {
-			result[ph.Rack] = make([]string, 0)
-		}
-		result[ph.Rack] = append(result[ph.Rack], ph.Address)
-	}
-	return result
 }

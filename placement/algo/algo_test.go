@@ -267,6 +267,25 @@ func TestRFGreaterThanRackLenAfterHostReplace(t *testing.T) {
 	assert.Nil(t, p)
 }
 
+func TestAddHostCouldNotReachTargetLoad(t *testing.T) {
+	r1h1 := placement.NewHost("r1h1", "r1")
+
+	ids := make([]uint32, 1024)
+	for i := 0; i < len(ids); i++ {
+		ids[i] = uint32(i)
+	}
+
+	p := placement.NewPlacementSnapshot([]placement.HostShards{}, ids, 1)
+
+	a := rackAwarePlacementAlgorithm{}
+
+	p, err := a.AddHost(p, r1h1)
+	// errCouldNotReachTargetLoad should only happen when trying to add a host to
+	// a snapshot that does not have enough shards for the rf it thought it has
+	assert.Equal(t, errCouldNotReachTargetLoad, err)
+	assert.Nil(t, p)
+}
+
 func TestAddExistHost(t *testing.T) {
 	r1h1 := placement.NewHost("r1h1", "r1")
 
