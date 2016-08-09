@@ -402,7 +402,6 @@ func TestCanAssignHost(t *testing.T) {
 func validateDistribution(t *testing.T, mp placement.Snapshot, expectPeakOverAvg float64, testCase string) {
 	sh := newPlaceShardingHelper(mp, mp.Replicas(), true)
 	total := 0
-
 	for _, hostShard := range mp.HostShards() {
 		hostLoad := hostShard.ShardsLen()
 		total += hostLoad
@@ -416,6 +415,7 @@ func validateDistribution(t *testing.T, mp placement.Snapshot, expectPeakOverAvg
 			testCase, hostShard.Host().Address(), hostOverTarget, hostLoad, target))
 	}
 	assert.Equal(t, total, mp.Replicas()*mp.ShardsLen(), fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.Replicas()*mp.ShardsLen(), total))
+	assert.True(t, mp.Validate(), "snapshot validation failed")
 }
 
 func getAvgLoad(ps placement.Snapshot) int {

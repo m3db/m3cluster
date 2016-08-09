@@ -27,14 +27,15 @@ import (
 )
 
 var (
-	errShardsWithDifferentReplicas = errors.New("invalid placement, found shards with different replicas")
+	errShardsWithDifferentReplicas = errors.New("invalid placement, found shards with different number of replications")
+	errInvalidHostShards           = errors.New("invalid shards assigned to a host")
 )
 
 // snapshot implements Snapshot
 type snapshot struct {
-	hostShards   []HostShards
-	rf           int
-	uniqueShards []uint32
+	hostShards []HostShards
+	rf         int
+	shards     []uint32
 }
 
 // NewEmptyPlacementSnapshot returns an empty placement
@@ -44,12 +45,12 @@ func NewEmptyPlacementSnapshot(hosts []Host, ids []uint32) Snapshot {
 		hostShards[i] = NewEmptyHostShardsFromHost(ph)
 	}
 
-	return snapshot{hostShards: hostShards, uniqueShards: ids, rf: 0}
+	return snapshot{hostShards: hostShards, shards: ids, rf: 0}
 }
 
 // NewPlacementSnapshot returns a placement
 func NewPlacementSnapshot(hss []HostShards, shards []uint32, rf int) Snapshot {
-	return snapshot{hostShards: hss, rf: rf, uniqueShards: shards}
+	return snapshot{hostShards: hss, rf: rf, shards: shards}
 }
 
 func (ps snapshot) HostShards() []HostShards {
@@ -69,11 +70,11 @@ func (ps snapshot) Replicas() int {
 }
 
 func (ps snapshot) ShardsLen() int {
-	return len(ps.uniqueShards)
+	return len(ps.shards)
 }
 
 func (ps snapshot) Shards() []uint32 {
-	return ps.uniqueShards
+	return ps.shards
 }
 
 func (ps snapshot) HostShard(address string) HostShards {
@@ -83,6 +84,37 @@ func (ps snapshot) HostShard(address string) HostShards {
 		}
 	}
 	return nil
+}
+
+func (ps snapshot) Validate() bool {
+	set := getUniqueIDSet(ps.shards)
+	if len(set) != len(ps.shards) {
+		return false
+	}
+
+	expectedTotal := len(ps.shards) * ps.rf
+	actualTotal := 0
+	for _, hs := range ps.hostShards {
+		for _, id := range hs.Shards() {
+			if _, exist := set[id]; !exist {
+				return false
+			}
+		}
+		actualTotal += hs.ShardsLen()
+	}
+
+	if expectedTotal != actualTotal {
+		return false
+	}
+	return true
+}
+
+func getUniqueIDSet(ids []uint32) map[uint32]struct{} {
+	set := make(map[uint32]struct{})
+	for _, id := range ids {
+		set[id] = struct{}{}
+	}
+	return set
 }
 
 // NewPlacementFromJSON creates a Snapshot from JSON
@@ -141,10 +173,13 @@ func (ps *snapshot) UnmarshalJSON(data []byte) error {
 }
 
 func convertJSONtoSnapshot(hsjs hostShardsJSONs) (snapshot, error) {
+	var err error
 	hss := make([]HostShards, len(hsjs))
 	shardsReplicaMap := make(map[uint32]int)
 	for i, hsj := range hsjs {
-		hss[i] = hostShardsFromJSON(hsj)
+		if hss[i], err = hostShardsFromJSON(hsj); err != nil {
+			return snapshot{}, err
+		}
 		for _, shard := range hss[i].Shards() {
 			shardsReplicaMap[shard] = shardsReplicaMap[shard] + 1
 		}
@@ -161,8 +196,7 @@ func convertJSONtoSnapshot(hsjs hostShardsJSONs) (snapshot, error) {
 			return snapshot{}, errShardsWithDifferentReplicas
 		}
 	}
-	return snapshot{hostShards: hss, uniqueShards: shards, rf: snapshotReplica}, nil
-	//return NewPlacement(hss, shards, snapshotReplica), nil
+	return snapshot{hostShards: hss, shards: shards, rf: snapshotReplica}, nil
 }
 
 type hostShardsJSONs []hostShardsJSON
@@ -188,12 +222,15 @@ type hostShardsJSON struct {
 	Shards  []uint32
 }
 
-func hostShardsFromJSON(hsj hostShardsJSON) HostShards {
+func hostShardsFromJSON(hsj hostShardsJSON) (HostShards, error) {
 	hs := NewEmptyHostShards(hsj.Address, hsj.Rack)
 	for _, shard := range hsj.Shards {
 		hs.AddShard(shard)
 	}
-	return hs
+	if len(hsj.Shards) != hs.ShardsLen() {
+		return nil, errInvalidHostShards
+	}
+	return hs, nil
 }
 
 // hostShards implements HostShards

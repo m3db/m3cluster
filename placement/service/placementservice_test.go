@@ -267,6 +267,9 @@ func NewMockStorage() placement.SnapshotStorage {
 }
 
 func (ms mockStorage) SaveSnapshotForService(service string, p placement.Snapshot) error {
+	if !p.Validate() {
+		return errors.New("invalid snapshot, abort")
+	}
 	var data []byte
 	var err error
 	if data, err = json.Marshal(p); err != nil {
