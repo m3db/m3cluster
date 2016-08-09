@@ -30,48 +30,73 @@ import (
 	"github.com/m3db/m3cluster/placement"
 	"github.com/m3db/m3cluster/placement/algo"
 	"github.com/stretchr/testify/assert"
+	"sort"
 )
 
 func TestGoodWorkflow(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{})
+	ms := NewMockStorage()
+	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), ms)
 
-	err := ps.BuildInitialPlacement("serviceA", []string{"r1h1", "r2h2"}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r2h2", "r2")}, 10)
 	assert.NoError(t, err)
 
 	err = ps.AddReplica("serviceA")
 	assert.NoError(t, err)
 
-	err = ps.AddHost("serviceA", "r3h3")
+	err = ps.AddHost("serviceA", []placement.Host{placement.NewHost("r3h3", "r3")})
 	assert.NoError(t, err)
 
-	err = ps.RemoveHost("serviceA", "r1h1")
+	err = ps.RemoveHost("serviceA", placement.NewHost("r1h1", "r1"))
 	assert.NoError(t, err)
 
-	err = ps.ReplaceHost("serviceA", "r2h2", "r2h3")
+	err = ps.AddHost("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")})
 	assert.NoError(t, err)
+
+	err = ps.ReplaceHost("serviceA", placement.NewHost("r2h2", "r2"), []placement.Host{placement.NewHost("r2h3", "r2"), placement.NewHost("r4h4", "r4"), placement.NewHost("r5h5", "r5")})
+	assert.NoError(t, err)
+	s, err := ms.ReadSnapshotForService("serviceA")
+	assert.NoError(t, err)
+	assert.NotNil(t, s.HostShard("r2h3")) // host added from preferred rack
+
+	err = ps.AddHost("serviceA", []placement.Host{placement.NewHost("r2h4", "r2")})
+	assert.NoError(t, err)
+
+	err = ps.AddHost("serviceA", []placement.Host{placement.NewHost("r3h4", "r3")})
+	assert.NoError(t, err)
+	err = ps.AddHost("serviceA", []placement.Host{placement.NewHost("r3h5", "r3")})
+	assert.NoError(t, err)
+
+	hosts := []placement.Host{
+		placement.NewHost("r1h5", "r1"),
+		placement.NewHost("r3h4", "r3"),
+		placement.NewHost("r3h5", "r3"),
+		placement.NewHost("r3h6", "r3"),
+		placement.NewHost("r2h3", "r2"),
+	}
+	err = ps.AddHost("serviceA", hosts)
+	assert.NoError(t, err)
+	s, err = ms.ReadSnapshotForService("serviceA")
+	assert.NoError(t, err)
+	assert.NotNil(t, s.HostShard("r1h5")) // host added from most needed rack
 
 	cleanUpTestFiles(t, "serviceA")
 }
 
 func TestBadInitialPlacement(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{})
+	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []string{"r1h1", "r2h2"}, 0)
-	assert.Error(t, err)
-
-	// host not found in inventory
-	err = ps.BuildInitialPlacement("serviceA", []string{"bad1", "bad2"}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r2h2", "r2")}, 0)
 	assert.Error(t, err)
 
 	// not enough racks/hosts
-	err = ps.BuildInitialPlacement("serviceA", []string{}, 10)
+	err = ps.BuildInitialPlacement("serviceA", []placement.Host{}, 10)
 	assert.Error(t, err)
 }
 
 func TestBadAddReplica(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{})
+	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []string{"r1h1"}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10)
 	assert.NoError(t, err)
 
 	// not enough racks/hosts
@@ -86,113 +111,91 @@ func TestBadAddReplica(t *testing.T) {
 }
 
 func TestBadAddHost(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{})
+	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []string{"r1h1"}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10)
 	assert.NoError(t, err)
 
-	psWithEmptyInventory := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), emptyInventory{})
-	// could not find host in inventory
-	err = psWithEmptyInventory.AddHost("serviceA", "r4h4")
+	// adding host already exist
+	err = ps.AddHost("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")})
 	assert.Error(t, err)
 
 	// algo error
-	psWithErrorAlgo := NewPlacementService(errorAlgorithm{}, NewMockStorage(), mockInventory{})
-	psWithErrorAlgo.AddHost("serviceA", "r2h2")
+	psWithErrorAlgo := NewPlacementService(errorAlgorithm{}, NewMockStorage())
+	err = psWithErrorAlgo.AddHost("serviceA", []placement.Host{placement.NewHost("r2h2", "r2")})
 	assert.Error(t, err)
 
 	// could not find snapshot for service
-	err = ps.AddHost("badService", "r2h2")
+	err = ps.AddHost("badService", []placement.Host{placement.NewHost("r2h2", "r2")})
 	assert.Error(t, err)
 
 	cleanUpTestFiles(t, "serviceA")
 }
 
 func TestBadRemoveHost(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{})
+	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []string{"r1h1"}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10)
 	assert.NoError(t, err)
 
-	// not enough racks/hosts after removal
-	err = ps.RemoveHost("serviceA", "r1h1")
+	// leaving host not exist
+	err = ps.RemoveHost("serviceA", placement.NewHost("r2h2", "r2"))
 	assert.Error(t, err)
 
-	// host not exist
-	err = ps.RemoveHost("serviceA", "hostNotExist")
+	// not enough racks/hosts after removal
+	err = ps.RemoveHost("serviceA", placement.NewHost("r1h1", "r1"))
 	assert.Error(t, err)
 
 	// could not find snapshot for service
-	err = ps.RemoveHost("bad service", "r1h1")
+	err = ps.RemoveHost("bad service", placement.NewHost("r1h1", "r1"))
 	assert.Error(t, err)
 
 	cleanUpTestFiles(t, "serviceA")
 }
 
 func TestBadReplaceHost(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{})
+	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []string{"r1h1", "r4h4"}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r4h4", "r4")}, 10)
 	assert.NoError(t, err)
 
 	// leaving host not exist
-	err = ps.ReplaceHost("serviceA", "r1h2", "r2h2")
+	err = ps.ReplaceHost("serviceA", placement.NewHost("r1h2", "r1"), []placement.Host{placement.NewHost("r2h2", "r2")})
 	assert.Error(t, err)
 
-	// adding host not exist
-	psWithEmptyInventory := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), emptyInventory{})
-	err = psWithEmptyInventory.ReplaceHost("serviceA", "r1h1", "r2h2")
+	// adding host already exist
+	err = ps.ReplaceHost("serviceA", placement.NewHost("r1h1", "r1"), []placement.Host{placement.NewHost("r4h4", "r4")})
 	assert.Error(t, err)
 
 	// not enough rack after replace
 	err = ps.AddReplica("serviceA")
 	assert.NoError(t, err)
-	err = ps.ReplaceHost("serviceA", "r4h4", "r1h2")
+	err = ps.ReplaceHost("serviceA", placement.NewHost("r4h4", "r4"), []placement.Host{placement.NewHost("r1h2", "r1")})
 	assert.Error(t, err)
 
 	// could not find snapshot for service
-	err = ps.ReplaceHost("badService", "r1h1", "r2h2")
+	err = ps.ReplaceHost("badService", placement.NewHost("r1h1", "r1"), []placement.Host{placement.NewHost("r2h2", "r2")})
 	assert.Error(t, err)
 
 	cleanUpTestFiles(t, "serviceA")
 }
 
-func TestGetHostFromPool(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{}).(placementService)
-	// duplicated host
-	hosts, err := ps.getHostsFromInventory([]string{"r1h1", "r1h1"})
-	assert.Nil(t, hosts)
-	assert.Error(t, err)
+func TestRackLenSort(t *testing.T) {
+	r1 := rackLen{rack:"r1", len:1}
+	r2 := rackLen{rack:"r2", len:2}
+	r3 := rackLen{rack:"r3", len:3}
+	r4 := rackLen{rack:"r4", len:2}
+	r5 := rackLen{rack:"r5", len:1}
+	r6 := rackLen{rack:"r6", len:2}
+	r7 := rackLen{rack:"r7", len:3}
+	rs := rackLens{r1, r2, r3, r4, r5, r6, r7}
+	sort.Sort(rs)
 
-	// host not exist
-	hosts, err = ps.getHostsFromInventory([]string{"badHost", "r1h1"})
-	assert.Nil(t, hosts)
-	assert.Error(t, err)
-
-	hosts, err = ps.getHostsFromInventory([]string{"r1h1", "r2h2"})
-	assert.Equal(t, 2, len(hosts))
-	assert.NoError(t, err)
-}
-
-func TestIsNewHostToPlacement(t *testing.T) {
-	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage(), mockInventory{}).(placementService)
-
-	currentPlacement := map[string]map[string]struct{}{
-		"r1": map[string]struct{}{
-			"h1": struct{}{},
-		},
+	seen := 0
+	for _, rl := range rs {
+		assert.True(t, seen <= rl.len)
+		seen = rl.len
 	}
-	// new rack
-	isNew := ps.isNewHostToPlacement("rackNew", "h100", currentPlacement)
-	assert.True(t, isNew)
-
-	// new host
-	isNew = ps.isNewHostToPlacement("r1", "h100", currentPlacement)
-	assert.True(t, isNew)
-
-	// old host
-	isNew = ps.isNewHostToPlacement("r1", "h1", currentPlacement)
-	assert.False(t, isNew)
 }
 
 func cleanUpTestFiles(t *testing.T, service string) {
@@ -224,34 +227,6 @@ func (errorAlgorithm) ReplaceHost(p placement.Snapshot, leavingHost, addingHost 
 	return nil, errors.New("error in errorAlgorithm")
 }
 
-type mockInventory struct {
-}
-
-var (
-	mockInventoryMap = map[string][]string{
-		"r1": []string{"r1h1", "r1h2", "r1h3", "r1h4", "r1h5"},
-		"r2": []string{"r2h1", "r2h2", "r2h3", "r2h4", "r2h5", "r2h6"},
-		"r3": []string{"r3h1", "r3h2", "r3h3", "r3h4", "r3h5", "r3h6", "r3h7"},
-		"r4": []string{"r4h1", "r4h2", "r4h3", "r4h4", "r4h5", "r4h6", "r4h7", "r4h8"},
-	}
-)
-
-func (mockInventory) RackForHost(address string) (string, error) {
-	for rack, hs := range mockInventoryMap {
-		for _, host := range hs {
-			if host == address {
-				return rack, nil
-			}
-		}
-	}
-	return "", errors.New("can't find host")
-}
-
-type emptyInventory struct{}
-
-func (emptyInventory) RackForHost(address string) (string, error) {
-	return "", errors.New("can't find host")
-}
 
 // file based snapshot storage
 type mockStorage struct{}

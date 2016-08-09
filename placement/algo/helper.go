@@ -121,7 +121,7 @@ func newReplicaPlacementHelper(s placement.Snapshot, targetRF int) PlacementHelp
 func newAddHostShardsPlacementHelper(s placement.Snapshot, hs placement.HostShards) (PlacementHelper, error) {
 	var hss []placement.HostShards
 
-	if s.HostShard(hs.Host().Address()) != nil {
+	if s.HostShard(hs.Host().ID()) != nil {
 		return nil, errHostAlreadyExist
 	}
 
@@ -136,13 +136,13 @@ func newAddHostShardsPlacementHelper(s placement.Snapshot, hs placement.HostShar
 }
 
 func newRemoveHostPlacementHelper(s placement.Snapshot, leavingHost placement.Host) (PlacementHelper, placement.HostShards, error) {
-	if s.HostShard(leavingHost.Address()) == nil {
+	if s.HostShard(leavingHost.ID()) == nil {
 		return nil, nil, errHostAbsent
 	}
 	var leavingHostShards placement.HostShards
 	var hosts []placement.HostShards
 	for _, phs := range s.HostShards() {
-		if phs.Host().Address() == leavingHost.Address() {
+		if phs.Host().ID() == leavingHost.ID() {
 			leavingHostShards = phs
 			continue
 		}
@@ -204,10 +204,10 @@ func (ph *placementHelper) buildTargetLoadMap(rackSizeMap map[string]int, overSi
 		rackSize := rackSizeMap[host.Host().Rack()]
 		if float64(rackSize)/float64(ph.getHostLen()) >= 1.0/float64(ph.rf) {
 			// if the host is on a over-sized rack, the target load is topped at shardLen / rackSize
-			targetLoad[host.Host().Address()] = int(math.Ceil(float64(ph.getShardLen()) / float64(rackSize)))
+			targetLoad[host.Host().ID()] = int(math.Ceil(float64(ph.getShardLen()) / float64(rackSize)))
 		} else {
 			// if the host is on a normal rack, get the target load with aware of other over-sized rack
-			targetLoad[host.Host().Address()] = ph.getShardLen() * (ph.rf - overSizedRackLen) / (ph.getHostLen() - overSizedHostLen)
+			targetLoad[host.Host().ID()] = ph.getShardLen() * (ph.rf - overSizedRackLen) / (ph.getHostLen() - overSizedHostLen)
 		}
 	}
 	return targetLoad
@@ -282,7 +282,7 @@ outer:
 		for ph.hostHeap.Len() > 0 {
 			tryHost := heap.Pop(ph.hostHeap).(placement.HostShards)
 			triedHosts = append(triedHosts, tryHost)
-			if ph.GetTargetLoadForHost(tryHost.Host().Address())-tryHost.ShardsLen() <= 0 {
+			if ph.GetTargetLoadForHost(tryHost.Host().ID())-tryHost.ShardsLen() <= 0 {
 				// this is where "some" is, at this point the best host option in the cluster
 				// from a different rack has reached its target load, time to break out of the loop
 				break outer
@@ -332,8 +332,8 @@ func (hh hostHeap) Len() int {
 func (hh hostHeap) Less(i, j int) bool {
 	hostI := hh.hosts[i]
 	hostJ := hh.hosts[j]
-	leftLoadOnI := hh.getTargetLoadForHost(hostI.Host().Address()) - hostI.ShardsLen()
-	leftLoadOnJ := hh.getTargetLoadForHost(hostJ.Host().Address()) - hostJ.ShardsLen()
+	leftLoadOnI := hh.getTargetLoadForHost(hostI.Host().ID()) - hostI.ShardsLen()
+	leftLoadOnJ := hh.getTargetLoadForHost(hostJ.Host().ID()) - hostJ.ShardsLen()
 	// if both host has tokens to be filled, prefer the one on a bigger rack
 	// since it tends to be more picky in accepting shards
 	if leftLoadOnI > 0 && leftLoadOnJ > 0 {

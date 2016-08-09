@@ -22,36 +22,30 @@ package service
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/m3db/m3cluster/placement"
 )
 
 var (
-	errInvalidShardLen = errors.New("shardLen should be greater than 0")
+	errInvalidShardLen = errors.New("shardLen should be greater than zero")
 	errHostAbsent      = errors.New("could not remove or replace a host that does not exist")
-	errDuplicatedHost  = errors.New("could not place shards on duplicated hosts")
+	errNoValidHost     = errors.New("no valid host in the candidate list")
 )
 
 type placementService struct {
 	algo placement.Algorithm
 	ss   placement.SnapshotStorage
-	hi   placement.HostInventory
 }
 
 // NewPlacementService returns an instance of placement service
-func NewPlacementService(algo placement.Algorithm, ss placement.SnapshotStorage, hi placement.HostInventory) placement.Service {
-	return placementService{algo: algo, ss: ss, hi: hi}
+func NewPlacementService(algo placement.Algorithm, ss placement.SnapshotStorage) placement.Service {
+	return placementService{algo: algo, ss: ss}
 }
 
-func (ps placementService) BuildInitialPlacement(service string, addresses []string, shardLen int) error {
+func (ps placementService) BuildInitialPlacement(service string, hosts []placement.Host, shardLen int) error {
 	if shardLen <= 0 {
 		return errInvalidShardLen
-	}
-
-	var phs []placement.Host
-	var err error
-	if phs, err = ps.getHostsFromInventory(addresses); err != nil {
-		return err
 	}
 
 	ids := make([]uint32, shardLen)
@@ -60,7 +54,8 @@ func (ps placementService) BuildInitialPlacement(service string, addresses []str
 	}
 
 	var s placement.Snapshot
-	if s, err = ps.algo.BuildInitialPlacement(phs, ids); err != nil {
+	var err error
+	if s, err = ps.algo.BuildInitialPlacement(hosts, ids); err != nil {
 		return err
 	}
 	return ps.ss.SaveSnapshotForService(service, s)
@@ -79,56 +74,56 @@ func (ps placementService) AddReplica(service string) error {
 	return ps.ss.SaveSnapshotForService(service, s)
 }
 
-func (ps placementService) AddHost(service string, address string) error {
+func (ps placementService) AddHost(service string, candidateHosts []placement.Host) error {
 	var s placement.Snapshot
 	var err error
 	if s, err = ps.Snapshot(service); err != nil {
 		return err
 	}
-
-	var ph placement.Host
-	if ph, err = ps.getHostFromInventory(address); err != nil {
-		return err
-	}
-
-	if s, err = ps.algo.AddHost(s, ph); err != nil {
-		return err
-	}
-	return ps.ss.SaveSnapshotForService(service, s)
-}
-
-func (ps placementService) RemoveHost(service string, leavingHostName string) error {
-	var s placement.Snapshot
-	var err error
-	if s, err = ps.Snapshot(service); err != nil {
-		return err
-	}
-
-	leavingHost, err := getHostFromPlacement(s, leavingHostName)
-	if err != nil {
-		return err
-	}
-
-	if s, err = ps.algo.RemoveHost(s, leavingHost); err != nil {
-		return err
-	}
-	return ps.ss.SaveSnapshotForService(service, s)
-}
-
-func (ps placementService) ReplaceHost(service string, leavingHostName string, addingHostName string) error {
-	var s placement.Snapshot
-	var err error
-	if s, err = ps.Snapshot(service); err != nil {
-		return err
-	}
-
-	leavingHost, err := getHostFromPlacement(s, leavingHostName)
-	if err != nil {
-		return err
-	}
-
+	candidateHosts = getNewHostsToPlacement(s, candidateHosts)
 	var addingHost placement.Host
-	if addingHost, err = ps.getHostFromInventory(addingHostName); err != nil {
+	if addingHost, err = findBestHost(ps, s, candidateHosts, nil); err != nil {
+		return err
+	}
+
+	if s, err = ps.algo.AddHost(s, addingHost); err != nil {
+		return err
+	}
+	return ps.ss.SaveSnapshotForService(service, s)
+}
+
+func (ps placementService) RemoveHost(service string, host placement.Host) error {
+	var s placement.Snapshot
+	var err error
+	if s, err = ps.Snapshot(service); err != nil {
+		return err
+	}
+
+	if s.HostShard(host.ID()) == nil {
+		return errHostAbsent
+	}
+
+	if s, err = ps.algo.RemoveHost(s, host); err != nil {
+		return err
+	}
+	return ps.ss.SaveSnapshotForService(service, s)
+}
+
+func (ps placementService) ReplaceHost(service string, leavingHost placement.Host, candidateHosts []placement.Host) error {
+	var s placement.Snapshot
+	var err error
+	if s, err = ps.Snapshot(service); err != nil {
+		return err
+	}
+
+	if s.HostShard(leavingHost.ID()) == nil {
+		return errHostAbsent
+	}
+
+	candidateHosts = getNewHostsToPlacement(s, candidateHosts)
+	leavingRack := leavingHost.Rack()
+	var addingHost placement.Host
+	if addingHost, err = findBestHost(ps, s, candidateHosts, &leavingRack); err != nil {
 		return err
 	}
 
@@ -142,42 +137,88 @@ func (ps placementService) Snapshot(service string) (placement.Snapshot, error) 
 	return ps.ss.ReadSnapshotForService(service)
 }
 
-func getHostFromPlacement(s placement.Snapshot, host string) (placement.Host, error) {
-	hs := s.HostShard(host)
-	if hs == nil {
-		return nil, errHostAbsent
-	}
-	return hs.Host(), nil
-}
-
-func (ps placementService) isNewHostToPlacement(rack, host string, rackHost map[string]map[string]struct{}) bool {
-	if _, rackExist := rackHost[rack]; !rackExist {
-		return true
-	}
-	_, existHost := rackHost[rack][host]
-	return !existHost
-}
-
-func (ps placementService) getHostsFromInventory(hosts []string) ([]placement.Host, error) {
-	phs := make([]placement.Host, len(hosts))
-	uniqueHost := make(map[string]struct{}, len(hosts))
-	var err error
-	for i, host := range hosts {
-		if _, exist := uniqueHost[host]; exist {
-			return nil, errDuplicatedHost
+func getNewHostsToPlacement(s placement.Snapshot, hosts []placement.Host) []placement.Host {
+	var hs []placement.Host
+	for _, h := range hosts {
+		if s.HostShard(h.ID()) == nil {
+			hs = append(hs, h)
 		}
-		if phs[i], err = ps.getHostFromInventory(host); err != nil {
-			return nil, err
-		}
-		uniqueHost[host] = struct{}{}
 	}
-	return phs, nil
+	return hs
 }
 
-func (ps placementService) getHostFromInventory(host string) (placement.Host, error) {
-	rack, err := ps.hi.RackForHost(host)
-	if err != nil {
-		return nil, err
+type rackLen struct {
+	rack string
+	len  int
+}
+
+type rackLens []rackLen
+
+func (rls rackLens) Len() int {
+	return len(rls)
+}
+
+func (rls rackLens) Less(i, j int) bool {
+	return rls[i].len < rls[j].len
+}
+
+func (rls rackLens) Swap(i, j int) {
+	rls[i], rls[j] = rls[j], rls[i]
+}
+
+func findBestHost(ps placementService, p placement.Snapshot, candidateHosts []placement.Host, preferRack *string) (placement.Host, error) {
+	placementRackHostMap := make(map[string]map[placement.Host]struct{})
+	for _, phs := range p.HostShards() {
+		if _, exist := placementRackHostMap[phs.Host().Rack()]; !exist {
+			placementRackHostMap[phs.Host().Rack()] = make(map[placement.Host]struct{})
+		}
+		placementRackHostMap[phs.Host().Rack()][phs.Host()] = struct{}{}
 	}
-	return placement.NewHost(host, rack), nil
+
+	// build rackHostMap from candidate hosts
+	rackHostMap := ps.buildRackHostMap(candidateHosts)
+
+	// if there is a host from the preferred rack can be added, return it.
+	if preferRack != nil {
+		if hs, exist := rackHostMap[*preferRack]; exist {
+			for _, host := range hs {
+				return host, nil
+			}
+		}
+	}
+
+	// otherwise if there is a rack not in the current placement, prefer that rack
+	for r, hosts := range rackHostMap {
+		if _, exist := placementRackHostMap[r]; !exist {
+			return hosts[0], nil
+		}
+	}
+
+	// otherwise sort the racks in the current placement by capacity and find a valid host from inventory
+	rackLens := make(rackLens, 0, len(placementRackHostMap))
+	for rack, hs := range placementRackHostMap {
+		rackLens = append(rackLens, rackLen{rack: rack, len: len(hs)})
+	}
+	sort.Sort(rackLens)
+
+	for _, rackLen := range rackLens {
+		if hs, exist := rackHostMap[rackLen.rack]; exist {
+			for _, host := range hs {
+				return host, nil
+			}
+		}
+	}
+	// no host in the inventory can be added to the placement
+	return nil, errNoValidHost
+}
+
+func (ps placementService) buildRackHostMap(candidateHosts []placement.Host) map[string][]placement.Host {
+	result := make(map[string][]placement.Host, len(candidateHosts))
+	for _, ph := range candidateHosts {
+		if _, exist := result[ph.Rack()]; !exist {
+			result[ph.Rack()] = make([]placement.Host, 0)
+		}
+		result[ph.Rack()] = append(result[ph.Rack()], ph)
+	}
+	return result
 }

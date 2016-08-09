@@ -77,7 +77,7 @@ func getLeftHostShards(all, toBeRemoved []placement.HostShards) []placement.Host
 
 func removeHostShards(all []placement.HostShards, remove placement.HostShards) []placement.HostShards {
 	for i, hs := range all {
-		if hs.Host().Address() == remove.Host().Address() {
+		if hs.Host().ID() == remove.Host().ID() {
 			return append(all[:i], all[i+1:]...)
 		}
 	}

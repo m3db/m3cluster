@@ -225,14 +225,14 @@ func TestHostShards(t *testing.T) {
 	assert.True(t, h1.ContainsShard(1))
 	assert.False(t, h1.ContainsShard(100))
 	assert.Equal(t, 3, h1.ShardsLen())
-	assert.Equal(t, "r1h1", h1.Host().Address())
+	assert.Equal(t, "r1h1", h1.Host().ID())
 	assert.Equal(t, "r1", h1.Host().Rack())
 
 	h1.RemoveShard(1)
 	assert.False(t, h1.ContainsShard(1))
 	assert.False(t, h1.ContainsShard(100))
 	assert.Equal(t, 2, h1.ShardsLen())
-	assert.Equal(t, "r1h1", h1.Host().Address())
+	assert.Equal(t, "r1h1", h1.Host().ID())
 	assert.Equal(t, "r1", h1.Host().Rack())
 }
 

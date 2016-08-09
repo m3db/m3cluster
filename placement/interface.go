@@ -23,7 +23,7 @@ package placement
 // Algorithm places shards on hosts
 type Algorithm interface {
 	// InitPlacement initialize a sharding placement with RF = 1
-	BuildInitialPlacement(hosts []Host, ids []uint32) (Snapshot, error)
+	BuildInitialPlacement(hosts []Host, shards []uint32) (Snapshot, error)
 
 	// AddReplica up the RF by 1 in the cluster
 	AddReplica(p Snapshot) (Snapshot, error)
@@ -62,7 +62,7 @@ type Snapshot interface {
 	Shards() []uint32
 
 	// HostShard returns the HostShards for the requested host
-	HostShard(address string) HostShards
+	HostShard(id string) HostShards
 
 	// Validate checks if the snapshot is valid
 	Validate() bool
@@ -73,34 +73,28 @@ type HostShards interface {
 	Host() Host
 	Shards() []uint32
 	ShardsLen() int
-	AddShard(uint32)
-	RemoveShard(uint32)
-	ContainsShard(uint32) bool
+	AddShard(shard uint32)
+	RemoveShard(shard uint32)
+	ContainsShard(shard uint32) bool
 }
 
 // Host contains the information needed for placement
 type Host interface {
-	Address() string
+	ID() string
 	Rack() string
 }
 
 // Service handles the placement related operations for registered services
 // all write or update operations will persist the generated snapshot before returning success
 type Service interface {
-	BuildInitialPlacement(service string, hosts []string, shardLen int) error
+	BuildInitialPlacement(service string, hosts []Host, shardLen int) error
 	AddReplica(service string) error
-	AddHost(service string, host string) error
-	RemoveHost(service string, host string) error
-	ReplaceHost(service string, leavingHostName string, addingHostName string) error
+	AddHost(service string, candidateHosts []Host) error
+	RemoveHost(service string, host Host) error
+	ReplaceHost(service string, leavingHost Host, candidateHosts []Host) error
 
 	// Snapshot gets the persisted snapshot for service
 	Snapshot(service string) (Snapshot, error)
-}
-
-// HostInventory provides inventory information
-type HostInventory interface {
-	// RackForHost returns the rack for the host
-	RackForHost(address string) (string, error)
 }
 
 // SnapshotStorage provides read and write access to placement snapshots
