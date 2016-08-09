@@ -27,10 +27,11 @@ import (
 	"os"
 	"testing"
 
+	"sort"
+
 	"github.com/m3db/m3cluster/placement"
 	"github.com/m3db/m3cluster/placement/algo"
 	"github.com/stretchr/testify/assert"
-	"sort"
 )
 
 func TestGoodWorkflow(t *testing.T) {
@@ -181,13 +182,13 @@ func TestBadReplaceHost(t *testing.T) {
 }
 
 func TestRackLenSort(t *testing.T) {
-	r1 := rackLen{rack:"r1", len:1}
-	r2 := rackLen{rack:"r2", len:2}
-	r3 := rackLen{rack:"r3", len:3}
-	r4 := rackLen{rack:"r4", len:2}
-	r5 := rackLen{rack:"r5", len:1}
-	r6 := rackLen{rack:"r6", len:2}
-	r7 := rackLen{rack:"r7", len:3}
+	r1 := rackLen{rack: "r1", len: 1}
+	r2 := rackLen{rack: "r2", len: 2}
+	r3 := rackLen{rack: "r3", len: 3}
+	r4 := rackLen{rack: "r4", len: 2}
+	r5 := rackLen{rack: "r5", len: 1}
+	r6 := rackLen{rack: "r6", len: 2}
+	r7 := rackLen{rack: "r7", len: 3}
 	rs := rackLens{r1, r2, r3, r4, r5, r6, r7}
 	sort.Sort(rs)
 
@@ -226,7 +227,6 @@ func (errorAlgorithm) RemoveHost(p placement.Snapshot, h placement.Host) (placem
 func (errorAlgorithm) ReplaceHost(p placement.Snapshot, leavingHost, addingHost placement.Host) (placement.Snapshot, error) {
 	return nil, errors.New("error in errorAlgorithm")
 }
-
 
 // file based snapshot storage
 type mockStorage struct{}

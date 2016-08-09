@@ -48,7 +48,7 @@ func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Hos
 	if err := ph.PlaceShards(shards, nil); err != nil {
 		return nil, err
 	}
-	return ph.GeneratePlacement(), nil
+	return ph.GenerateSnapshot(), nil
 }
 
 func (a rackAwarePlacementAlgorithm) AddReplica(ps placement.Snapshot) (placement.Snapshot, error) {
@@ -56,7 +56,7 @@ func (a rackAwarePlacementAlgorithm) AddReplica(ps placement.Snapshot) (placemen
 	if err := ph.PlaceShards(ps.Shards(), nil); err != nil {
 		return nil, err
 	}
-	return ph.GeneratePlacement(), nil
+	return ph.GenerateSnapshot(), nil
 }
 
 func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHost placement.Host) (placement.Snapshot, error) {
@@ -70,7 +70,7 @@ func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHo
 	if err := ph.PlaceShards(leavingHostShards.Shards(), leavingHostShards); err != nil {
 		return nil, err
 	}
-	return ph.GeneratePlacement(), nil
+	return ph.GenerateSnapshot(), nil
 }
 
 func (a rackAwarePlacementAlgorithm) AddHost(ps placement.Snapshot, addingHost placement.Host) (placement.Snapshot, error) {
@@ -101,7 +101,7 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 	}
 
 	// add the adding host to the cluster and bring its load up to target load
-	cl := ph.GeneratePlacement()
+	cl := ph.GenerateSnapshot()
 
 	return a.addHostShards(cl, addingHostShards)
 }
@@ -125,5 +125,5 @@ func (a rackAwarePlacementAlgorithm) addHostShards(ps placement.Snapshot, adding
 		}
 	}
 
-	return ph.GeneratePlacement(), nil
+	return ph.GenerateSnapshot(), nil
 }

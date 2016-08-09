@@ -29,11 +29,17 @@ import (
 
 // PlacementHelper helps the algorithm to place shards
 type PlacementHelper interface {
+	// PlaceShards distributes shards to the hosts in the helper, with aware of where are the shards coming from
 	PlaceShards(shards []uint32, from placement.HostShards) error
-	GeneratePlacement() placement.Snapshot
-	GetTargetLoadForHost(hostAddress string) int
+	// GeneratePlacement generates a placement snapshot
+	GenerateSnapshot() placement.Snapshot
+	// GetTargetLoadForHost returns the targe load for a host
+	GetTargetLoadForHost(hostID string) int
+	// MoveOneShard moves one shard between 2 hosts
 	MoveOneShard(from, to placement.HostShards) bool
+	// MoveShard moves a particular shard between 2 hosts
 	MoveShard(shard uint32, from, to placement.HostShards) bool
+	// GetHostHeap returns a host heap that sort the hosts based on their capacity
 	GetHostHeap() heap.Interface
 }
 
@@ -47,8 +53,8 @@ type placementHelper struct {
 	hostShards     []placement.HostShards
 }
 
-func (ph *placementHelper) GetTargetLoadForHost(hostAddress string) int {
-	return ph.targetLoad[hostAddress]
+func (ph *placementHelper) GetTargetLoadForHost(hostID string) int {
+	return ph.targetLoad[hostID]
 }
 
 func (ph *placementHelper) MoveOneShard(from, to placement.HostShards) bool {
@@ -70,7 +76,7 @@ func (ph *placementHelper) MoveShard(shard uint32, from, to placement.HostShards
 }
 
 func (ph placementHelper) PlaceShards(shards []uint32, from placement.HostShards) error {
-	shardSet := convertToShardSet(shards)
+	shardSet := placement.ConvertShardSliceToSet(shards)
 	var tried []placement.HostShards
 
 	if from != nil {
@@ -105,7 +111,7 @@ func (ph *placementHelper) GetHostHeap() heap.Interface {
 	return ph.hostHeap
 }
 
-func (ph *placementHelper) GeneratePlacement() placement.Snapshot {
+func (ph *placementHelper) GenerateSnapshot() placement.Snapshot {
 	return placement.NewPlacementSnapshot(ph.hostShards, ph.uniqueShards, ph.rf)
 }
 
@@ -322,8 +328,8 @@ func newHostHeap(hosts []placement.HostShards, hostCapacityAscending bool, targe
 	return hHeap
 }
 
-func (hh hostHeap) getTargetLoadForHost(hostAddress string) int {
-	return hh.targetLoad[hostAddress]
+func (hh hostHeap) getTargetLoadForHost(hostID string) int {
+	return hh.targetLoad[hostID]
 }
 func (hh hostHeap) Len() int {
 	return len(hh.hosts)
@@ -362,12 +368,4 @@ func (hh *hostHeap) Pop() interface{} {
 	host := hh.hosts[n-1]
 	hh.hosts = hh.hosts[0 : n-1]
 	return host
-}
-
-func convertToShardSet(shards []uint32) map[uint32]struct{} {
-	shardSet := make(map[uint32]struct{}, len(shards))
-	for _, shard := range shards {
-		shardSet[shard] = struct{}{}
-	}
-	return shardSet
 }

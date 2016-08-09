@@ -161,7 +161,7 @@ func TestValidate(t *testing.T) {
 
 func TestSnapshotMarshalling(t *testing.T) {
 	invalidJSON := `[
-		{"Address":123,"Rack":"r1","Shards":[0,7,11]}
+		{"ID":123,"Rack":"r1","Shards":[0,7,11]}
 	]`
 	data := []byte(invalidJSON)
 	ps, err := NewPlacementFromJSON(data)
@@ -169,13 +169,13 @@ func TestSnapshotMarshalling(t *testing.T) {
 	assert.Error(t, err)
 
 	validJSON := `[
-		{"Address":"r2h4","Rack":"r2","Shards":[6,13,15]},
-		{"Address":"r3h5","Rack":"r3","Shards":[2,8,19]},
-		{"Address":"r4h6","Rack":"r4","Shards":[3,9,18]},
-		{"Address":"r1h1","Rack":"r1","Shards":[0,7,11]},
-		{"Address":"r2h3","Rack":"r2","Shards":[1,4,12]},
-		{"Address":"r5h7","Rack":"r5","Shards":[10,14]},
-		{"Address":"r6h9","Rack":"r6","Shards":[5,16,17]}
+		{"ID":"r2h4","Rack":"r2","Shards":[6,13,15]},
+		{"ID":"r3h5","Rack":"r3","Shards":[2,8,19]},
+		{"ID":"r4h6","Rack":"r4","Shards":[3,9,18]},
+		{"ID":"r1h1","Rack":"r1","Shards":[0,7,11]},
+		{"ID":"r2h3","Rack":"r2","Shards":[1,4,12]},
+		{"ID":"r5h7","Rack":"r5","Shards":[10,14]},
+		{"ID":"r6h9","Rack":"r6","Shards":[5,16,17]}
 	]`
 	data = []byte(validJSON)
 	ps, err = NewPlacementFromJSON(data)
@@ -187,28 +187,28 @@ func TestSnapshotMarshalling(t *testing.T) {
 	testSnapshotJSONRoundTrip(t, ps)
 	// an extra replica for shard 1
 	invalidPlacementJSON := `[
-		{"Address":"r1h1","Rack":"r1","Shards":[0,1,7,11]},
-		{"Address":"r2h3","Rack":"r2","Shards":[1,4,12]},
-		{"Address":"r2h4","Rack":"r2","Shards":[6,13,15]},
-		{"Address":"r3h5","Rack":"r3","Shards":[2,8,19]},
-		{"Address":"r4h6","Rack":"r4","Shards":[3,9,18]},
-		{"Address":"r5h7","Rack":"r5","Shards":[10,14]},
-		{"Address":"r6h9","Rack":"r6","Shards":[5,16,17]}
+		{"ID":"r1h1","Rack":"r1","Shards":[0,1,7,11]},
+		{"ID":"r2h3","Rack":"r2","Shards":[1,4,12]},
+		{"ID":"r2h4","Rack":"r2","Shards":[6,13,15]},
+		{"ID":"r3h5","Rack":"r3","Shards":[2,8,19]},
+		{"ID":"r4h6","Rack":"r4","Shards":[3,9,18]},
+		{"ID":"r5h7","Rack":"r5","Shards":[10,14]},
+		{"ID":"r6h9","Rack":"r6","Shards":[5,16,17]}
 	]`
 	data = []byte(invalidPlacementJSON)
 	ps, err = NewPlacementFromJSON(data)
 	assert.Equal(t, err, errShardsWithDifferentReplicas)
 	assert.Nil(t, ps)
 
-	// an extra replica for shard 1
+	// an extra replica for shard 0 on r1h1
 	invalidPlacementJSON = `[
-		{"Address":"r1h1","Rack":"r1","Shards":[0,0,7,11]},
-		{"Address":"r2h3","Rack":"r2","Shards":[1,4,12]},
-		{"Address":"r2h4","Rack":"r2","Shards":[6,13,15]},
-		{"Address":"r3h5","Rack":"r3","Shards":[2,8,19]},
-		{"Address":"r4h6","Rack":"r4","Shards":[3,9,18]},
-		{"Address":"r5h7","Rack":"r5","Shards":[10,14]},
-		{"Address":"r6h9","Rack":"r6","Shards":[5,16,17]}
+		{"ID":"r1h1","Rack":"r1","Shards":[0,0,7,11]},
+		{"ID":"r2h3","Rack":"r2","Shards":[1,4,12]},
+		{"ID":"r2h4","Rack":"r2","Shards":[6,13,15]},
+		{"ID":"r3h5","Rack":"r3","Shards":[2,8,19]},
+		{"ID":"r4h6","Rack":"r4","Shards":[3,9,18]},
+		{"ID":"r5h7","Rack":"r5","Shards":[10,14]},
+		{"ID":"r6h9","Rack":"r6","Shards":[5,16,17]}
 	]`
 	data = []byte(invalidPlacementJSON)
 	ps, err = NewPlacementFromJSON(data)

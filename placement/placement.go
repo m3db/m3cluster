@@ -87,7 +87,7 @@ func (ps snapshot) HostShard(id string) HostShards {
 }
 
 func (ps snapshot) Validate() bool {
-	set := getUniqueIDSet(ps.shards)
+	set := ConvertShardSliceToSet(ps.shards)
 	if len(set) != len(ps.shards) {
 		return false
 	}
@@ -109,14 +109,6 @@ func (ps snapshot) Validate() bool {
 	return true
 }
 
-func getUniqueIDSet(ids []uint32) map[uint32]struct{} {
-	set := make(map[uint32]struct{})
-	for _, id := range ids {
-		set[id] = struct{}{}
-	}
-	return set
-}
-
 // NewPlacementFromJSON creates a Snapshot from JSON
 func NewPlacementFromJSON(data []byte) (Snapshot, error) {
 	var ps snapshot
@@ -127,23 +119,23 @@ func NewPlacementFromJSON(data []byte) (Snapshot, error) {
 }
 
 func (ps snapshot) MarshalJSON() ([]byte, error) {
-	return json.Marshal(placementSnapshotToJSON(ps))
+	return json.Marshal(ps.placementSnapshotToJSON())
 }
 
-func placementSnapshotToJSON(ps snapshot) hostShardsJSONs {
+func (ps snapshot) placementSnapshotToJSON() hostShardsJSONs {
 	hsjs := make(hostShardsJSONs, ps.HostsLen())
 	for i, hs := range ps.hostShards {
-		hsjs[i] = hostShardsToJSON(hs)
+		hsjs[i] = newHostShardsJSON(hs)
 	}
 	sort.Sort(hsjs)
 	return hsjs
 }
 
-func hostShardsToJSON(hs HostShards) hostShardsJSON {
+func newHostShardsJSON(hs HostShards) hostShardsJSON {
 	shards := hs.Shards()
 	uintShards := sortableUInt32(shards)
 	sort.Sort(uintShards)
-	return hostShardsJSON{Address: hs.Host().ID(), Rack: hs.Host().Rack(), Shards: shards}
+	return hostShardsJSON{ID: hs.Host().ID(), Rack: hs.Host().Rack(), Shards: shards}
 }
 
 type sortableUInt32 []uint32
@@ -207,7 +199,7 @@ func (hsj hostShardsJSONs) Len() int {
 
 func (hsj hostShardsJSONs) Less(i, j int) bool {
 	if hsj[i].Rack == hsj[j].Rack {
-		return hsj[i].Address < hsj[j].Address
+		return hsj[i].ID < hsj[j].ID
 	}
 	return hsj[i].Rack < hsj[j].Rack
 }
@@ -217,13 +209,13 @@ func (hsj hostShardsJSONs) Swap(i, j int) {
 }
 
 type hostShardsJSON struct {
-	Address string
-	Rack    string
-	Shards  []uint32
+	ID     string
+	Rack   string
+	Shards []uint32
 }
 
 func hostShardsFromJSON(hsj hostShardsJSON) (HostShards, error) {
-	hs := NewEmptyHostShards(hsj.Address, hsj.Rack)
+	hs := NewEmptyHostShards(hsj.ID, hsj.Rack)
 	for _, shard := range hsj.Shards {
 		hs.AddShard(shard)
 	}
@@ -297,4 +289,13 @@ func (h host) ID() string {
 
 func (h host) Rack() string {
 	return h.rack
+}
+
+// ConvertShardSliceToSet is an util function that converts a slice of shards to a set
+func ConvertShardSliceToSet(ids []uint32) map[uint32]struct{} {
+	set := make(map[uint32]struct{})
+	for _, id := range ids {
+		set[id] = struct{}{}
+	}
+	return set
 }
