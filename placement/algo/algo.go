@@ -30,16 +30,23 @@ import (
 var (
 	errNotEnoughRacks          = errors.New("not enough racks to take shards, please make sure RF <= number of racks")
 	errHostAbsent              = errors.New("could not remove or replace a host that does not exist")
-	errHostAlreadyExist        = errors.New("the adding host is already in the placement")
+	errAddingHostAlreadyExist  = errors.New("the adding host is already in the placement")
 	errCouldNotReachTargetLoad = errors.New("new host could not reach target load")
 )
 
 type rackAwarePlacementAlgorithm struct {
+	looseRackCheck bool
 }
 
 // NewRackAwarePlacementAlgorithm returns a rack aware placement algorithm
 func NewRackAwarePlacementAlgorithm() placement.Algorithm {
 	return rackAwarePlacementAlgorithm{}
+}
+
+// NewLooseRackCheckAlgorithm returns a placement algorithm that could loose the rack check
+// during host replacement to achieve full ownership transfer
+func NewLooseRackCheckAlgorithm() placement.Algorithm {
+	return rackAwarePlacementAlgorithm{looseRackCheck: true}
 }
 
 func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Host, shards []uint32) (placement.Snapshot, error) {
@@ -52,7 +59,7 @@ func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Hos
 }
 
 func (a rackAwarePlacementAlgorithm) AddReplica(ps placement.Snapshot) (placement.Snapshot, error) {
-	ph := newReplicaPlacementHelper(ps, ps.Replicas()+1)
+	ph := newPlacementHelperWithTargetRF(ps, ps.Replicas()+1)
 	if err := ph.PlaceShards(ps.Shards(), nil); err != nil {
 		return nil, err
 	}
@@ -74,22 +81,31 @@ func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHo
 }
 
 func (a rackAwarePlacementAlgorithm) AddHost(ps placement.Snapshot, addingHost placement.Host) (placement.Snapshot, error) {
-	addingHostShards := placement.NewEmptyHostShardsFromHost(addingHost)
+	var addingHostShards placement.HostShards
+	var err error
+	if addingHostShards, err = getNewHostShardsForSnapshot(ps, addingHost); err != nil {
+		return nil, err
+	}
 	return a.addHostShards(ps, addingHostShards)
 }
 
 func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost, addingHost placement.Host) (placement.Snapshot, error) {
+	var err error
+	var addingHostShards placement.HostShards
+	if addingHostShards, err = getNewHostShardsForSnapshot(ps, addingHost); err != nil {
+		return nil, err
+	}
+
 	var ph PlacementHelper
 	var leavingHostShards placement.HostShards
-	var err error
 	if ph, leavingHostShards, err = newRemoveHostPlacementHelper(ps, leavingHost); err != nil {
 		return nil, err
 	}
-	addingHostShards := placement.NewEmptyHostShardsFromHost(addingHost)
+
 	var shardsUnassigned []uint32
 	// move shards from leaving host to adding host
 	for _, shard := range leavingHostShards.Shards() {
-		if moved := ph.MoveShard(shard, leavingHostShards, addingHostShards); !moved {
+		if moved := ph.MoveShard(shard, leavingHostShards, addingHostShards, !a.looseRackCheck); !moved {
 			shardsUnassigned = append(shardsUnassigned, shard)
 		}
 	}
@@ -107,13 +123,9 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 }
 
 func (a rackAwarePlacementAlgorithm) addHostShards(ps placement.Snapshot, addingHostShard placement.HostShards) (placement.Snapshot, error) {
-	var ph PlacementHelper
-	var err error
-	if ph, err = newAddHostShardsPlacementHelper(ps, addingHostShard); err != nil {
-		return nil, err
-	}
+	ph := newAddHostShardsPlacementHelper(ps, addingHostShard)
 	targetLoad := ph.GetTargetLoadForHost(addingHostShard.Host().ID())
-	// try to steal shards from the most loaded hosts until the adding host reaches target load
+	// try to take shards from the most loaded hosts until the adding host reaches target load
 	hh := ph.GetHostHeap()
 	for addingHostShard.ShardsLen() < targetLoad {
 		if hh.Len() == 0 {
@@ -126,4 +138,11 @@ func (a rackAwarePlacementAlgorithm) addHostShards(ps placement.Snapshot, adding
 	}
 
 	return ph.GenerateSnapshot(), nil
+}
+
+func getNewHostShardsForSnapshot(ps placement.Snapshot, addingHost placement.Host) (placement.HostShards, error) {
+	if ps.HostShard(addingHost.ID()) != nil {
+		return nil, errAddingHostAlreadyExist
+	}
+	return placement.NewEmptyHostShardsFromHost(addingHost), nil
 }

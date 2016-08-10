@@ -20,6 +20,8 @@
 
 package placement
 
+import "fmt"
+
 // Algorithm places shards on hosts
 type Algorithm interface {
 	// InitPlacement initialize a sharding placement with RF = 1
@@ -80,6 +82,7 @@ type HostShards interface {
 
 // Host contains the information needed for placement
 type Host interface {
+	fmt.Stringer
 	ID() string
 	Rack() string
 }

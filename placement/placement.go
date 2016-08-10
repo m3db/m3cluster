@@ -23,6 +23,7 @@ package placement
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 )
 
@@ -276,6 +277,10 @@ func (h host) ID() string {
 
 func (h host) Rack() string {
 	return h.rack
+}
+
+func (h host) String() string {
+	return fmt.Sprintf("[id:%s, rack:%s]", h.id, h.rack)
 }
 
 // ConvertShardSliceToSet is an util function that converts a slice of shards to a set

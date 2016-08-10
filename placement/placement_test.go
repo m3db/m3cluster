@@ -223,6 +223,8 @@ func TestHostShards(t *testing.T) {
 	h1.AddShard(2)
 	h1.AddShard(3)
 
+	assert.Equal(t, "[id:r1h1, rack:r1]", h1.Host().String())
+
 	assert.True(t, h1.ContainsShard(1))
 	assert.False(t, h1.ContainsShard(100))
 	assert.Equal(t, 3, h1.ShardsLen())

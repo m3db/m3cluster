@@ -136,7 +136,7 @@ func TestOverSizedRack(t *testing.T) {
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOverSizedRack replace 1")
 
-	//// At this point, r1 has 4 hosts to share a copy of 1024 partitions
+	// At this point, r1 has 4 hosts to share a copy of 1024 partitions
 	r1h11 := placement.NewHost("r1h11", "r1")
 	p, err = a.ReplaceHost(p, r2h2, r1h11)
 	assert.NoError(t, err)
@@ -200,7 +200,7 @@ func TestRFGreaterThanRackLen(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm()
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLen replica 1")
@@ -209,9 +209,10 @@ func TestRFGreaterThanRackLen(t *testing.T) {
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLen replica 2")
 
-	p, err = a.AddReplica(p)
+	p1, err := a.AddReplica(p)
 	assert.Error(t, err)
-	assert.Nil(t, p)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
 }
 
 func TestRFGreaterThanRackLenAfterHostRemoval(t *testing.T) {
@@ -235,9 +236,10 @@ func TestRFGreaterThanRackLenAfterHostRemoval(t *testing.T) {
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterHostRemoval replica 2")
 
-	p, err = a.RemoveHost(p, r2h2)
+	p1, err := a.RemoveHost(p, r2h2)
 	assert.Error(t, err)
-	assert.Nil(t, p)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
 }
 
 func TestRFGreaterThanRackLenAfterHostReplace(t *testing.T) {
@@ -252,7 +254,7 @@ func TestRFGreaterThanRackLenAfterHostReplace(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm()
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterHostRemoval replica 1")
@@ -262,9 +264,72 @@ func TestRFGreaterThanRackLenAfterHostReplace(t *testing.T) {
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterHostRemoval replica 2")
 
 	r1h3 := placement.NewHost("r1h3", "r1")
+	p1, err := a.ReplaceHost(p, r2h2, r1h3)
+	assert.Equal(t, errNotEnoughRacks, err)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
+}
+
+func TestLooseRackCheckAlgorithm(t *testing.T) {
+	r1h1 := placement.NewHost("r1h1", "r1")
+
+	r2h2 := placement.NewHost("r2h2", "r2")
+
+	hosts := []placement.Host{r1h1, r2h2}
+
+	ids := make([]uint32, 10)
+	for i := 0; i < len(ids); i++ {
+		ids[i] = uint32(i)
+	}
+
+	a := NewLooseRackCheckAlgorithm()
+	p, err := a.BuildInitialPlacement(hosts, ids)
+	assert.NoError(t, err)
+	assert.NoError(t, p.Validate())
+
+	p, err = a.AddReplica(p)
+	assert.NoError(t, err)
+	assert.NoError(t, p.Validate())
+
+	// different with normal algo, which would return error here
+	r1h3 := placement.NewHost("r1h3", "r1")
 	p, err = a.ReplaceHost(p, r2h2, r1h3)
-	assert.Error(t, err)
-	assert.Nil(t, p)
+	assert.NoError(t, err)
+	assert.NoError(t, p.Validate())
+
+	p1, err := a.AddReplica(p)
+	assert.Equal(t, errNotEnoughRacks, err)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
+
+	p1, err = a.RemoveHost(p, r1h3)
+	assert.Equal(t, errNotEnoughRacks, err)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
+
+	r2h4 := placement.NewHost("r2h4", "r2")
+	p, err = a.AddHost(p, r2h4)
+	assert.NoError(t, err)
+	assert.NoError(t, p.Validate())
+
+	p1, err = a.AddReplica(p)
+	assert.Equal(t, errNotEnoughRacks, err)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
+
+	p1, err = a.ReplaceHost(p, r2h4, r1h3)
+	assert.Equal(t, errAddingHostAlreadyExist, err)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
+
+	r3h5 := placement.NewHost("r3h5", "r3")
+	p, err = a.AddHost(p, r3h5)
+	assert.NoError(t, err)
+	assert.NoError(t, p.Validate())
+
+	p, err = a.AddReplica(p)
+	assert.NoError(t, err)
+	assert.NoError(t, p.Validate())
 }
 
 func TestAddHostCouldNotReachTargetLoad(t *testing.T) {
@@ -279,11 +344,11 @@ func TestAddHostCouldNotReachTargetLoad(t *testing.T) {
 
 	a := rackAwarePlacementAlgorithm{}
 
-	p, err := a.AddHost(p, r1h1)
+	p1, err := a.AddHost(p, r1h1)
 	// errCouldNotReachTargetLoad should only happen when trying to add a host to
-	// a snapshot that does not have enough shards for the rf it thought it has
+	// an invalid snapshot that does not have enough shards for the rf it thought it has
 	assert.Equal(t, errCouldNotReachTargetLoad, err)
-	assert.Nil(t, p)
+	assert.Nil(t, p1)
 }
 
 func TestAddExistHost(t *testing.T) {
@@ -303,9 +368,10 @@ func TestAddExistHost(t *testing.T) {
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestAddExistHost replica 1")
 
-	p, err = a.AddHost(p, r2h2)
+	p1, err := a.AddHost(p, r2h2)
 	assert.Error(t, err)
-	assert.Nil(t, p)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
 }
 
 func TestRemoveAbsentHost(t *testing.T) {
@@ -327,9 +393,10 @@ func TestRemoveAbsentHost(t *testing.T) {
 
 	r3h3 := placement.NewHost("r3h3", "r3")
 
-	p, err = a.RemoveHost(p, r3h3)
+	p1, err := a.RemoveHost(p, r3h3)
 	assert.Error(t, err)
-	assert.Nil(t, p)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
 }
 
 func TestReplaceAbsentHost(t *testing.T) {
@@ -352,9 +419,10 @@ func TestReplaceAbsentHost(t *testing.T) {
 	r3h3 := placement.NewHost("r3h3", "r3")
 	r4h4 := placement.NewHost("r4h4", "r4")
 
-	p, err = a.ReplaceHost(p, r3h3, r4h4)
+	p1, err := a.ReplaceHost(p, r3h3, r4h4)
 	assert.Error(t, err)
-	assert.Nil(t, p)
+	assert.Nil(t, p1)
+	assert.NoError(t, p.Validate())
 }
 
 func TestCanAssignHost(t *testing.T) {
@@ -392,15 +460,17 @@ func TestCanAssignHost(t *testing.T) {
 
 	mp := placement.NewPlacementSnapshot(hss, []uint32{1, 2, 3, 4, 5, 6}, 3)
 
-	ph := newReplicaPlacementHelper(mp, 3).(*placementHelper)
-	assert.True(t, ph.canAssignHost(2, h6, h5))
-	assert.True(t, ph.canAssignHost(1, h1, h6))
-	assert.False(t, ph.canAssignHost(2, h6, h1))
-	assert.False(t, ph.canAssignHost(2, h6, h3))
+	ph := newPlacementHelperWithTargetRF(mp, 3).(*placementHelper)
+	assert.True(t, ph.canAssignHost(2, h6, h5, true))
+	assert.True(t, ph.canAssignHost(1, h1, h6, true))
+	assert.False(t, ph.canAssignHost(2, h6, h1, true))
+	// rack check
+	assert.False(t, ph.canAssignHost(2, h6, h3, true))
+	assert.True(t, ph.canAssignHost(2, h6, h3, false))
 }
 
 func validateDistribution(t *testing.T, mp placement.Snapshot, expectPeakOverAvg float64, testCase string) {
-	sh := newPlaceShardingHelper(mp, mp.Replicas(), true)
+	sh := NewPlacementHelper(mp)
 	total := 0
 	for _, hostShard := range mp.HostShards() {
 		hostLoad := hostShard.ShardsLen()
