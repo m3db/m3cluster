@@ -123,14 +123,14 @@ func (ps placementService) ReplaceHost(service string, leavingHost placement.Hos
 		return err
 	}
 
-	if s.HostShard(leavingHost.ID()) == nil {
+	leavingHostShard := s.HostShard(leavingHost.ID())
+	if leavingHostShard == nil {
 		return errHostAbsent
 	}
 
 	candidateHosts = getNewHostsToPlacement(s, candidateHosts)
-	leavingRack := leavingHost.Rack()
 	var addingHost placement.Host
-	if addingHost, err = findBestHost(ps, s, candidateHosts, &leavingRack); err != nil {
+	if addingHost, err = findBestHost(ps, s, candidateHosts, leavingHostShard); err != nil {
 		return err
 	}
 
@@ -173,7 +173,7 @@ func (rls rackLens) Swap(i, j int) {
 	rls[i], rls[j] = rls[j], rls[i]
 }
 
-func findBestHost(ps placementService, p placement.Snapshot, candidateHosts []placement.Host, preferRack *string) (placement.Host, error) {
+func findBestHost(ps placementService, p placement.Snapshot, candidateHosts []placement.Host, leaving placement.HostShards) (placement.Host, error) {
 	placementRackHostMap := make(map[string]map[placement.Host]struct{})
 	for _, phs := range p.HostShards() {
 		if _, exist := placementRackHostMap[phs.Host().Rack()]; !exist {
@@ -185,9 +185,9 @@ func findBestHost(ps placementService, p placement.Snapshot, candidateHosts []pl
 	// build rackHostMap from candidate hosts
 	rackHostMap := ps.buildRackHostMap(candidateHosts)
 
-	// if there is a host from the preferred rack can be added, return it.
-	if preferRack != nil {
-		if hs, exist := rackHostMap[*preferRack]; exist {
+	// if there is a host from the same rack can be added, return it.
+	if leaving != nil {
+		if hs, exist := rackHostMap[leaving.Host().Rack()]; exist {
 			for _, host := range hs {
 				return host, nil
 			}
@@ -201,7 +201,7 @@ func findBestHost(ps placementService, p placement.Snapshot, candidateHosts []pl
 		}
 	}
 
-	// otherwise sort the racks in the current placement by capacity and find a valid host from inventory
+	// otherwise sort the racks in the current placement by capacity and find a valid host from candidate hosts
 	rackLens := make(rackLens, 0, len(placementRackHostMap))
 	for rack, hs := range placementRackHostMap {
 		rackLens = append(rackLens, rackLen{rack: rack, len: len(hs)})
@@ -215,7 +215,7 @@ func findBestHost(ps placementService, p placement.Snapshot, candidateHosts []pl
 			}
 		}
 	}
-	// no host in the inventory can be added to the placement
+	// no host in the candidate hosts can be added to the placement
 	return nil, errNoValidHost
 }
 
