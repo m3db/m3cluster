@@ -35,18 +35,15 @@ var (
 )
 
 type placementService struct {
-	algo           placement.Algorithm
-	ss             placement.SnapshotStorage
-	looseRackCheck bool
+	algo    placement.Algorithm
+	ss      placement.SnapshotStorage
+	options placement.Options
 }
 
 // NewPlacementService returns an instance of placement service
 // set looseRackCheck to true means rack check will be loosen during host replacement
-func NewPlacementService(looseRackCheck bool, ss placement.SnapshotStorage) placement.Service {
-	if looseRackCheck {
-		return placementService{algo: algo.NewLooseRackCheckAlgorithm(), ss: ss, looseRackCheck: looseRackCheck}
-	}
-	return placementService{algo: algo.NewRackAwarePlacementAlgorithm(), ss: ss, looseRackCheck: looseRackCheck}
+func NewPlacementService(options placement.Options, ss placement.SnapshotStorage) placement.Service {
+	return placementService{algo: algo.NewRackAwarePlacementAlgorithm(options), ss: ss, options: options}
 }
 
 func (ps placementService) BuildInitialPlacement(service string, hosts []placement.Host, shardLen int, rf int) error {
@@ -134,7 +131,7 @@ func (ps placementService) ReplaceHost(service string, leavingHost placement.Hos
 	}
 
 	var addingHost placement.Host
-	if addingHost, err = findReplaceHost(s, candidateHosts, leavingHostShard, ps.looseRackCheck); err != nil {
+	if addingHost, err = findReplaceHost(s, candidateHosts, leavingHostShard, ps.options.LooseRackCheck()); err != nil {
 		return err
 	}
 

@@ -239,6 +239,13 @@ func TestHostShards(t *testing.T) {
 	assert.Equal(t, "r1", h1.Host().Rack())
 }
 
+func TestOptions(t *testing.T) {
+	o := NewOptions()
+	assert.False(t, o.LooseRackCheck())
+	o = o.SetLooseRackCheck(true)
+	assert.True(t, o.LooseRackCheck())
+}
+
 func testSnapshotJSONRoundTrip(t *testing.T, s Snapshot) {
 	json1, err := json.Marshal(s)
 	assert.NoError(t, err)

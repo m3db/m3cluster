@@ -35,10 +35,10 @@ import (
 
 func TestGoodWorkflow(t *testing.T) {
 	ms := NewMockStorage()
-	ps := NewPlacementService(false, ms)
+	ps := NewPlacementService(placement.NewOptions().SetLooseRackCheck(false), ms)
 	testGoodWorkflow(t, ps, ms)
 
-	ps = NewPlacementService(false, ms)
+	ps = NewPlacementService(placement.NewOptions().SetLooseRackCheck(false), ms)
 	testGoodWorkflow(t, ps, ms)
 }
 
@@ -89,7 +89,7 @@ func testGoodWorkflow(t *testing.T, ps placement.Service, ms placement.SnapshotS
 }
 
 func TestBadInitialPlacement(t *testing.T) {
-	ps := NewPlacementService(false, NewMockStorage())
+	ps := NewPlacementService(placement.NewOptions().SetLooseRackCheck(false), NewMockStorage())
 
 	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r2h2", "r2")}, 100, 2)
 	assert.NoError(t, err)
@@ -108,7 +108,7 @@ func TestBadInitialPlacement(t *testing.T) {
 }
 
 func TestBadAddReplica(t *testing.T) {
-	ps := NewPlacementService(false, NewMockStorage())
+	ps := NewPlacementService(placement.NewOptions().SetLooseRackCheck(false), NewMockStorage())
 
 	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10, 1)
 	assert.NoError(t, err)
@@ -125,7 +125,7 @@ func TestBadAddReplica(t *testing.T) {
 }
 
 func TestBadAddHost(t *testing.T) {
-	ps := NewPlacementService(false, NewMockStorage())
+	ps := NewPlacementService(placement.NewOptions().SetLooseRackCheck(false), NewMockStorage())
 
 	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10, 1)
 	assert.NoError(t, err)
@@ -135,7 +135,7 @@ func TestBadAddHost(t *testing.T) {
 	assert.Error(t, err)
 
 	// algo error
-	psWithErrorAlgo := placementService{algo: errorAlgorithm{}, ss: NewMockStorage(), looseRackCheck: false}
+	psWithErrorAlgo := placementService{algo: errorAlgorithm{}, ss: NewMockStorage(), options:placement.NewOptions().SetLooseRackCheck(false)}
 	err = psWithErrorAlgo.AddHost("serviceA", []placement.Host{placement.NewHost("r2h2", "r2")})
 	assert.Error(t, err)
 
@@ -147,7 +147,7 @@ func TestBadAddHost(t *testing.T) {
 }
 
 func TestBadRemoveHost(t *testing.T) {
-	ps := NewPlacementService(false, NewMockStorage())
+	ps := NewPlacementService(placement.NewOptions().SetLooseRackCheck(false), NewMockStorage())
 
 	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10, 1)
 	assert.NoError(t, err)
@@ -168,7 +168,7 @@ func TestBadRemoveHost(t *testing.T) {
 }
 
 func TestBadReplaceHost(t *testing.T) {
-	ps := NewPlacementService(false, NewMockStorage())
+	ps := NewPlacementService(placement.NewOptions().SetLooseRackCheck(false), NewMockStorage())
 
 	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r4h4", "r4")}, 10, 1)
 	assert.NoError(t, err)
@@ -192,7 +192,7 @@ func TestBadReplaceHost(t *testing.T) {
 	assert.Error(t, err)
 
 	// catch algo errors
-	psWithErrorAlgo := placementService{algo: errorAlgorithm{}, ss: NewMockStorage(), looseRackCheck: false}
+	psWithErrorAlgo := placementService{algo: errorAlgorithm{}, ss: NewMockStorage(), options: placement.NewOptions().SetLooseRackCheck(false)}
 	err = psWithErrorAlgo.ReplaceHost("serviceA", placement.NewHost("r1h1", "r1"), []placement.Host{placement.NewHost("r2h2", "r2")})
 	assert.Error(t, err)
 
@@ -200,7 +200,7 @@ func TestBadReplaceHost(t *testing.T) {
 }
 
 func TestReplaceHostWithLooseRackCheck(t *testing.T) {
-	ps := NewPlacementService(true, NewMockStorage())
+	ps := NewPlacementService(placement.NewOptions().SetLooseRackCheck(true), NewMockStorage())
 
 	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r4h4", "r4")}, 10, 1)
 	assert.NoError(t, err)

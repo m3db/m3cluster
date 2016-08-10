@@ -35,18 +35,12 @@ var (
 )
 
 type rackAwarePlacementAlgorithm struct {
-	looseRackCheck bool
+	options placement.Options
 }
 
 // NewRackAwarePlacementAlgorithm returns a rack aware placement algorithm
-func NewRackAwarePlacementAlgorithm() placement.Algorithm {
-	return rackAwarePlacementAlgorithm{}
-}
-
-// NewLooseRackCheckAlgorithm returns a placement algorithm that could loose the rack check
-// during host replacement to achieve full ownership transfer
-func NewLooseRackCheckAlgorithm() placement.Algorithm {
-	return rackAwarePlacementAlgorithm{looseRackCheck: true}
+func NewRackAwarePlacementAlgorithm(opt placement.Options) placement.Algorithm {
+	return rackAwarePlacementAlgorithm{options: opt}
 }
 
 func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Host, shards []uint32) (placement.Snapshot, error) {
@@ -105,7 +99,7 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 	var shardsUnassigned []uint32
 	// move shards from leaving host to adding host
 	for _, shard := range leavingHostShards.Shards() {
-		if moved := ph.MoveShard(shard, leavingHostShards, addingHostShards, !a.looseRackCheck); !moved {
+		if moved := ph.MoveShard(shard, leavingHostShards, addingHostShards, !a.options.LooseRackCheck()); !moved {
 			shardsUnassigned = append(shardsUnassigned, shard)
 		}
 	}

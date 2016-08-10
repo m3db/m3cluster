@@ -46,7 +46,7 @@ func TestGoodCase(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := NewRackAwarePlacementAlgorithm()
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "good case1 replica 1")
@@ -118,7 +118,7 @@ func TestOverSizedRack(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOverSizedRack replica 1")
@@ -157,7 +157,7 @@ func TestInitPlacementOn0Host(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.Error(t, err)
 	assert.Nil(t, p)
@@ -174,7 +174,7 @@ func TestOneRack(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOneRack replica 1")
@@ -200,7 +200,7 @@ func TestRFGreaterThanRackLen(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := NewRackAwarePlacementAlgorithm()
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLen replica 1")
@@ -227,7 +227,7 @@ func TestRFGreaterThanRackLenAfterHostRemoval(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterHostRemoval replica 1")
@@ -254,7 +254,7 @@ func TestRFGreaterThanRackLenAfterHostReplace(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := NewRackAwarePlacementAlgorithm()
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterHostRemoval replica 1")
@@ -282,7 +282,7 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := NewLooseRackCheckAlgorithm()
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(true))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	assert.NoError(t, p.Validate())
@@ -342,7 +342,7 @@ func TestAddHostCouldNotReachTargetLoad(t *testing.T) {
 
 	p := placement.NewPlacementSnapshot([]placement.HostShards{}, ids, 1)
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 
 	p1, err := a.AddHost(p, r1h1)
 	// errCouldNotReachTargetLoad should only happen when trying to add a host to
@@ -363,7 +363,7 @@ func TestAddExistHost(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestAddExistHost replica 1")
@@ -386,7 +386,7 @@ func TestRemoveAbsentHost(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRemoveAbsentHost replica 1")
@@ -411,7 +411,7 @@ func TestReplaceAbsentHost(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := rackAwarePlacementAlgorithm{}
+	a := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(false))
 	p, err := a.BuildInitialPlacement(hosts, ids)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestReplaceAbsentHost replica 1")

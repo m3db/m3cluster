@@ -291,3 +291,21 @@ func ConvertShardSliceToSet(ids []uint32) map[uint32]struct{} {
 	}
 	return set
 }
+
+type options struct {
+	looseRackCheck bool
+}
+
+func (o options) LooseRackCheck() bool {
+	return o.looseRackCheck
+}
+
+func (o options) SetLooseRackCheck(looseRackCheck bool) Options {
+	o.looseRackCheck = looseRackCheck
+	return o
+}
+
+// NewOptions returns an Options instance
+func NewOptions() Options {
+	return options{}
+}
