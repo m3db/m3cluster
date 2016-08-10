@@ -43,7 +43,7 @@ func NewPlacementService(algo placement.Algorithm, ss placement.SnapshotStorage)
 	return placementService{algo: algo, ss: ss}
 }
 
-func (ps placementService) BuildInitialPlacement(service string, hosts []placement.Host, shardLen int) error {
+func (ps placementService) BuildInitialPlacement(service string, hosts []placement.Host, shardLen int, rf int) error {
 	if shardLen <= 0 {
 		return errInvalidShardLen
 	}
@@ -55,8 +55,15 @@ func (ps placementService) BuildInitialPlacement(service string, hosts []placeme
 
 	var s placement.Snapshot
 	var err error
-	if s, err = ps.algo.BuildInitialPlacement(hosts, ids); err != nil {
-		return err
+	for i := 0; i < rf; i++ {
+		if i == 0 {
+			s, err = ps.algo.BuildInitialPlacement(hosts, ids)
+		} else {
+			s, err = ps.algo.AddReplica(s)
+		}
+		if err != nil {
+			return err
+		}
 	}
 	return ps.ss.SaveSnapshotForService(service, s)
 }

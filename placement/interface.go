@@ -87,7 +87,7 @@ type Host interface {
 // Service handles the placement related operations for registered services
 // all write or update operations will persist the generated snapshot before returning success
 type Service interface {
-	BuildInitialPlacement(service string, hosts []Host, shardLen int) error
+	BuildInitialPlacement(service string, hosts []Host, shardLen int, rf int) error
 	AddReplica(service string) error
 	AddHost(service string, candidateHosts []Host) error
 	RemoveHost(service string, host Host) error

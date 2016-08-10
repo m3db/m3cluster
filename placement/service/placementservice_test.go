@@ -38,7 +38,7 @@ func TestGoodWorkflow(t *testing.T) {
 	ms := NewMockStorage()
 	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), ms)
 
-	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r2h2", "r2")}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r2h2", "r2")}, 10, 1)
 	assert.NoError(t, err)
 
 	err = ps.AddReplica("serviceA")
@@ -86,18 +86,26 @@ func TestGoodWorkflow(t *testing.T) {
 func TestBadInitialPlacement(t *testing.T) {
 	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r2h2", "r2")}, 0)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r2h2", "r2")}, 100, 2)
+	assert.NoError(t, err)
+
+	// no shards
+	err = ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r2h2", "r2")}, 0, 1)
 	assert.Error(t, err)
 
-	// not enough racks/hosts
-	err = ps.BuildInitialPlacement("serviceA", []placement.Host{}, 10)
+	// not enough hosts
+	err = ps.BuildInitialPlacement("serviceA", []placement.Host{}, 10, 1)
+	assert.Error(t, err)
+
+	// not enough racks
+	err = ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r1h2", "r1")}, 100, 2)
 	assert.Error(t, err)
 }
 
 func TestBadAddReplica(t *testing.T) {
 	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10, 1)
 	assert.NoError(t, err)
 
 	// not enough racks/hosts
@@ -114,7 +122,7 @@ func TestBadAddReplica(t *testing.T) {
 func TestBadAddHost(t *testing.T) {
 	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10, 1)
 	assert.NoError(t, err)
 
 	// adding host already exist
@@ -136,7 +144,7 @@ func TestBadAddHost(t *testing.T) {
 func TestBadRemoveHost(t *testing.T) {
 	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1")}, 10, 1)
 	assert.NoError(t, err)
 
 	// leaving host not exist
@@ -157,7 +165,7 @@ func TestBadRemoveHost(t *testing.T) {
 func TestBadReplaceHost(t *testing.T) {
 	ps := NewPlacementService(algo.NewRackAwarePlacementAlgorithm(), NewMockStorage())
 
-	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r4h4", "r4")}, 10)
+	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1"), placement.NewHost("r4h4", "r4")}, 10, 1)
 	assert.NoError(t, err)
 
 	// leaving host not exist
