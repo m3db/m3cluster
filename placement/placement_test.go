@@ -161,7 +161,7 @@ func TestValidate(t *testing.T) {
 
 func TestSnapshotMarshalling(t *testing.T) {
 	invalidJSON := `{
-		:{"ID":123,"Rack":"r1","Shards":[0,7,11]}
+		"abc":{"ID":123,"Rack":"r1","Shards":[0,7,11]}
 	}`
 	data := []byte(invalidJSON)
 	ps, err := NewPlacementFromJSON(data)

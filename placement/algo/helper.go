@@ -39,7 +39,7 @@ type PlacementHelper interface {
 	MoveOneShard(from, to placement.HostShards) bool
 	// MoveShard moves a particular shard between 2 hosts
 	MoveShard(shard uint32, from, to placement.HostShards) bool
-	// HasNoRackConflict checks if it's valid to move a shard to target rack
+	// HasNoRackConflict checks if the rack constraint is violated if the given shard is moved to the target rack
 	HasNoRackConflict(shard uint32, from placement.HostShards, toRack string) bool
 	// GetHostHeap returns a host heap that sort the hosts based on their capacity
 	GetHostHeap() heap.Interface
@@ -268,10 +268,7 @@ func (ph placementHelper) canAssignHost(shard uint32, from, to placement.HostSha
 	if to.ContainsShard(shard) {
 		return false
 	}
-	if ph.options.LooseRackCheck() {
-		return true
-	}
-	return ph.HasNoRackConflict(shard, from, to.Host().Rack())
+	return ph.options.LooseRackCheck() || ph.HasNoRackConflict(shard, from, to.Host().Rack())
 }
 
 func (ph placementHelper) assignShardToHost(shard uint32, to placement.HostShards) {
