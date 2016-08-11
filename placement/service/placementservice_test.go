@@ -265,11 +265,13 @@ func TestFindReplaceHost(t *testing.T) {
 		placement.NewHost("r2h12", "r2"),
 	}
 
-	hs, err := findReplaceHost(s, candidates, h4, false)
+	ps := NewPlacementService(placement.NewOptions(), NewMockStorage()).(placementService)
+	hs, err := ps.findReplaceHost(s, candidates, h4)
 	assert.Error(t, err)
 	assert.Nil(t, hs)
 
-	hs, err = findReplaceHost(s, candidates, h4, true)
+	ps = NewPlacementService(placement.NewOptions().SetLooseRackCheck(true), NewMockStorage()).(placementService)
+	hs, err = ps.findReplaceHost(s, candidates, h4)
 	assert.NoError(t, err)
 	// gonna prefer r1 because r1 would only conflict shard 2, r2 would conflict 7,8,9
 	assert.Equal(t, "r1", hs.Rack())

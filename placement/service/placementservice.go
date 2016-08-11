@@ -131,7 +131,7 @@ func (ps placementService) ReplaceHost(service string, leavingHost placement.Hos
 	}
 
 	var addingHost placement.Host
-	if addingHost, err = findReplaceHost(s, candidateHosts, leavingHostShard, ps.options.LooseRackCheck()); err != nil {
+	if addingHost, err = ps.findReplaceHost(s, candidateHosts, leavingHostShard); err != nil {
 		return err
 	}
 
@@ -209,7 +209,7 @@ func findAddingHost(s placement.Snapshot, candidateHosts []placement.Host) (plac
 	return nil, errNoValidHost
 }
 
-func findReplaceHost(s placement.Snapshot, candidateHosts []placement.Host, leaving placement.HostShards, looseRackCheck bool) (placement.Host, error) {
+func (ps placementService) findReplaceHost(s placement.Snapshot, candidateHosts []placement.Host, leaving placement.HostShards) (placement.Host, error) {
 	// filter out already existing hosts
 	candidateHosts = getNewHostsToPlacement(s, candidateHosts)
 
@@ -224,18 +224,18 @@ func findReplaceHost(s placement.Snapshot, candidateHosts []placement.Host, leav
 		return hs[0], nil
 	}
 
-	return findHostWithRackConflictCheck(s, candidateRackHostMap, leaving, looseRackCheck)
+	return ps.findHostWithRackConflictCheck(s, candidateRackHostMap, leaving)
 }
 
-func findHostWithRackConflictCheck(p placement.Snapshot, rackHostMap map[string][]placement.Host, leaving placement.HostShards, looseRackCheck bool) (placement.Host, error) {
+func (ps placementService) findHostWithRackConflictCheck(p placement.Snapshot, rackHostMap map[string][]placement.Host, leaving placement.HostShards) (placement.Host, error) {
 	// otherwise sort the candidate hosts by the number of conflicts
-	ph := algo.NewPlacementHelper(p)
+	ph := algo.NewPlacementHelper(ps.options, p)
 
 	rackLens := make(rackLens, 0, len(rackHostMap))
 	for rack := range rackHostMap {
 		rackConflicts := 0
 		for _, shard := range leaving.Shards() {
-			if !ph.CanMoveShardToRack(shard, leaving, rack) {
+			if !ph.HasNoRackConflict(shard, leaving, rack) {
 				rackConflicts++
 			}
 		}
@@ -243,7 +243,7 @@ func findHostWithRackConflictCheck(p placement.Snapshot, rackHostMap map[string]
 		rackLens = append(rackLens, rackLen{rack: rack, len: rackConflicts})
 	}
 	sort.Sort(rackLens)
-	if !looseRackCheck {
+	if !ps.options.LooseRackCheck() {
 		rackLens = getNoConflictRacks(rackLens)
 	}
 	if len(rackLens) > 0 {

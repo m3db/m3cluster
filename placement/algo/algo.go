@@ -44,7 +44,7 @@ func NewRackAwarePlacementAlgorithm(opt placement.Options) placement.Algorithm {
 }
 
 func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Host, shards []uint32) (placement.Snapshot, error) {
-	ph := newInitPlacementHelper(hosts, shards)
+	ph := newInitPlacementHelper(a.options, hosts, shards)
 
 	if err := ph.PlaceShards(shards, nil); err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Hos
 }
 
 func (a rackAwarePlacementAlgorithm) AddReplica(ps placement.Snapshot) (placement.Snapshot, error) {
-	ph := newPlacementHelperWithTargetRF(ps, ps.Replicas()+1)
+	ph := newPlacementHelperWithTargetRF(a.options, ps, ps.Replicas()+1)
 	if err := ph.PlaceShards(ps.Shards(), nil); err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHo
 	var ph PlacementHelper
 	var leavingHostShards placement.HostShards
 	var err error
-	if ph, leavingHostShards, err = newRemoveHostPlacementHelper(ps, leavingHost); err != nil {
+	if ph, leavingHostShards, err = newRemoveHostPlacementHelper(a.options, ps, leavingHost); err != nil {
 		return nil, err
 	}
 	// place the shards from the leaving host to the rest of the cluster
@@ -84,22 +84,15 @@ func (a rackAwarePlacementAlgorithm) AddHost(ps placement.Snapshot, addingHost p
 }
 
 func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost, addingHost placement.Host) (placement.Snapshot, error) {
-	var err error
-	var addingHostShards placement.HostShards
-	if addingHostShards, err = getNewHostShardsForSnapshot(ps, addingHost); err != nil {
-		return nil, err
-	}
-
-	var ph PlacementHelper
-	var leavingHostShards placement.HostShards
-	if ph, leavingHostShards, err = newRemoveHostPlacementHelper(ps, leavingHost); err != nil {
+	ph, leavingHostShards, addingHostShards, err := newReplaceHostPlacementHelper(a.options, ps, leavingHost, addingHost)
+	if err != nil {
 		return nil, err
 	}
 
 	var shardsUnassigned []uint32
 	// move shards from leaving host to adding host
 	for _, shard := range leavingHostShards.Shards() {
-		if moved := ph.MoveShard(shard, leavingHostShards, addingHostShards, !a.options.LooseRackCheck()); !moved {
+		if moved := ph.MoveShard(shard, leavingHostShards, addingHostShards); !moved {
 			shardsUnassigned = append(shardsUnassigned, shard)
 		}
 	}
@@ -117,7 +110,7 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 }
 
 func (a rackAwarePlacementAlgorithm) addHostShards(ps placement.Snapshot, addingHostShard placement.HostShards) (placement.Snapshot, error) {
-	ph := newAddHostShardsPlacementHelper(ps, addingHostShard)
+	ph := newAddHostShardsPlacementHelper(a.options, ps, addingHostShard)
 	targetLoad := ph.GetTargetLoadForHost(addingHostShard.Host().ID())
 	// try to take shards from the most loaded hosts until the adding host reaches target load
 	hh := ph.GetHostHeap()
