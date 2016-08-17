@@ -42,8 +42,8 @@ var (
 
 // A Value provides access to a versioned value in the configuration store
 type Value interface {
-	// Get retrieves the stored value
-	Get(v proto.Message) error
+	// Unmarshal retrieves the stored value
+	Unmarshal(v proto.Message) error
 
 	// Version returns the current version of the value
 	Version() int
