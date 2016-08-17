@@ -10,7 +10,11 @@ test_log := test.log
 test_target := .
 lint_check := .ci/lint.sh
 package_root := github.com/m3db/m3cluster
+gopath_prefix := $(GOPATH)/src
 vendor_prefix := vendor
+mockgen_package := github.com/golang/mock/mockgen
+mocks_output_dir := generated/mocks/mocks
+mocks_rules_dir := generated/mocks
 protoc_go_package := github.com/golang/protobuf/protoc-gen-go
 proto_output_dir := generated/proto
 proto_rules_dir := generated/proto
@@ -54,6 +58,10 @@ install-vendor: .gitmodules
 	@echo Updating submodules
 	git submodule update --init --recursive
 
+install-mockgen: install-vendor
+	@echo Installing mockgen
+	glide install
+
 install-license-bin: install-vendor
 	@echo Installing node modules
 	[ -d $(license_node_modules) ] || (cd $(license_dir) && npm install)
@@ -63,11 +71,15 @@ install-proto-bin: install-vendor
 	@echo Note: the protobuf compiler v3.0.0 can be downloaded from https://github.com/google/protobuf/releases or built from source at https://github.com/google/protobuf.
 	go install $(package_root)/$(vendor_prefix)/$(protoc_go_package)
 
+mock-gen: install-mockgen install-license-bin
+	@echo Generating mocks
+	$(auto_gen) $(mocks_output_dir) $(mocks_rules_dir)
+
 proto-gen: install-proto-bin install-license-bin
 	@echo Generating protobuf files
 	$(auto_gen) $(proto_output_dir) $(proto_rules_dir)
 
-all-gen: proto-gen
+all-gen: proto-gen mock-gen
 
 clean:
 	@rm -f *.html *.xml *.out *.test
