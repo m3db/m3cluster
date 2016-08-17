@@ -55,12 +55,13 @@ type Store interface {
 	Get(key string) (Value, error)
 
 	// Set stores the value for the given key
-	Set(key string, v proto.Message) error
+	Set(key string, v proto.Message) (int, error)
 
-	// SetIfNotExists sets the value for the given key only if no value already exists
-	SetIfNotExists(key string, v proto.Message) error
+	// SetIfNotExists sets the value for the given key only if no value already
+	// exists
+	SetIfNotExists(key string, v proto.Message) (int, error)
 
-	// CheckAndSet stores the value for the given key if the current version matches
-	// the provided version
-	CheckAndSet(key string, version int, v proto.Message) error
+	// CheckAndSet stores the value for the given key if the current version
+	// matches the provided version
+	CheckAndSet(key string, version int, v proto.Message) (int, error)
 }
