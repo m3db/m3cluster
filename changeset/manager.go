@@ -71,6 +71,9 @@ type ManagerOptions interface {
 	GetChangesType() proto.Message
 }
 
+// NewManagerOptions creates an empty ManagerOptions
+func NewManagerOptions() ManagerOptions { return new(managerOptions) }
+
 // A ChangeFn adds a change to an existing set of changes
 type ChangeFn func(config, changes proto.Message) error
 
@@ -157,19 +160,14 @@ func (m manager) Change(change ChangeFn) error {
 			State:      changesetpb.ChangeSetState_OPEN,
 		}
 
-		csKey := fmt.Sprintf("%s/_changes/%d", m.key, configVersion)
+		csKey := fmtChangeSetKey(m.key, configVersion)
 		csVersion, err := m.getOrCreate(csKey, changeset)
 		if err != nil {
 			return err
 		}
 
 		// Only allow changes to an open change list
-		switch changeset.State {
-		case changesetpb.ChangeSetState_COMMITTED:
-			// These changes were already committed - try again with the updated config
-			continue
-		case changesetpb.ChangeSetState_COMMITTING:
-			// The current changes are being committed - bail out
+		if changeset.State != changesetpb.ChangeSetState_OPEN {
 			return ErrCommitInProgress
 		}
 
@@ -229,7 +227,7 @@ func (m manager) Commit(version int, apply ApplyFn) error {
 
 		// Get the change list for the current configuration, again not bothering to create
 		// if it doesn't exist
-		csKey := fmt.Sprintf("%s/_changes/%d", m.key, configVal.Version())
+		csKey := fmtChangeSetKey(m.key, configVal.Version())
 		csVal, err := m.kv.Get(csKey)
 		if err != nil {
 			return err
@@ -285,4 +283,43 @@ func (m manager) getOrCreate(k string, v proto.Message) (int, error) {
 
 		return val.Version(), nil
 	}
+}
+
+func fmtChangeSetKey(configKey string, configVers int) string {
+	return fmt.Sprintf("%s/_changes/%d", configKey, configVers)
+}
+
+type managerOptions struct {
+	kv          kv.Store
+	logger      xlog.Logger
+	configKey   string
+	configType  proto.Message
+	changesType proto.Message
+}
+
+func (opts *managerOptions) GetKV() kv.Store               { return opts.kv }
+func (opts *managerOptions) GetLogger() xlog.Logger        { return opts.logger }
+func (opts *managerOptions) GetConfigKey() string          { return opts.configKey }
+func (opts *managerOptions) GetConfigType() proto.Message  { return opts.configType }
+func (opts *managerOptions) GetChangesType() proto.Message { return opts.changesType }
+
+func (opts *managerOptions) KV(kv kv.Store) ManagerOptions {
+	opts.kv = kv
+	return opts
+}
+func (opts *managerOptions) Logger(logger xlog.Logger) ManagerOptions {
+	opts.logger = logger
+	return opts
+}
+func (opts *managerOptions) ConfigKey(k string) ManagerOptions {
+	opts.configKey = k
+	return opts
+}
+func (opts *managerOptions) ConfigType(ct proto.Message) ManagerOptions {
+	opts.configType = ct
+	return opts
+}
+func (opts *managerOptions) ChangesType(ct proto.Message) ManagerOptions {
+	opts.changesType = ct
+	return opts
 }
