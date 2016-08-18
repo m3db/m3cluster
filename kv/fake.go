@@ -26,27 +26,27 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-// NewMockStore returns a new in-process store that can be used for testing
-func NewMockStore() Store {
-	return &mockStore{
-		values: make(map[string]*mockValue),
+// NewFakeStore returns a new in-process store that can be used for testing
+func NewFakeStore() Store {
+	return &fakeStore{
+		values: make(map[string]*fakeValue),
 	}
 }
 
-type mockValue struct {
+type fakeValue struct {
 	version int
 	data    []byte
 }
 
-func (v mockValue) Version() int                      { return v.version }
-func (v mockValue) Unmarshal(msg proto.Message) error { return proto.Unmarshal(v.data, msg) }
+func (v fakeValue) Version() int                      { return v.version }
+func (v fakeValue) Unmarshal(msg proto.Message) error { return proto.Unmarshal(v.data, msg) }
 
-type mockStore struct {
+type fakeStore struct {
 	sync.RWMutex
-	values map[string]*mockValue
+	values map[string]*fakeValue
 }
 
-func (kv *mockStore) Get(key string) (Value, error) {
+func (kv *fakeStore) Get(key string) (Value, error) {
 	kv.RLock()
 	defer kv.RUnlock()
 
@@ -57,7 +57,7 @@ func (kv *mockStore) Get(key string) (Value, error) {
 	return nil, ErrNotFound
 }
 
-func (kv *mockStore) Set(key string, val proto.Message) (int, error) {
+func (kv *fakeStore) Set(key string, val proto.Message) (int, error) {
 	data, err := proto.Marshal(val)
 	if err != nil {
 		return 0, err
@@ -72,7 +72,7 @@ func (kv *mockStore) Set(key string, val proto.Message) (int, error) {
 	}
 
 	newVersion := lastVersion + 1
-	kv.values[key] = &mockValue{
+	kv.values[key] = &fakeValue{
 		version: newVersion,
 		data:    data,
 	}
@@ -80,7 +80,7 @@ func (kv *mockStore) Set(key string, val proto.Message) (int, error) {
 	return newVersion, nil
 }
 
-func (kv *mockStore) SetIfNotExists(key string, val proto.Message) (int, error) {
+func (kv *fakeStore) SetIfNotExists(key string, val proto.Message) (int, error) {
 	data, err := proto.Marshal(val)
 	if err != nil {
 		return 0, err
@@ -93,7 +93,7 @@ func (kv *mockStore) SetIfNotExists(key string, val proto.Message) (int, error) 
 		return 0, ErrAlreadyExists
 	}
 
-	kv.values[key] = &mockValue{
+	kv.values[key] = &fakeValue{
 		version: 1,
 		data:    data,
 	}
@@ -101,7 +101,7 @@ func (kv *mockStore) SetIfNotExists(key string, val proto.Message) (int, error) 
 	return 1, nil
 }
 
-func (kv *mockStore) CheckAndSet(key string, version int, val proto.Message) (int, error) {
+func (kv *fakeStore) CheckAndSet(key string, version int, val proto.Message) (int, error) {
 	data, err := proto.Marshal(val)
 	if err != nil {
 		return 0, err
@@ -117,7 +117,7 @@ func (kv *mockStore) CheckAndSet(key string, version int, val proto.Message) (in
 	}
 
 	newVersion := version + 1
-	kv.values[key] = &mockValue{
+	kv.values[key] = &fakeValue{
 		version: newVersion,
 		data:    data,
 	}

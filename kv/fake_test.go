@@ -27,8 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMockKVStore(t *testing.T) {
-	kv := NewMockStore()
+func TestFakeStore(t *testing.T) {
+	kv := NewFakeStore()
 
 	// Should start without a value
 	val, err := kv.Get("foo")
