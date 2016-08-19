@@ -22,6 +22,7 @@ package changeset
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -167,19 +168,13 @@ func TestManager_ChangeErrorUnmarshallingInitialChange(t *testing.T) {
 	s := newTestSuite(t)
 	defer s.finish()
 
-	changeSetVal := s.newMockValue()
-
 	gomock.InOrder(
 		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
-		s.kv.EXPECT().Get("config/_changes/13").Return(changeSetVal, nil),
-		changeSetVal.EXPECT().Unmarshal(gomock.Any()).
-			SetArg(0, changesetpb.ChangeSet{
-				ForVersion: 13,
-				State:      changesetpb.ChangeSetState_OPEN,
-				Changes:    []byte("foo"), // Not a valid proto
-			}).
-			Return(nil),
-		changeSetVal.EXPECT().Version().Return(12),
+		s.mockGetOrCreate("config/_changes/13", &changesetpb.ChangeSet{
+			ForVersion: 13,
+			State:      changesetpb.ChangeSetState_OPEN,
+			Changes:    []byte("foo"), // Not a valid proto
+		}, 12),
 	)
 
 	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
@@ -206,23 +201,31 @@ func TestManager_ChangeErrorUpdatingChangeSet(t *testing.T) {
 }
 
 func TestManager_ChangeVersionMismatchUpdatingChangeSet(t *testing.T) {
-	/*
-		s := newTestSuite(t)
-		defer s.finish()
+	s := newTestSuite(t)
+	defer s.finish()
 
-		var (
-			changes1 = new(changeSetMatcher)
-			changes2 = new(changeSetMatcher)
-		)
+	var (
+		changes1 = new(changeSetMatcher)
+		changes2 = new(changeSetMatcher)
+	)
 
-		s.mockGetOrCreate("config", &changesettest.Config{}, 13)
-		s.mockGetOrCreate("config/_changes/13", s.newOpenChangeSet(13, &changesettest.Changes{}), 12)
-		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, updatedChanges).
-			Return(0, errors.New("bad things happened"))
+	gomock.InOrder(
+		// Version mismatch while updating changeset
+		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
+		s.mockGetOrCreate("config/_changes/13", s.newOpenChangeSet(13, &changesettest.Changes{}), 12),
+		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, changes1).
+			Return(0, kv.ErrVersionMismatch),
 
-		require.Error(t, s.mgr.Change(addLines("foo", "bar")))
-	*/
+		// Will try again
+		s.mockGetOrCreate("config", &changesettest.Config{}, 14),
+		s.mockGetOrCreate("config/_changes/14", s.newOpenChangeSet(14, &changesettest.Changes{
+			Lines: []string{"zed"},
+		}), 22),
+		s.kv.EXPECT().CheckAndSet("config/_changes/14", 22, changes2).Return(23, nil),
+	)
 
+	require.NoError(t, s.mgr.Change(addLines("foo", "bar")))
+	require.Equal(t, []string{"zed", "foo", "bar"}, changes2.changes(t).Lines)
 }
 
 func TestManager_ChangeOnCommittedChangeSet(t *testing.T) {
@@ -315,8 +318,11 @@ func (t *testSuite) newMockValue() *kv.MockValue {
 func (t *testSuite) mockGetOrCreate(key string, msg proto.Message, vers int) *gomock.Call {
 	val := t.newMockValue()
 
+	// SetArg requires a non-pointer type
+	unPtr := reflect.ValueOf(msg).Elem().Interface()
+
 	c1 := t.kv.EXPECT().Get(key).Return(val, nil)
-	c2 := val.EXPECT().Unmarshal(gomock.Any()).Return(nil).After(c1)
+	c2 := val.EXPECT().Unmarshal(gomock.Any()).SetArg(0, unPtr).Return(nil).After(c1)
 	c3 := val.EXPECT().Version().Return(vers).After(c2)
 	return c3
 }
