@@ -116,8 +116,9 @@ func TestManager_ChangeInterruptOnCreateOfInitialChangeSet(t *testing.T) {
 		changesVal = s.newMockValue()
 	)
 
-	s.mockGetOrCreate("config", &changesettest.Config{}, 13)
 	gomock.InOrder(
+		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
+
 		// Initial attempt to create changes - someone else gets there first
 		s.kv.EXPECT().Get("config/_changes/13").Return(nil, kv.ErrNotFound),
 		s.kv.EXPECT().SetIfNotExists("config/_changes/13", changes1).Return(0, kv.ErrAlreadyExists),
@@ -152,8 +153,10 @@ func TestManager_ChangeErrorRetrievingChangeSet(t *testing.T) {
 	s := newTestSuite(t)
 	defer s.finish()
 
-	s.mockGetOrCreate("config", &changesettest.Config{}, 13)
-	s.kv.EXPECT().Get("config/_changes/13").Return(nil, errors.New("bad things happened"))
+	gomock.InOrder(
+		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
+		s.kv.EXPECT().Get("config/_changes/13").Return(nil, errors.New("bad things happened")),
+	)
 
 	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
 
@@ -166,16 +169,18 @@ func TestManager_ChangeErrorUnmarshallingInitialChange(t *testing.T) {
 
 	changeSetVal := s.newMockValue()
 
-	s.mockGetOrCreate("config", &changesettest.Config{}, 13)
-	s.kv.EXPECT().Get("config/_changes/13").Return(changeSetVal, nil)
-	changeSetVal.EXPECT().Unmarshal(gomock.Any()).
-		SetArg(0, changesetpb.ChangeSet{
-			ForVersion: 13,
-			State:      changesetpb.ChangeSetState_OPEN,
-			Changes:    []byte("foo"), // Not a valid proto
-		}).
-		Return(nil)
-	changeSetVal.EXPECT().Version().Return(12)
+	gomock.InOrder(
+		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
+		s.kv.EXPECT().Get("config/_changes/13").Return(changeSetVal, nil),
+		changeSetVal.EXPECT().Unmarshal(gomock.Any()).
+			SetArg(0, changesetpb.ChangeSet{
+				ForVersion: 13,
+				State:      changesetpb.ChangeSetState_OPEN,
+				Changes:    []byte("foo"), // Not a valid proto
+			}).
+			Return(nil),
+		changeSetVal.EXPECT().Version().Return(12),
+	)
 
 	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
 }
@@ -188,11 +193,13 @@ func TestManager_ChangeErrorUpdatingChangeSet(t *testing.T) {
 		updatedChanges = new(changeSetMatcher)
 	)
 
-	s.mockGetOrCreate("config", &changesettest.Config{}, 13)
-	s.mockGetOrCreate("config/_changes/13",
-		s.newOpenChangeSet(13, &changesettest.Changes{}), 12)
-	s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, updatedChanges).
-		Return(0, errors.New("bad things happened"))
+	gomock.InOrder(
+		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
+		s.mockGetOrCreate("config/_changes/13",
+			s.newOpenChangeSet(13, &changesettest.Changes{}), 12),
+		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, updatedChanges).
+			Return(0, errors.New("bad things happened")),
+	)
 
 	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
 
