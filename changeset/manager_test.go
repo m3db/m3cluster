@@ -21,6 +21,7 @@
 package changeset
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -105,18 +106,78 @@ func TestManager_ChangeInterruptOnCreateOfInitialConfig(t *testing.T) {
 }
 
 func TestManager_ChangeInterruptOnCreateOfInitialChangeSet(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		changes1   = new(changeSetMatcher)
+		changes2   = new(changeSetMatcher)
+		changes3   = new(changeSetMatcher)
+		changesVal = s.newMockValue()
+	)
+
+	s.mockGetOrCreate("config", &changesettest.Config{}, 13)
+	gomock.InOrder(
+		// Initial attempt to create changes - someone else gets there first
+		s.kv.EXPECT().Get("config/_changes/13").Return(nil, kv.ErrNotFound),
+		s.kv.EXPECT().SetIfNotExists("config/_changes/13", changes1).Return(0, kv.ErrAlreadyExists),
+
+		// Will refetch
+		s.kv.EXPECT().Get("config/_changes/13").Return(changesVal, nil),
+		changesVal.EXPECT().Unmarshal(changes2).Return(nil),
+		changesVal.EXPECT().Version().Return(12),
+
+		// ...And update
+		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, changes3).Return(13, nil),
+	)
+
+	require.NoError(t, s.mgr.Change(addLines("foo", "bar")))
+
+	// NB(mmihic): We only care that the expectations are met
 }
 
 func TestManager_ChangeErrorRetrievingConfig(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	// Initial attempt to get changes fails
+	s.kv.EXPECT().Get("config").Return(nil, errors.New("bad things happened"))
+
+	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
+
+	// NB(mmihic): We only care that the expectations are met
 }
 
 func TestManager_ChangeErrorRetrievingChangeSet(t *testing.T) {
-}
+	s := newTestSuite(t)
+	defer s.finish()
 
-func TestManager_ChangeErrorUnmarshallingInitialConfig(t *testing.T) {
+	s.mockGetOrCreate("config", &changesettest.Config{}, 13)
+	s.kv.EXPECT().Get("config/_changes/13").Return(nil, errors.New("bad things happened"))
+
+	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
+
+	// NB(mmihic): We only care that the expectations are met
 }
 
 func TestManager_ChangeErrorUnmarshallingInitialChange(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	changeSetVal := s.newMockValue()
+
+	s.mockGetOrCreate("config", &changesettest.Config{}, 13)
+	s.kv.EXPECT().Get("config/_changes/13").Return(changeSetVal, nil)
+	changeSetVal.EXPECT().Unmarshal(gomock.Any()).
+		SetArg(0, changesetpb.ChangeSet{
+			ForVersion: 13,
+			State:      changesetpb.ChangeSetState_OPEN,
+			Changes:    []byte("foo"), // Not a valid proto
+		}).
+		Return(nil)
+	changeSetVal.EXPECT().Version().Return(12)
+
+	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
 }
 
 func TestManager_ChangeErrorUpdatingChangeSet(t *testing.T) {
@@ -132,18 +193,6 @@ func TestManager_ChangeOnCommittingChangeSet(t *testing.T) {
 }
 
 func TestManager_ChangeFunctionFails(t *testing.T) {
-}
-
-func TestManagerChange(t *testing.T) {
-	// 1. Initial config (creates empty config and empty change set)
-	// 2. Someone interrupts creation of initial config
-	// 3. Someone interrupts creation of initial changeset
-	// 4. Error unmarshalling initial config
-	// 5. Attempt to modify a committed changeset
-	// 6. Attempt to modify a committing changeset
-	// 7. Someone updates the changeset while we are working on it
-	// 8. Error marshalling changeset
-	// 9. Error updating changeset
 }
 
 func TestManagerCommit(t *testing.T) {
