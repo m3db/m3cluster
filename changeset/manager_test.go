@@ -181,9 +181,41 @@ func TestManager_ChangeErrorUnmarshallingInitialChange(t *testing.T) {
 }
 
 func TestManager_ChangeErrorUpdatingChangeSet(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		updatedChanges = new(changeSetMatcher)
+	)
+
+	s.mockGetOrCreate("config", &changesettest.Config{}, 13)
+	s.mockGetOrCreate("config/_changes/13",
+		s.newOpenChangeSet(13, &changesettest.Changes{}), 12)
+	s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, updatedChanges).
+		Return(0, errors.New("bad things happened"))
+
+	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
+
 }
 
 func TestManager_ChangeVersionMismatchUpdatingChangeSet(t *testing.T) {
+	/*
+		s := newTestSuite(t)
+		defer s.finish()
+
+		var (
+			changes1 = new(changeSetMatcher)
+			changes2 = new(changeSetMatcher)
+		)
+
+		s.mockGetOrCreate("config", &changesettest.Config{}, 13)
+		s.mockGetOrCreate("config/_changes/13", s.newOpenChangeSet(13, &changesettest.Changes{}), 12)
+		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, updatedChanges).
+			Return(0, errors.New("bad things happened"))
+
+		require.Error(t, s.mgr.Change(addLines("foo", "bar")))
+	*/
+
 }
 
 func TestManager_ChangeOnCommittedChangeSet(t *testing.T) {
@@ -273,13 +305,17 @@ func (t *testSuite) newMockValue() *kv.MockValue {
 	return kv.NewMockValue(t.mc)
 }
 
-func (t *testSuite) mockGetOrCreate(key string, msg proto.Message, vers int) {
+func (t *testSuite) mockGetOrCreate(key string, msg proto.Message, vers int) *gomock.Call {
 	val := t.newMockValue()
 
-	gomock.InOrder(
-		t.kv.EXPECT().Get(key).Return(val, nil),
-		val.EXPECT().Unmarshal(msg).Return(nil),
-		val.EXPECT().Version().Return(vers))
+	c1 := t.kv.EXPECT().Get(key).Return(val, nil)
+	c2 := val.EXPECT().Unmarshal(gomock.Any()).Return(nil).After(c1)
+	c3 := val.EXPECT().Version().Return(vers).After(c2)
+	return c3
+}
+
+func (t *testSuite) newOpenChangeSet(forVersion int, changes proto.Message) *changesetpb.ChangeSet {
+	return t.newChangeSet(forVersion, changesetpb.ChangeSetState_OPEN, changes)
 }
 
 func (t *testSuite) newChangeSet(forVersion int, state changesetpb.ChangeSetState, changes proto.Message,
