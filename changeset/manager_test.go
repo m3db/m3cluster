@@ -686,7 +686,6 @@ func TestManagerCommit_ConfigUpdateError(t *testing.T) {
 }
 
 func TestManagerCommit_ChangeSetErrorMarkingAsCommitted(t *testing.T) {
-
 	s := newTestSuite(t)
 	defer s.finish()
 
