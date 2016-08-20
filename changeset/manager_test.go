@@ -228,6 +228,23 @@ func TestManager_ChangeVersionMismatchUpdatingChangeSet(t *testing.T) {
 	require.Equal(t, []string{"zed", "foo", "bar"}, changes2.changes(t).Lines)
 }
 
+func TestManager_ChangeSuccess(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	updatedChanges := new(changeSetMatcher)
+	gomock.InOrder(
+		s.mockGetOrCreate("config", &changesettest.Config{}, 72),
+		s.mockGetOrCreate("config/_changes/72", s.newOpenChangeSet(72, &changesettest.Changes{
+			Lines: []string{"ark", "bork"},
+		}), 29),
+		s.kv.EXPECT().CheckAndSet("config/_changes/72", 29, updatedChanges).Return(23, nil),
+	)
+
+	require.NoError(t, s.mgr.Change(addLines("foo", "bar")))
+	require.Equal(t, updatedChanges.changes(t).Lines, []string{"ark", "bork", "foo", "bar"})
+}
+
 func TestManager_ChangeOnCommittedChangeSet(t *testing.T) {
 }
 
