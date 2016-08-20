@@ -202,55 +202,95 @@ func (m manager) Change(change ChangeFn) error {
 }
 
 func (m manager) Commit(version int, apply ApplyFn) error {
-	for {
-		// Get the current configuration, but don't bother trying to create it if it doesn't exist
-		configVal, err := m.kv.Get(m.key)
-		if err != nil {
-			return err
-		}
-
-		// Confirm the version does exist...
-		if configVal.Version() < version {
-			return ErrUnknownVersion
-		}
-
-		// ...and that it hasn't already been committed
-		if configVal.Version() > version {
-			return ErrAlreadyCommitted
-		}
-
-		// Retrieve the config data so that we can transform it appropriately
-		config := proto.Clone(m.configType)
-		if err := configVal.Unmarshal(config); err != nil {
-			return err
-		}
-
-		// Get the change list for the current configuration, again not bothering to create
-		// if it doesn't exist
-		csKey := fmtChangeSetKey(m.key, configVal.Version())
-		csVal, err := m.kv.Get(csKey)
-		if err != nil {
-			return err
-		}
-
-		var changeset changesetpb.ChangeSet
-		if err := csVal.Unmarshal(&changeset); err != nil {
-			return err
-		}
-
-		// If the change list is already committed, bail out
-		if changeset.State == changesetpb.ChangeSetState_COMMITTED {
-			return ErrAlreadyCommitted
-		}
-
-		// Mark the change list as committing, so further changes are prevented
-
-		// Transform the current configuration according to the change list
-		changes := proto.Clone(m.changesType)
-		if err := proto.Unmarshal(changeset.Changes, changes); err != nil {
-			return err
-		}
+	// Get the current configuration, but don't bother trying to create it if it doesn't exist
+	configVal, err := m.kv.Get(m.key)
+	if err != nil {
+		return err
 	}
+
+	// Confirm the version does exist...
+	if configVal.Version() < version {
+		return ErrUnknownVersion
+	}
+
+	// ...and that it hasn't already been committed
+	if configVal.Version() > version {
+		return ErrAlreadyCommitted
+	}
+
+	// Retrieve the config data so that we can transform it appropriately
+	config := proto.Clone(m.configType)
+	if err := configVal.Unmarshal(config); err != nil {
+		return err
+	}
+
+	// Get the change set for the current configuration, again not bothering to create
+	// if it doesn't exist
+	csKey := fmtChangeSetKey(m.key, configVal.Version())
+	csVal, err := m.kv.Get(csKey)
+	if err != nil {
+		return err
+	}
+
+	var changeset changesetpb.ChangeSet
+	if err := csVal.Unmarshal(&changeset); err != nil {
+		return err
+	}
+
+	// If the change list is already committed, bail out
+	if changeset.State == changesetpb.ChangeSetState_COMMITTED {
+		return ErrAlreadyCommitted
+	}
+
+	// Mark the change list as committing, so further changes are prevented
+	changeset.State = changesetpb.ChangeSetState_COMMITTING
+	newChangeSetVersion, err := m.kv.CheckAndSet(csKey, csVal.Version(), &changeset)
+	if err != nil {
+		if err == kv.ErrVersionMismatch {
+			return ErrCommitInProgress
+		}
+
+		return err
+	}
+
+	// Transform the current configuration according to the change list
+	changes := proto.Clone(m.changesType)
+	if err := proto.Unmarshal(changeset.Changes, changes); err != nil {
+		return err
+	}
+
+	if err := apply(config, changes); err != nil {
+		return err
+	}
+
+	// Save the updated config.  This updates the version number for the config, so
+	// attempting to commit the current version again will fail
+	if _, err := m.kv.CheckAndSet(m.key, configVal.Version(), config); err != nil {
+		if err == kv.ErrVersionMismatch {
+			return ErrAlreadyCommitted
+		}
+
+		return err
+	}
+
+	// And mark the changes as ommitted
+	// TODO(mmihic): There is an error case here where the changes could be committed by the
+	// the changeset not updated. This is harmeless since the version number of the config will
+	// have been updated so we'll never return to this changeset again, but it does leave the
+	// changeset with the incorrect state of COMMITTING. We could have a mechanism to fix this,
+	// either automatically or by command
+	changeset.State = changesetpb.ChangeSetState_COMMITTED
+	if _, err := m.kv.CheckAndSet(csKey, newChangeSetVersion, changes); err != nil {
+		if err == kv.ErrVersionMismatch {
+			// NB(mmihic): This is an actual error - we should be the only ones modifying the
+			// new change set version
+			return ErrAlreadyCommitted
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 func (m manager) getOrCreate(k string, v proto.Message) (int, error) {
