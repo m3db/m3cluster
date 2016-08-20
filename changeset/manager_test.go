@@ -300,6 +300,54 @@ func TestManager_ChangeFunctionFails(t *testing.T) {
 	require.Equal(t, errBadThingsHappened, err)
 }
 
+func TestManagerCommit_Success(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		changeSet1 = new(changeSetMatcher)
+		changeSet2 = new(changeSetMatcher)
+		config1    = new(configMatcher)
+
+		committedVersion = 22
+		changeSetVersion = 17
+		changeSetKey     = fmtChangeSetKey(s.configKey, committedVersion)
+	)
+
+	gomock.InOrder(
+		// Retrieve the config value
+		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(committedVersion,
+			&changesettest.Config{
+				Text: "shoop\nwoop\nhoop",
+			}), nil),
+
+		// Retrieve the change set
+		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
+			s.newOpenChangeSet(changeSetVersion, &changesettest.Changes{
+				Lines: []string{"foo", "bar"},
+			})), nil),
+
+		// Mark as committing
+		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, changeSet1).
+			Return(changeSetVersion+1, nil),
+
+		// Update the transformed confi
+		s.kv.EXPECT().CheckAndSet(s.configKey, committedVersion, config1).
+			Return(committedVersion+1, nil),
+
+		// Mark as committed
+		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion+1, changeSet2).
+			Return(changeSetVersion+2, nil),
+	)
+
+	err := s.mgr.Commit(committedVersion, commit)
+	require.NoError(t, err)
+
+	require.Equal(t, changesetpb.ChangeSetState_COMMITTING, changeSet1.changeset(t).State)
+	require.Equal(t, changesetpb.ChangeSetState_COMMITTED, changeSet2.changeset(t).State)
+	require.Equal(t, "shoop\nwoop\nhoop\nfoo\nbar", config1.config().Text)
+}
+
 func TestManagerCommit_ConfigNotFound(t *testing.T) {
 }
 
@@ -346,9 +394,6 @@ func TestManagerCommit_ChangeSetErrorMarkingAsCommitted(t *testing.T) {
 }
 
 func TestManagerCommit_ChangeSetVersionMismatchMarkingAsCommitted(t *testing.T) {
-}
-
-func TestManagerCommit_Success(t *testing.T) {
 }
 
 type configMatcher struct {

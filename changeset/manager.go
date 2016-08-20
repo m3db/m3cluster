@@ -280,7 +280,7 @@ func (m manager) Commit(version int, apply ApplyFn) error {
 	// changeset with the incorrect state of COMMITTING. We could have a mechanism to fix this,
 	// either automatically or by command
 	changeset.State = changesetpb.ChangeSetState_COMMITTED
-	if _, err := m.kv.CheckAndSet(csKey, newChangeSetVersion, changes); err != nil {
+	if _, err := m.kv.CheckAndSet(csKey, newChangeSetVersion, &changeset); err != nil {
 		if err == kv.ErrVersionMismatch {
 			// NB(mmihic): This is an actual error - we should be the only ones modifying the
 			// new change set version
