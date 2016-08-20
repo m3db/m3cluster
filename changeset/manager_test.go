@@ -349,18 +349,89 @@ func TestManagerCommit_Success(t *testing.T) {
 }
 
 func TestManagerCommit_ConfigNotFound(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		committedVersion = 22
+	)
+
+	// KV service can't find config
+	s.kv.EXPECT().Get(s.configKey).Return(nil, kv.ErrNotFound)
+
+	// Commit should fail
+	err := s.mgr.Commit(committedVersion, commit)
+	require.Equal(t, kv.ErrNotFound, err)
 }
 
 func TestManagerCommit_ConfigGetError(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		committedVersion = 22
+	)
+
+	// KV service has error retrieving config
+	s.kv.EXPECT().Get(s.configKey).Return(nil, errBadThingsHappened)
+
+	// Commit should fail
+	err := s.mgr.Commit(committedVersion, commit)
+	require.Equal(t, errBadThingsHappened, err)
 }
 
 func TestManagerCommit_ConfigAtEarlierVersion(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		committedVersion = 22
+	)
+
+	// KV service returns earlier version
+	s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(committedVersion-1,
+		&changesettest.Config{
+			Text: "shoop\nwoop\nhoop",
+		}), nil)
+
+	// Commit should fail
+	err := s.mgr.Commit(committedVersion, commit)
+	require.Equal(t, ErrUnknownVersion, err)
 }
 
 func TestManagerCommit_ConfigAtLaterVersion(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		committedVersion = 22
+	)
+
+	// KV service returns later version
+	s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(committedVersion+1,
+		&changesettest.Config{
+			Text: "shoop\nwoop\nhoop",
+		}), nil)
+
+	// Commit should fail
+	err := s.mgr.Commit(committedVersion, commit)
+	require.Equal(t, ErrAlreadyCommitted, err)
 }
 
 func TestManagerCommit_ConfigUnmarshalError(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		committedVersion = 22
+	)
+
+	// KV service returns invalid data
+	s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValueWithData(committedVersion+1, []byte("foo")), nil)
+
+	// Commit should fail
+	err := s.mgr.Commit(committedVersion, commit)
+	require.Error(t, err)
 }
 
 func TestManagerCommit_ChangeSetGetError(t *testing.T) {
