@@ -686,9 +686,84 @@ func TestManagerCommit_ConfigUpdateError(t *testing.T) {
 }
 
 func TestManagerCommit_ChangeSetErrorMarkingAsCommitted(t *testing.T) {
+
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		committedVersion = 22
+		changeSetVersion = 17
+		changeSetKey     = fmtChangeSetKey(s.configKey, committedVersion)
+	)
+
+	gomock.InOrder(
+		// Retrieve the config value
+		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(committedVersion,
+			&changesettest.Config{
+				Text: "shoop\nwoop\nhoop",
+			}), nil),
+
+		// Retrieve the change set
+		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
+			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
+				Lines: []string{"foo", "bar"},
+			})), nil),
+
+		// Mark as committing
+		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, gomock.Any()).
+			Return(changeSetVersion+1, nil),
+
+		// Update with new config
+		s.kv.EXPECT().CheckAndSet(s.configKey, committedVersion, gomock.Any()).
+			Return(committedVersion+1, nil),
+
+		// Mark as committed - FAIL
+		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion+1, gomock.Any()).
+			Return(0, errBadThingsHappened),
+	)
+
+	err := s.mgr.Commit(committedVersion, commit)
+	require.Equal(t, errBadThingsHappened, err)
 }
 
 func TestManagerCommit_ChangeSetVersionMismatchMarkingAsCommitted(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	var (
+		committedVersion = 22
+		changeSetVersion = 17
+		changeSetKey     = fmtChangeSetKey(s.configKey, committedVersion)
+	)
+
+	gomock.InOrder(
+		// Retrieve the config value
+		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(committedVersion,
+			&changesettest.Config{
+				Text: "shoop\nwoop\nhoop",
+			}), nil),
+
+		// Retrieve the change set
+		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
+			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
+				Lines: []string{"foo", "bar"},
+			})), nil),
+
+		// Mark as committing
+		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, gomock.Any()).
+			Return(changeSetVersion+1, nil),
+
+		// Update with new config
+		s.kv.EXPECT().CheckAndSet(s.configKey, committedVersion, gomock.Any()).
+			Return(committedVersion+1, nil),
+
+		// Mark as committed - FAIL
+		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion+1, gomock.Any()).
+			Return(0, kv.ErrVersionMismatch),
+	)
+
+	err := s.mgr.Commit(committedVersion, commit)
+	require.Equal(t, ErrAlreadyCommitted, err)
 }
 
 type configMatcher struct {
