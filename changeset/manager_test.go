@@ -300,7 +300,55 @@ func TestManager_ChangeFunctionFails(t *testing.T) {
 	require.Equal(t, errBadThingsHappened, err)
 }
 
-func TestManagerCommit(t *testing.T) {
+func TestManagerCommit_ConfigNotFound(t *testing.T) {
+}
+
+func TestManagerCommit_ConfigGetError(t *testing.T) {
+}
+
+func TestManagerCommit_ConfigAtEarlierVersion(t *testing.T) {
+}
+
+func TestManagerCommit_ConfigAtLaterVersion(t *testing.T) {
+}
+
+func TestManagerCommit_ConfigUnmarshalError(t *testing.T) {
+}
+
+func TestManagerCommit_ChangeSetGetError(t *testing.T) {
+}
+
+func TestManagerCommit_ChangeSetUnmarshalError(t *testing.T) {
+}
+
+func TestManagerCommit_ChangeSetCommitted(t *testing.T) {
+}
+
+func TestMangerCommit_ChangeSetErrorMarkingAsCommitting(t *testing.T) {
+}
+
+func TestManagerCommit_ChangeSetVersionMismatchMarkingAsCommitting(t *testing.T) {
+}
+
+func TestManagerCommit_ChangesUnmarshalError(t *testing.T) {
+}
+
+func TestManagerCommit_CommitFunctionError(t *testing.T) {
+}
+
+func TestManagerCommit_ConfigUpdateVersionMismatch(t *testing.T) {
+}
+
+func TestManagerCommit_ConfigUpdateError(t *testing.T) {
+}
+
+func TestManagerCommit_ChangeSetErrorMarkingAsCommitted(t *testing.T) {
+}
+
+func TestManagerCommit_ChangeSetVersionMismatchMarkingAsCommitted(t *testing.T) {
+}
+
+func TestManagerCommit_Success(t *testing.T) {
 }
 
 type configMatcher struct {
@@ -378,14 +426,16 @@ func (t *testSuite) newMockValue() *kv.MockValue {
 	return kv.NewMockValue(t.mc)
 }
 
-func (t *testSuite) mockGetOrCreate(key string, msg proto.Message, vers int) *gomock.Call {
-	val := t.newMockValue()
-
+func (t *testSuite) mockUnmarshal(val *kv.MockValue, msg proto.Message) *gomock.Call {
 	// SetArg requires a non-pointer type
 	unPtr := reflect.ValueOf(msg).Elem().Interface()
+	return val.EXPECT().Unmarshal(gomock.Any()).SetArg(0, unPtr).Return(nil)
+}
 
+func (t *testSuite) mockGetOrCreate(key string, msg proto.Message, vers int) *gomock.Call {
+	val := t.newMockValue()
 	c1 := t.kv.EXPECT().Get(key).Return(val, nil)
-	c2 := val.EXPECT().Unmarshal(gomock.Any()).SetArg(0, unPtr).Return(nil).After(c1)
+	c2 := t.mockUnmarshal(val, msg).After(c1)
 	c3 := val.EXPECT().Version().Return(vers).After(c2)
 	return c3
 }
