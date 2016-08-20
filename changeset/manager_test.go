@@ -34,6 +34,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	errBadThingsHappened = errors.New("bad things happened")
+)
+
 func TestManager_ChangeEmptyInitialConfig(t *testing.T) {
 	s := newTestSuite(t)
 	defer s.finish()
@@ -143,9 +147,10 @@ func TestManager_ChangeErrorRetrievingConfig(t *testing.T) {
 	defer s.finish()
 
 	// Initial attempt to get changes fails
-	s.kv.EXPECT().Get("config").Return(nil, errors.New("bad things happened"))
+	s.kv.EXPECT().Get("config").Return(nil, errBadThingsHappened)
 
-	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
+	err := s.mgr.Change(addLines("foo", "bar"))
+	require.Equal(t, errBadThingsHappened, err)
 
 	// NB(mmihic): We only care that the expectations are met
 }
@@ -156,10 +161,11 @@ func TestManager_ChangeErrorRetrievingChangeSet(t *testing.T) {
 
 	gomock.InOrder(
 		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
-		s.kv.EXPECT().Get("config/_changes/13").Return(nil, errors.New("bad things happened")),
+		s.kv.EXPECT().Get("config/_changes/13").Return(nil, errBadThingsHappened),
 	)
 
-	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
+	err := s.mgr.Change(addLines("foo", "bar"))
+	require.Equal(t, errBadThingsHappened, err)
 
 	// NB(mmihic): We only care that the expectations are met
 }
@@ -193,11 +199,11 @@ func TestManager_ChangeErrorUpdatingChangeSet(t *testing.T) {
 		s.mockGetOrCreate("config/_changes/13",
 			s.newOpenChangeSet(13, &changesettest.Changes{}), 12),
 		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, updatedChanges).
-			Return(0, errors.New("bad things happened")),
+			Return(0, errBadThingsHappened),
 	)
 
-	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
-
+	err := s.mgr.Change(addLines("foo", "bar"))
+	require.Equal(t, errBadThingsHappened, err)
 }
 
 func TestManager_ChangeVersionMismatchUpdatingChangeSet(t *testing.T) {
@@ -246,12 +252,52 @@ func TestManager_ChangeSuccess(t *testing.T) {
 }
 
 func TestManager_ChangeOnCommittedChangeSet(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	gomock.InOrder(
+		s.mockGetOrCreate("config", &changesettest.Config{}, 72),
+		s.mockGetOrCreate("config/_changes/72", s.newChangeSet(72, changesetpb.ChangeSetState_COMMITTED,
+			&changesettest.Changes{
+				Lines: []string{"ark", "bork"},
+			}), 29),
+	)
+
+	err := s.mgr.Change(addLines("foo", "bar"))
+	require.Equal(t, ErrCommitInProgress, err)
 }
 
 func TestManager_ChangeOnCommittingChangeSet(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	gomock.InOrder(
+		s.mockGetOrCreate("config", &changesettest.Config{}, 72),
+		s.mockGetOrCreate("config/_changes/72", s.newChangeSet(72, changesetpb.ChangeSetState_COMMITTING,
+			&changesettest.Changes{
+				Lines: []string{"ark", "bork"},
+			}), 29),
+	)
+
+	err := s.mgr.Change(addLines("foo", "bar"))
+	require.Equal(t, ErrCommitInProgress, err)
 }
 
 func TestManager_ChangeFunctionFails(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	gomock.InOrder(
+		s.mockGetOrCreate("config", &changesettest.Config{}, 72),
+		s.mockGetOrCreate("config/_changes/72", s.newOpenChangeSet(72, &changesettest.Changes{
+			Lines: []string{"ark", "bork"},
+		}), 29),
+	)
+
+	err := s.mgr.Change(func(cfg, changes proto.Message) error {
+		return errBadThingsHappened
+	})
+	require.Equal(t, errBadThingsHappened, err)
 }
 
 func TestManagerCommit(t *testing.T) {
