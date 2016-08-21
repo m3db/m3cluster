@@ -81,7 +81,13 @@ type ChangeFn func(config, changes proto.Message) error
 // configuration
 type ApplyFn func(config, changes proto.Message) error
 
-// A Manager manages sets of changes in a version friendly mannger
+// A Manager manages sets of changes in a version friendly manager.  Changes to
+// a given version of a configuration object are stored under
+// <key>/_changes/<version>.  Multiple changes can be added, then committed all
+// at once.  Committing transforms the configuration according to the changes,
+// then writes the configuration back.  CAS operations are used to ensure that
+// commits are not applied more than once, and to avoid conflicts on the change
+// object itself.
 type Manager interface {
 	// Change creates a new change against the latest configuration, adding it
 	// to the set of pending changes for that configuration
