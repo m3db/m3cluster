@@ -7,7 +7,3 @@ import:
   subpackages:
   - assert
   - require
-- package: github.com/golang/mock
-  subpackages:
-  - gomock
-  - mockgen    
