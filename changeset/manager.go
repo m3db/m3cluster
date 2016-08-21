@@ -87,9 +87,8 @@ type Manager interface {
 	// to the set of pending changes for that configuration
 	Change(change ChangeFn) error
 
-	// GetLastUncommitted gets the latest configuration and the uncommitted
-	// changes associated with that config version
-	//	GetLastUncommitted(config, changes proto.Message) (int, error)
+	// GetPendingChanges gets the latest uncommitted changes
+	GetPendingChanges() (int, proto.Message, proto.Message, error)
 
 	// Commit commits the specified ChangeSet, transforming the configuration on
 	// which they are based into a new configuration, and storing that new
@@ -199,6 +198,51 @@ func (m manager) Change(change ChangeFn) error {
 
 		return nil
 	}
+}
+
+func (m manager) GetPendingChanges() (int, proto.Message, proto.Message, error) {
+	// Get the current configuration, but don't bother trying to create it if it doesn't exist
+	configVal, err := m.kv.Get(m.key)
+	if err != nil {
+		return 0, nil, nil, err
+	}
+
+	// Retrieve the config data so that we can transform it appropriately
+	config := proto.Clone(m.configType)
+	if err := configVal.Unmarshal(config); err != nil {
+		return 0, nil, nil, err
+	}
+
+	// Get the change set for the current configuration, again not bothering to
+	// create if it doesn't exist
+	csKey := fmtChangeSetKey(m.key, configVal.Version())
+	csVal, err := m.kv.Get(csKey)
+	if err != nil {
+		if err == kv.ErrNotFound {
+			// It's ok, just means no pending changes
+			return configVal.Version(), config, nil, nil
+		}
+
+		return 0, nil, nil, err
+	}
+
+	var changeset changesetpb.ChangeSet
+	if err := csVal.Unmarshal(&changeset); err != nil {
+		return 0, nil, nil, err
+	}
+
+	if changeset.State == changesetpb.ChangeSetState_COMMITTED {
+		// There are no pending changes
+		return configVal.Version(), config, nil, nil
+	}
+
+	// Retrieve the changes
+	changes := proto.Clone(m.changesType)
+	if err := proto.Unmarshal(changeset.Changes, changes); err != nil {
+		return 0, nil, nil, err
+	}
+
+	return configVal.Version(), config, changes, nil
 }
 
 func (m manager) Commit(version int, apply ApplyFn) error {

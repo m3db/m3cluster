@@ -426,12 +426,6 @@ func TestManagerCommit_ConfigUnmarshalError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestManagerCommit_ChangeSetGetError(t *testing.T) {
-}
-
-func TestManagerCommit_ChangeSetUnmarshalError(t *testing.T) {
-}
-
 func TestManagerCommit_ChangeSetCommitting(t *testing.T) {
 	s := newTestSuite(t)
 	defer s.finish()
@@ -566,9 +560,6 @@ func TestManagerCommit_ChangeSetErrorMarkingAsCommitting(t *testing.T) {
 
 	err := s.mgr.Commit(committedVersion, commit)
 	require.Equal(t, errBadThingsHappened, err)
-}
-
-func TestManagerCommit_ChangesUnmarshalError(t *testing.T) {
 }
 
 func TestManagerCommit_CommitFunctionError(t *testing.T) {
@@ -757,6 +748,164 @@ func TestManagerCommit_ChangeSetVersionMismatchMarkingAsCommitted(t *testing.T) 
 	require.Equal(t, ErrAlreadyCommitted, err)
 }
 
+func TestManager_GetPendingChangesSuccess(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	config := &changesettest.Config{
+		Text: "foo\nbar\n",
+	}
+	changes := &changesettest.Changes{
+		Lines: []string{"zed", "brack"},
+	}
+
+	gomock.InOrder(
+		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(13, config), nil),
+		s.kv.EXPECT().Get(fmtChangeSetKey(s.configKey, 13)).Return(kv.NewFakeValue(24, &changesetpb.ChangeSet{
+			ForVersion: 13,
+			State:      changesetpb.ChangeSetState_OPEN,
+			Changes:    s.marshal(changes),
+		}), nil),
+	)
+
+	vers, returnedConfig, returnedChanges, err := s.mgr.GetPendingChanges()
+	require.NoError(t, err)
+	require.Equal(t, 13, vers)
+	require.Equal(t, *config, *(returnedConfig.(*changesettest.Config)))
+	require.Equal(t, *changes, *(returnedChanges.(*changesettest.Changes)))
+}
+
+func TestManager_GetPendingChangesGetConfigError(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	gomock.InOrder(
+		s.kv.EXPECT().Get(s.configKey).Return(nil, errBadThingsHappened),
+	)
+
+	vers, returnedConfig, returnedChanges, err := s.mgr.GetPendingChanges()
+	require.Equal(t, errBadThingsHappened, err)
+	require.Equal(t, 0, vers)
+	require.Nil(t, returnedConfig)
+	require.Nil(t, returnedChanges)
+}
+
+func TestManager_GetPendingChangesConfigUnmarshalError(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValueWithData(13, []byte("foo")), nil)
+
+	_, _, _, err := s.mgr.GetPendingChanges()
+	require.Error(t, err)
+}
+
+func TestManager_GetPendingChangesGetChangeSetError(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	config := &changesettest.Config{
+		Text: "foo\nbar\n",
+	}
+
+	gomock.InOrder(
+		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(13, config), nil),
+		s.kv.EXPECT().Get(fmtChangeSetKey(s.configKey, 13)).Return(nil, errBadThingsHappened),
+	)
+
+	vers, returnedConfig, returnedChanges, err := s.mgr.GetPendingChanges()
+	require.Equal(t, errBadThingsHappened, err)
+	require.Equal(t, 0, vers)
+	require.Nil(t, returnedConfig)
+	require.Nil(t, returnedChanges)
+}
+
+func TestManager_GetPendingChangesChangeSetNotFound(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	config := &changesettest.Config{
+		Text: "foo\nbar\n",
+	}
+
+	gomock.InOrder(
+		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(13, config), nil),
+		s.kv.EXPECT().Get(fmtChangeSetKey(s.configKey, 13)).Return(nil, kv.ErrNotFound),
+	)
+
+	vers, returnedConfig, returnedChanges, err := s.mgr.GetPendingChanges()
+	require.NoError(t, err)
+	require.Equal(t, 13, vers)
+	require.Equal(t, *config, *(returnedConfig.(*changesettest.Config)))
+	require.Nil(t, returnedChanges)
+}
+
+func TestManager_GetPendingChangesChangeSetUnmarshalError(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	config := &changesettest.Config{
+		Text: "foo\nbar\n",
+	}
+
+	gomock.InOrder(
+		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(13, config), nil),
+		s.kv.EXPECT().Get(fmtChangeSetKey(s.configKey, 13)).
+			Return(kv.NewFakeValueWithData(24, []byte("foo")), nil),
+	)
+
+	_, _, _, err := s.mgr.GetPendingChanges()
+	require.Error(t, err)
+}
+
+func TestManager_GetPendingChangesChangeSetCommitted(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	config := &changesettest.Config{
+		Text: "foo\nbar\n",
+	}
+	changes := &changesettest.Changes{
+		Lines: []string{"zed", "brack"},
+	}
+
+	gomock.InOrder(
+		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(13, config), nil),
+		s.kv.EXPECT().Get(fmtChangeSetKey(s.configKey, 13)).Return(kv.NewFakeValue(24, &changesetpb.ChangeSet{
+			ForVersion: 13,
+			State:      changesetpb.ChangeSetState_COMMITTED,
+			Changes:    s.marshal(changes),
+		}), nil),
+	)
+
+	vers, returnedConfig, returnedChanges, err := s.mgr.GetPendingChanges()
+	require.NoError(t, err)
+	require.Equal(t, 13, vers)
+	require.Equal(t, *config, *(returnedConfig.(*changesettest.Config)))
+	require.Nil(t, returnedChanges)
+}
+
+func TestManager_GetPendingChangesChangeUnmarshalError(t *testing.T) {
+	s := newTestSuite(t)
+	defer s.finish()
+
+	config := &changesettest.Config{
+		Text: "foo\nbar\n",
+	}
+
+	gomock.InOrder(
+		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(13, config), nil),
+		s.kv.EXPECT().Get(fmtChangeSetKey(s.configKey, 13)).Return(kv.NewFakeValue(24, &changesetpb.ChangeSet{
+			ForVersion: 13,
+			State:      changesetpb.ChangeSetState_OPEN,
+			Changes:    []byte("foo"), // invalid proto buf
+		}), nil),
+	)
+
+	_, _, _, err := s.mgr.GetPendingChanges()
+	require.Error(t, err)
+}
+
 type configMatcher struct {
 	CapturingProtoMatcher
 }
@@ -826,6 +975,12 @@ func newTestSuite(t *testing.T) *testSuite {
 
 func (t *testSuite) finish() {
 	t.mc.Finish()
+}
+
+func (t *testSuite) marshal(msg proto.Message) []byte {
+	b, err := proto.Marshal(msg)
+	require.NoError(t.t, err)
+	return b
 }
 
 func (t *testSuite) newOpenChangeSet(forVersion int, changes proto.Message) *changesetpb.ChangeSet {
