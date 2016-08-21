@@ -22,7 +22,6 @@ package changeset
 
 import (
 	"errors"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -78,31 +77,23 @@ func TestManager_ChangeInterruptOnCreateOfInitialConfig(t *testing.T) {
 	defer s.finish()
 
 	var (
-		config1    = new(configMatcher)
-		config2    = new(configMatcher)
-		changes1   = new(changeSetMatcher)
-		changes2   = new(changeSetMatcher)
-		configVal  = s.newMockValue()
-		changesVal = s.newMockValue()
+		configVal  = kv.NewFakeValue(2, &changesettest.Config{})
+		changesVal = kv.NewFakeValue(12, s.newOpenChangeSet(2, &changesettest.Changes{}))
 	)
 
 	gomock.InOrder(
 		// Initial attempt to create config - someone else gets there first
 		s.kv.EXPECT().Get("config").Return(nil, kv.ErrNotFound),
-		s.kv.EXPECT().SetIfNotExists("config", config1).Return(0, kv.ErrAlreadyExists),
+		s.kv.EXPECT().SetIfNotExists("config", gomock.Any()).Return(0, kv.ErrAlreadyExists),
 
 		// Will refetch
 		s.kv.EXPECT().Get("config").Return(configVal, nil),
-		configVal.EXPECT().Unmarshal(config2).Return(nil),
 
 		// Fetch corresponding changes
-		configVal.EXPECT().Version().Return(2),
 		s.kv.EXPECT().Get("config/_changes/2").Return(changesVal, nil),
-		changesVal.EXPECT().Unmarshal(changes1).Return(nil),
-		changesVal.EXPECT().Version().Return(12),
 
 		// ...And update
-		s.kv.EXPECT().CheckAndSet("config/_changes/2", 12, changes2).Return(13, nil),
+		s.kv.EXPECT().CheckAndSet("config/_changes/2", 12, gomock.Any()).Return(13, nil),
 	)
 
 	require.NoError(t, s.mgr.Change(addLines("foo", "bar")))
@@ -115,26 +106,21 @@ func TestManager_ChangeInterruptOnCreateOfInitialChangeSet(t *testing.T) {
 	defer s.finish()
 
 	var (
-		changes1   = new(changeSetMatcher)
-		changes2   = new(changeSetMatcher)
-		changes3   = new(changeSetMatcher)
-		changesVal = s.newMockValue()
+		changesVal = kv.NewFakeValue(12, s.newOpenChangeSet(13, &changesettest.Changes{}))
 	)
 
 	gomock.InOrder(
-		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(13, &changesettest.Config{}), nil),
 
 		// Initial attempt to create changes - someone else gets there first
 		s.kv.EXPECT().Get("config/_changes/13").Return(nil, kv.ErrNotFound),
-		s.kv.EXPECT().SetIfNotExists("config/_changes/13", changes1).Return(0, kv.ErrAlreadyExists),
+		s.kv.EXPECT().SetIfNotExists("config/_changes/13", gomock.Any()).Return(0, kv.ErrAlreadyExists),
 
 		// Will refetch
 		s.kv.EXPECT().Get("config/_changes/13").Return(changesVal, nil),
-		changesVal.EXPECT().Unmarshal(changes2).Return(nil),
-		changesVal.EXPECT().Version().Return(12),
 
 		// ...And update
-		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, changes3).Return(13, nil),
+		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, gomock.Any()).Return(13, nil),
 	)
 
 	require.NoError(t, s.mgr.Change(addLines("foo", "bar")))
@@ -160,7 +146,7 @@ func TestManager_ChangeErrorRetrievingChangeSet(t *testing.T) {
 	defer s.finish()
 
 	gomock.InOrder(
-		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(13, &changesettest.Config{}), nil),
 		s.kv.EXPECT().Get("config/_changes/13").Return(nil, errBadThingsHappened),
 	)
 
@@ -175,12 +161,12 @@ func TestManager_ChangeErrorUnmarshallingInitialChange(t *testing.T) {
 	defer s.finish()
 
 	gomock.InOrder(
-		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
-		s.mockGetOrCreate("config/_changes/13", &changesetpb.ChangeSet{
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(13, &changesettest.Config{}), nil),
+		s.kv.EXPECT().Get("config/_changes/13").Return(kv.NewFakeValue(12, &changesetpb.ChangeSet{
 			ForVersion: 13,
 			State:      changesetpb.ChangeSetState_OPEN,
 			Changes:    []byte("foo"), // Not a valid proto
-		}, 12),
+		}), nil),
 	)
 
 	require.Error(t, s.mgr.Change(addLines("foo", "bar")))
@@ -195,9 +181,9 @@ func TestManager_ChangeErrorUpdatingChangeSet(t *testing.T) {
 	)
 
 	gomock.InOrder(
-		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
-		s.mockGetOrCreate("config/_changes/13",
-			s.newOpenChangeSet(13, &changesettest.Changes{}), 12),
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(13, &changesettest.Config{}), nil),
+		s.kv.EXPECT().Get("config/_changes/13").Return(kv.NewFakeValue(12,
+			s.newOpenChangeSet(13, &changesettest.Changes{})), nil),
 		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, updatedChanges).
 			Return(0, errBadThingsHappened),
 	)
@@ -217,16 +203,18 @@ func TestManager_ChangeVersionMismatchUpdatingChangeSet(t *testing.T) {
 
 	gomock.InOrder(
 		// Version mismatch while updating changeset
-		s.mockGetOrCreate("config", &changesettest.Config{}, 13),
-		s.mockGetOrCreate("config/_changes/13", s.newOpenChangeSet(13, &changesettest.Changes{}), 12),
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(13, &changesettest.Config{}), nil),
+		s.kv.EXPECT().Get("config/_changes/13").Return(kv.NewFakeValue(12,
+			s.newOpenChangeSet(13, &changesettest.Changes{})), nil),
 		s.kv.EXPECT().CheckAndSet("config/_changes/13", 12, changes1).
 			Return(0, kv.ErrVersionMismatch),
 
 		// Will try again
-		s.mockGetOrCreate("config", &changesettest.Config{}, 14),
-		s.mockGetOrCreate("config/_changes/14", s.newOpenChangeSet(14, &changesettest.Changes{
-			Lines: []string{"zed"},
-		}), 22),
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(14, &changesettest.Config{}), nil),
+		s.kv.EXPECT().Get("config/_changes/14").Return(kv.NewFakeValue(22,
+			s.newOpenChangeSet(14, &changesettest.Changes{
+				Lines: []string{"zed"},
+			})), nil),
 		s.kv.EXPECT().CheckAndSet("config/_changes/14", 22, changes2).Return(23, nil),
 	)
 
@@ -240,10 +228,11 @@ func TestManager_ChangeSuccess(t *testing.T) {
 
 	updatedChanges := new(changeSetMatcher)
 	gomock.InOrder(
-		s.mockGetOrCreate("config", &changesettest.Config{}, 72),
-		s.mockGetOrCreate("config/_changes/72", s.newOpenChangeSet(72, &changesettest.Changes{
-			Lines: []string{"ark", "bork"},
-		}), 29),
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(72, &changesettest.Config{}), nil),
+		s.kv.EXPECT().Get("config/_changes/72").Return(kv.NewFakeValue(29,
+			s.newOpenChangeSet(72, &changesettest.Changes{
+				Lines: []string{"ark", "bork"},
+			})), nil),
 		s.kv.EXPECT().CheckAndSet("config/_changes/72", 29, updatedChanges).Return(23, nil),
 	)
 
@@ -256,11 +245,12 @@ func TestManager_ChangeOnCommittedChangeSet(t *testing.T) {
 	defer s.finish()
 
 	gomock.InOrder(
-		s.mockGetOrCreate("config", &changesettest.Config{}, 72),
-		s.mockGetOrCreate("config/_changes/72", s.newChangeSet(72, changesetpb.ChangeSetState_COMMITTED,
-			&changesettest.Changes{
-				Lines: []string{"ark", "bork"},
-			}), 29),
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(72, &changesettest.Config{}), nil),
+		s.kv.EXPECT().Get("config/_changes/72").Return(kv.NewFakeValue(29,
+			s.newChangeSet(72, changesetpb.ChangeSetState_COMMITTED,
+				&changesettest.Changes{
+					Lines: []string{"ark", "bork"},
+				})), nil),
 	)
 
 	err := s.mgr.Change(addLines("foo", "bar"))
@@ -272,11 +262,12 @@ func TestManager_ChangeOnCommittingChangeSet(t *testing.T) {
 	defer s.finish()
 
 	gomock.InOrder(
-		s.mockGetOrCreate("config", &changesettest.Config{}, 72),
-		s.mockGetOrCreate("config/_changes/72", s.newChangeSet(72, changesetpb.ChangeSetState_COMMITTING,
-			&changesettest.Changes{
-				Lines: []string{"ark", "bork"},
-			}), 29),
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(72, &changesettest.Config{}), nil),
+		s.kv.EXPECT().Get("config/_changes/72").Return(kv.NewFakeValue(29,
+			s.newChangeSet(72, changesetpb.ChangeSetState_COMMITTING,
+				&changesettest.Changes{
+					Lines: []string{"ark", "bork"},
+				})), nil),
 	)
 
 	err := s.mgr.Change(addLines("foo", "bar"))
@@ -288,10 +279,11 @@ func TestManager_ChangeFunctionFails(t *testing.T) {
 	defer s.finish()
 
 	gomock.InOrder(
-		s.mockGetOrCreate("config", &changesettest.Config{}, 72),
-		s.mockGetOrCreate("config/_changes/72", s.newOpenChangeSet(72, &changesettest.Changes{
-			Lines: []string{"ark", "bork"},
-		}), 29),
+		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(72, &changesettest.Config{}), nil),
+		s.kv.EXPECT().Get("config/_changes/72").Return(kv.NewFakeValue(29,
+			s.newOpenChangeSet(72, &changesettest.Changes{
+				Lines: []string{"ark", "bork"},
+			})), nil),
 	)
 
 	err := s.mgr.Change(func(cfg, changes proto.Message) error {
@@ -834,24 +826,6 @@ func newTestSuite(t *testing.T) *testSuite {
 
 func (t *testSuite) finish() {
 	t.mc.Finish()
-}
-
-func (t *testSuite) newMockValue() *kv.MockValue {
-	return kv.NewMockValue(t.mc)
-}
-
-func (t *testSuite) mockUnmarshal(val *kv.MockValue, msg proto.Message) *gomock.Call {
-	// SetArg requires a non-pointer type
-	unPtr := reflect.ValueOf(msg).Elem().Interface()
-	return val.EXPECT().Unmarshal(gomock.Any()).SetArg(0, unPtr).Return(nil)
-}
-
-func (t *testSuite) mockGetOrCreate(key string, msg proto.Message, vers int) *gomock.Call {
-	val := t.newMockValue()
-	c1 := t.kv.EXPECT().Get(key).Return(val, nil)
-	c2 := t.mockUnmarshal(val, msg).After(c1)
-	c3 := val.EXPECT().Version().Return(vers).After(c2)
-	return c3
 }
 
 func (t *testSuite) newOpenChangeSet(forVersion int, changes proto.Message) *changesetpb.ChangeSet {
