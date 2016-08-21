@@ -21,8 +21,9 @@
 package kv
 
 import (
-	"github.com/golang/protobuf/proto"
 	"sync"
+
+	"github.com/golang/protobuf/proto"
 )
 
 // NewMockStore returns a new in-process store that can be used for testing
