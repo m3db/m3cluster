@@ -906,6 +906,37 @@ func TestManager_GetPendingChangesChangeUnmarshalError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestManagerOptions_Validate(t *testing.T) {
+	tests := []struct {
+		err  error
+		opts ManagerOptions
+	}{
+		{errConfigKeyNotSet, NewManagerOptions().
+			ConfigType(&changesettest.Config{}).
+			ChangesType(&changesettest.Changes{}).
+			KV(kv.NewFakeStore())},
+
+		{errConfigTypeNotSet, NewManagerOptions().
+			ConfigKey("foozle").
+			ChangesType(&changesettest.Changes{}).
+			KV(kv.NewFakeStore())},
+
+		{errChangeTypeNotSet, NewManagerOptions().
+			ConfigKey("bazzle").
+			ConfigType(&changesettest.Config{}).
+			KV(kv.NewFakeStore())},
+
+		{errKVNotSet, NewManagerOptions().
+			ConfigKey("muzzle").
+			ConfigType(&changesettest.Config{}).
+			ChangesType(&changesettest.Changes{})},
+	}
+
+	for _, test := range tests {
+		require.Equal(t, test.err, test.opts.Validate())
+	}
+}
+
 type configMatcher struct {
 	CapturingProtoMatcher
 }
@@ -958,11 +989,13 @@ func newTestSuite(t *testing.T) *testSuite {
 	mc := gomock.NewController(t)
 	kvStore := kv.NewMockStore(mc)
 	configKey := "config"
-	mgr := NewManager(NewManagerOptions().
+	mgr, err := NewManager(NewManagerOptions().
 		KV(kvStore).
 		ConfigType(&changesettest.Config{}).
 		ChangesType(&changesettest.Changes{}).
 		ConfigKey(configKey))
+
+	require.NoError(t, err)
 
 	return &testSuite{
 		t:         t,

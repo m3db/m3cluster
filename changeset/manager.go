@@ -42,6 +42,12 @@ var (
 	// ErrUnknownVersion is returned when attempting to commit a change for
 	// a version that doesn't exist
 	ErrUnknownVersion = errors.New("unknown version")
+
+	errOptsNotSet       = errors.New("opts must not be nil")
+	errKVNotSet         = errors.New("KV must be specified")
+	errConfigKeyNotSet  = errors.New("configKey must be specified")
+	errConfigTypeNotSet = errors.New("configType must be specified")
+	errChangeTypeNotSet = errors.New("changesType must be specified")
 )
 
 // ManagerOptions are options used in creating a new ChangeSet Manager
@@ -69,6 +75,9 @@ type ManagerOptions interface {
 	// instances.
 	ChangesType(changes proto.Message) ManagerOptions
 	GetChangesType() proto.Message
+
+	// Validate validates the options
+	Validate() error
 }
 
 // NewManagerOptions creates an empty ManagerOptions
@@ -105,25 +114,13 @@ type Manager interface {
 }
 
 // NewManager creates a new change list Manager
-func NewManager(opts ManagerOptions) Manager {
+func NewManager(opts ManagerOptions) (Manager, error) {
 	if opts == nil {
-		panic("opts must not be nil")
+		return nil, errOptsNotSet
 	}
 
-	if opts.GetConfigKey() == "" {
-		panic("opts.ConfigKey must be set")
-	}
-
-	if opts.GetKV() == nil {
-		panic("opts.KV must be set")
-	}
-
-	if opts.GetConfigType() == nil {
-		panic("opts.ConfigType must be set")
-	}
-
-	if opts.GetChangesType() == nil {
-		panic("opts.ChangesType must be set")
+	if err := opts.Validate(); err != nil {
+		return nil, err
 	}
 
 	logger := opts.GetLogger()
@@ -137,7 +134,7 @@ func NewManager(opts ManagerOptions) Manager {
 		configType:  proto.Clone(opts.GetConfigType()),
 		changesType: proto.Clone(opts.GetChangesType()),
 		log:         logger,
-	}
+	}, nil
 }
 
 type manager struct {
@@ -412,4 +409,24 @@ func (opts *managerOptions) ConfigType(ct proto.Message) ManagerOptions {
 func (opts *managerOptions) ChangesType(ct proto.Message) ManagerOptions {
 	opts.changesType = ct
 	return opts
+}
+
+func (opts *managerOptions) Validate() error {
+	if opts.GetConfigKey() == "" {
+		return errConfigKeyNotSet
+	}
+
+	if opts.GetKV() == nil {
+		return errKVNotSet
+	}
+
+	if opts.GetConfigType() == nil {
+		return errConfigTypeNotSet
+	}
+
+	if opts.GetChangesType() == nil {
+		return errChangeTypeNotSet
+	}
+
+	return nil
 }
