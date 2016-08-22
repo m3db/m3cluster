@@ -33,26 +33,26 @@ type Shard interface {
 // NewShard returns a new Shard
 func NewShard(s uint32) Shard { return &shard{id: s} }
 
-// ShardAssignment is a collection of shards owned by one ServiceInstance
-type ShardAssignment interface {
+// Shards is a collection of shards owned by one ServiceInstance
+type Shards interface {
 	Shards() []Shard // Shards returns the shards
 }
 
-// NewShardAssignment returns a new ShardAssignment
-func NewShardAssignment(ss []Shard) ShardAssignment { return &shardAssignment{ss: ss} }
+// NewShards returns a new instance of Shards
+func NewShards(ss []Shard) Shards { return &shards{ss: ss} }
 
 // A ServiceInstance is a single instance of a service
 type ServiceInstance interface {
-	Service() string                                      // the service implemented by the instance
-	SetService(s string) ServiceInstance                  // sets the service implemented by the instance
-	ID() string                                           // ID of the instance
-	SetID(id string) ServiceInstance                      // sets the ID of the instance
-	Zone() string                                         // Zone in which the instance resides
-	SetZone(z string) ServiceInstance                     // sets the zone in which the instance resides
-	Endpoint() string                                     // Endpoint address for contacting the instance
-	SetEndpoint(e string) ServiceInstance                 // sets the endpoint address for the instance
-	ShardAssignment() ShardAssignment                     // ShardAssignment of the instance
-	SetShardAssignment(s ShardAssignment) ServiceInstance // sets the ShardAssignment for the instance
+	Service() string                      // the service implemented by the instance
+	SetService(s string) ServiceInstance  // sets the service implemented by the instance
+	ID() string                           // ID of the instance
+	SetID(id string) ServiceInstance      // sets the ID of the instance
+	Zone() string                         // Zone in which the instance resides
+	SetZone(z string) ServiceInstance     // sets the zone in which the instance resides
+	Endpoint() string                     // Endpoint address for contacting the instance
+	SetEndpoint(e string) ServiceInstance // sets the endpoint address for the instance
+	Shards() Shards                       // Shards owned by the instance
+	SetShards(s Shards) ServiceInstance   // sets the Shards assigned to the instance
 }
 
 // NewServiceInstance creates a new ServiceInstance
@@ -115,33 +115,30 @@ type shard struct {
 
 func (s *shard) ID() uint32 { return s.id }
 
-type shardAssignment struct {
+type shards struct {
 	ss []Shard
 }
 
-func (s *shardAssignment) Shards() []Shard { return s.ss }
+func (s *shards) Shards() []Shard { return s.ss }
 
 type serviceInstance struct {
 	id       string
 	service  string
 	zone     string
 	endpoint string
-	shards   ShardAssignment
+	shards   Shards
 }
 
 func (i *serviceInstance) Service() string                      { return i.service }
 func (i *serviceInstance) ID() string                           { return i.id }
 func (i *serviceInstance) Zone() string                         { return i.zone }
 func (i *serviceInstance) Endpoint() string                     { return i.endpoint }
-func (i *serviceInstance) ShardAssignment() ShardAssignment     { return i.shards }
+func (i *serviceInstance) Shards() Shards                       { return i.shards }
 func (i *serviceInstance) SetService(s string) ServiceInstance  { i.service = s; return i }
 func (i *serviceInstance) SetID(id string) ServiceInstance      { i.id = id; return i }
 func (i *serviceInstance) SetZone(z string) ServiceInstance     { i.zone = z; return i }
 func (i *serviceInstance) SetEndpoint(e string) ServiceInstance { i.endpoint = e; return i }
-func (i *serviceInstance) SetShardAssignment(s ShardAssignment) ServiceInstance {
-	i.shards = s
-	return i
-}
+func (i *serviceInstance) SetShards(s Shards) ServiceInstance   { i.shards = s; return i }
 
 type advertisement struct {
 	id       string
