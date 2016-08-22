@@ -35,9 +35,13 @@ var (
 	// committed ChangeSet
 	ErrAlreadyCommitted = errors.New("change list already committed")
 
-	// ErrCommitInProgress is returned when attempting to make a change while a
-	// commit is in progress
+	// ErrCommitInProgress is returned when attempting to commit a change set
+	// that is already being committed
 	ErrCommitInProgress = errors.New("commit in progress")
+
+	// ErrChangeSetClosed is returned when attempting to make a change to a
+	// closed (committed / commit in progress) ChangeSet
+	ErrChangeSetClosed = errors.New("change set closed")
 
 	// ErrUnknownVersion is returned when attempting to commit a change for
 	// a version that doesn't exist
@@ -162,15 +166,15 @@ func (m manager) Change(change ChangeFn) error {
 			State:      changesetpb.ChangeSetState_OPEN,
 		}
 
-		csKey := fmtChangeSetKey(m.key, configVersion)
-		csVersion, err := m.getOrCreate(csKey, changeset)
+		changeSetKey := fmtChangeSetKey(m.key, configVersion)
+		csVersion, err := m.getOrCreate(changeSetKey, changeset)
 		if err != nil {
 			return err
 		}
 
 		// Only allow changes to an open change list
 		if changeset.State != changesetpb.ChangeSetState_OPEN {
-			return ErrCommitInProgress
+			return ErrChangeSetClosed
 		}
 
 		// Apply the new changes...
@@ -190,7 +194,7 @@ func (m manager) Change(change ChangeFn) error {
 
 		// ...and update the stored changes
 		changeset.Changes = changeBytes
-		if _, err := m.kv.CheckAndSet(csKey, csVersion, changeset); err != nil {
+		if _, err := m.kv.CheckAndSet(changeSetKey, csVersion, changeset); err != nil {
 			if err == kv.ErrVersionMismatch {
 				// Someone else updated the changes first - try again
 				continue
@@ -218,8 +222,8 @@ func (m manager) GetPendingChanges() (int, proto.Message, proto.Message, error) 
 
 	// Get the change set for the current configuration, again not bothering to
 	// create if it doesn't exist
-	csKey := fmtChangeSetKey(m.key, configVal.Version())
-	csVal, err := m.kv.Get(csKey)
+	changeSetKey := fmtChangeSetKey(m.key, configVal.Version())
+	changeSetVal, err := m.kv.Get(changeSetKey)
 	if err != nil {
 		if err == kv.ErrNotFound {
 			// It's ok, just means no pending changes
@@ -230,13 +234,8 @@ func (m manager) GetPendingChanges() (int, proto.Message, proto.Message, error) 
 	}
 
 	var changeset changesetpb.ChangeSet
-	if err := csVal.Unmarshal(&changeset); err != nil {
+	if err := changeSetVal.Unmarshal(&changeset); err != nil {
 		return 0, nil, nil, err
-	}
-
-	if changeset.State == changesetpb.ChangeSetState_COMMITTED {
-		// There are no pending changes
-		return configVal.Version(), config, nil, nil
 	}
 
 	// Retrieve the changes
@@ -273,31 +272,28 @@ func (m manager) Commit(version int, apply ApplyFn) error {
 
 	// Get the change set for the current configuration, again not bothering to create
 	// if it doesn't exist
-	csKey := fmtChangeSetKey(m.key, configVal.Version())
-	csVal, err := m.kv.Get(csKey)
+	changeSetKey := fmtChangeSetKey(m.key, configVal.Version())
+	changeSetVal, err := m.kv.Get(changeSetKey)
 	if err != nil {
 		return err
 	}
 
 	var changeset changesetpb.ChangeSet
-	if err := csVal.Unmarshal(&changeset); err != nil {
+	if err := changeSetVal.Unmarshal(&changeset); err != nil {
 		return err
 	}
 
-	// If the change list is already committed, bail out
-	if changeset.State == changesetpb.ChangeSetState_COMMITTED {
-		return ErrAlreadyCommitted
-	}
+	// If the change set is not already CLOSED, mark it as such to prevent new
+	// changes from being recorded while the commit is underway
+	if changeset.State != changesetpb.ChangeSetState_CLOSED {
+		changeset.State = changesetpb.ChangeSetState_CLOSED
+		if _, err := m.kv.CheckAndSet(changeSetKey, changeSetVal.Version(), &changeset); err != nil {
+			if err == kv.ErrVersionMismatch {
+				return ErrCommitInProgress
+			}
 
-	// Mark the change list as committing, so further changes are prevented
-	changeset.State = changesetpb.ChangeSetState_COMMITTING
-	newChangeSetVersion, err := m.kv.CheckAndSet(csKey, csVal.Version(), &changeset)
-	if err != nil {
-		if err == kv.ErrVersionMismatch {
-			return ErrCommitInProgress
+			return err
 		}
-
-		return err
 	}
 
 	// Transform the current configuration according to the change list
@@ -314,23 +310,6 @@ func (m manager) Commit(version int, apply ApplyFn) error {
 	// attempting to commit the current version again will fail
 	if _, err := m.kv.CheckAndSet(m.key, configVal.Version(), config); err != nil {
 		if err == kv.ErrVersionMismatch {
-			return ErrAlreadyCommitted
-		}
-
-		return err
-	}
-
-	// And mark the changes as ommitted
-	// TODO(mmihic): There is an error case here where the changes could be committed by the
-	// the changeset not updated. This is harmeless since the version number of the config will
-	// have been updated so we'll never return to this changeset again, but it does leave the
-	// changeset with the incorrect state of COMMITTING. We could have a mechanism to fix this,
-	// either automatically or by command
-	changeset.State = changesetpb.ChangeSetState_COMMITTED
-	if _, err := m.kv.CheckAndSet(csKey, newChangeSetVersion, &changeset); err != nil {
-		if err == kv.ErrVersionMismatch {
-			// NB(mmihic): This is an actual error - we should be the only ones modifying the
-			// new change set version
 			return ErrAlreadyCommitted
 		}
 

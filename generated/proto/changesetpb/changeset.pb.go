@@ -22,23 +22,20 @@ var _ = proto.Marshal
 type ChangeSetState int32
 
 const (
-	ChangeSetState_UNKNOWN    ChangeSetState = 0
-	ChangeSetState_OPEN       ChangeSetState = 1
-	ChangeSetState_COMMITTING ChangeSetState = 2
-	ChangeSetState_COMMITTED  ChangeSetState = 3
+	ChangeSetState_UNKNOWN ChangeSetState = 0
+	ChangeSetState_OPEN    ChangeSetState = 1
+	ChangeSetState_CLOSED  ChangeSetState = 2
 )
 
 var ChangeSetState_name = map[int32]string{
 	0: "UNKNOWN",
 	1: "OPEN",
-	2: "COMMITTING",
-	3: "COMMITTED",
+	2: "CLOSED",
 }
 var ChangeSetState_value = map[string]int32{
-	"UNKNOWN":    0,
-	"OPEN":       1,
-	"COMMITTING": 2,
-	"COMMITTED":  3,
+	"UNKNOWN": 0,
+	"OPEN":    1,
+	"CLOSED":  2,
 }
 
 func (x ChangeSetState) String() string {

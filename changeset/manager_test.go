@@ -240,38 +240,21 @@ func TestManager_ChangeSuccess(t *testing.T) {
 	require.Equal(t, updatedChanges.changes(t).Lines, []string{"ark", "bork", "foo", "bar"})
 }
 
-func TestManager_ChangeOnCommittedChangeSet(t *testing.T) {
+func TestManager_ChangeOnClosedChangeSet(t *testing.T) {
 	s := newTestSuite(t)
 	defer s.finish()
 
 	gomock.InOrder(
 		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(72, &changesettest.Config{}), nil),
 		s.kv.EXPECT().Get("config/_changes/72").Return(kv.NewFakeValue(29,
-			s.newChangeSet(72, changesetpb.ChangeSetState_COMMITTED,
+			s.newChangeSet(72, changesetpb.ChangeSetState_CLOSED,
 				&changesettest.Changes{
 					Lines: []string{"ark", "bork"},
 				})), nil),
 	)
 
 	err := s.mgr.Change(addLines("foo", "bar"))
-	require.Equal(t, ErrCommitInProgress, err)
-}
-
-func TestManager_ChangeOnCommittingChangeSet(t *testing.T) {
-	s := newTestSuite(t)
-	defer s.finish()
-
-	gomock.InOrder(
-		s.kv.EXPECT().Get("config").Return(kv.NewFakeValue(72, &changesettest.Config{}), nil),
-		s.kv.EXPECT().Get("config/_changes/72").Return(kv.NewFakeValue(29,
-			s.newChangeSet(72, changesetpb.ChangeSetState_COMMITTING,
-				&changesettest.Changes{
-					Lines: []string{"ark", "bork"},
-				})), nil),
-	)
-
-	err := s.mgr.Change(addLines("foo", "bar"))
-	require.Equal(t, ErrCommitInProgress, err)
+	require.Equal(t, ErrChangeSetClosed, err)
 }
 
 func TestManager_ChangeFunctionFails(t *testing.T) {
@@ -298,7 +281,6 @@ func TestManagerCommit_Success(t *testing.T) {
 
 	var (
 		changeSet1 = new(changeSetMatcher)
-		changeSet2 = new(changeSetMatcher)
 		config1    = new(configMatcher)
 
 		committedVersion = 22
@@ -326,17 +308,12 @@ func TestManagerCommit_Success(t *testing.T) {
 		// Update the transformed confi
 		s.kv.EXPECT().CheckAndSet(s.configKey, committedVersion, config1).
 			Return(committedVersion+1, nil),
-
-		// Mark as committed
-		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion+1, changeSet2).
-			Return(changeSetVersion+2, nil),
 	)
 
 	err := s.mgr.Commit(committedVersion, commit)
 	require.NoError(t, err)
 
-	require.Equal(t, changesetpb.ChangeSetState_COMMITTING, changeSet1.changeset(t).State)
-	require.Equal(t, changesetpb.ChangeSetState_COMMITTED, changeSet2.changeset(t).State)
+	require.Equal(t, changesetpb.ChangeSetState_CLOSED, changeSet1.changeset(t).State)
 	require.Equal(t, "shoop\nwoop\nhoop\nfoo\nbar", config1.config().Text)
 }
 
@@ -426,14 +403,12 @@ func TestManagerCommit_ConfigUnmarshalError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestManagerCommit_ChangeSetCommitting(t *testing.T) {
+func TestManagerCommit_ChangeSetClosing(t *testing.T) {
 	s := newTestSuite(t)
 	defer s.finish()
 
 	var (
-		changeSet1 = new(changeSetMatcher)
-		changeSet2 = new(changeSetMatcher)
-		config1    = new(configMatcher)
+		config1 = new(configMatcher)
 
 		committedVersion = 22
 		changeSetVersion = 17
@@ -449,28 +424,22 @@ func TestManagerCommit_ChangeSetCommitting(t *testing.T) {
 
 		// Retrieve the change set
 		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
-			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
+			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_CLOSED, &changesettest.Changes{
 				Lines: []string{"foo", "bar"},
 			})), nil),
 
-		// Mark as committing
-		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, changeSet1).
-			Return(changeSetVersion+1, nil),
+		// NB(mmihic): Don't re-update the change set
 
-		// Update the transformed confi
+		// Update the transformed config
 		s.kv.EXPECT().CheckAndSet(s.configKey, committedVersion, config1).
 			Return(committedVersion+1, nil),
-
-		// Mark as committed
-		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion+1, changeSet2).
-			Return(changeSetVersion+2, nil),
 	)
 
 	err := s.mgr.Commit(committedVersion, commit)
 	require.NoError(t, err)
 }
 
-func TestMangerCommit_ChangeSetCommitted(t *testing.T) {
+func TestManagerCommit_ChangeSetVersionMismatchMarkingAsClosed(t *testing.T) {
 	s := newTestSuite(t)
 	defer s.finish()
 
@@ -489,39 +458,11 @@ func TestMangerCommit_ChangeSetCommitted(t *testing.T) {
 
 		// Retrieve the change set
 		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
-			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTED, &changesettest.Changes{
-				Lines: []string{"foo", "bar"},
-			})), nil),
-	)
-
-	err := s.mgr.Commit(committedVersion, commit)
-	require.Equal(t, ErrAlreadyCommitted, err)
-}
-
-func TestManagerCommit_ChangeSetVersionMismatchMarkingAsCommitting(t *testing.T) {
-	s := newTestSuite(t)
-	defer s.finish()
-
-	var (
-		committedVersion = 22
-		changeSetVersion = 17
-		changeSetKey     = fmtChangeSetKey(s.configKey, committedVersion)
-	)
-
-	gomock.InOrder(
-		// Retrieve the config value
-		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(committedVersion,
-			&changesettest.Config{
-				Text: "shoop\nwoop\nhoop",
-			}), nil),
-
-		// Retrieve the change set
-		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
-			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
+			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_OPEN, &changesettest.Changes{
 				Lines: []string{"foo", "bar"},
 			})), nil),
 
-		// Mark as committing - fail with version mismatch
+		// Mark as closed - fail with version mismatch
 		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, gomock.Any()).
 			Return(0, kv.ErrVersionMismatch),
 	)
@@ -530,7 +471,7 @@ func TestManagerCommit_ChangeSetVersionMismatchMarkingAsCommitting(t *testing.T)
 	require.Equal(t, ErrCommitInProgress, err)
 }
 
-func TestManagerCommit_ChangeSetErrorMarkingAsCommitting(t *testing.T) {
+func TestManagerCommit_ChangeSetErrorMarkingAsClosed(t *testing.T) {
 	s := newTestSuite(t)
 	defer s.finish()
 
@@ -549,7 +490,7 @@ func TestManagerCommit_ChangeSetErrorMarkingAsCommitting(t *testing.T) {
 
 		// Retrieve the change set
 		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
-			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
+			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_OPEN, &changesettest.Changes{
 				Lines: []string{"foo", "bar"},
 			})), nil),
 
@@ -581,11 +522,11 @@ func TestManagerCommit_CommitFunctionError(t *testing.T) {
 
 		// Retrieve the change set
 		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
-			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
+			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_OPEN, &changesettest.Changes{
 				Lines: []string{"foo", "bar"},
 			})), nil),
 
-		// Mark as committing
+		// Mark as closed
 		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, gomock.Any()).
 			Return(changeSetVersion+1, nil),
 	)
@@ -615,11 +556,11 @@ func TestManagerCommit_ConfigUpdateVersionMismatch(t *testing.T) {
 
 		// Retrieve the change set
 		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
-			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
+			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_OPEN, &changesettest.Changes{
 				Lines: []string{"foo", "bar"},
 			})), nil),
 
-		// Mark as committing
+		// Mark as closed
 		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, gomock.Any()).
 			Return(changeSetVersion+1, nil),
 
@@ -651,11 +592,11 @@ func TestManagerCommit_ConfigUpdateError(t *testing.T) {
 
 		// Retrieve the change set
 		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
-			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
+			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_OPEN, &changesettest.Changes{
 				Lines: []string{"foo", "bar"},
 			})), nil),
 
-		// Mark as committing
+		// Mark as closed
 		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, gomock.Any()).
 			Return(changeSetVersion+1, nil),
 
@@ -666,86 +607,6 @@ func TestManagerCommit_ConfigUpdateError(t *testing.T) {
 
 	err := s.mgr.Commit(committedVersion, commit)
 	require.Equal(t, errBadThingsHappened, err)
-}
-
-func TestManagerCommit_ChangeSetErrorMarkingAsCommitted(t *testing.T) {
-	s := newTestSuite(t)
-	defer s.finish()
-
-	var (
-		committedVersion = 22
-		changeSetVersion = 17
-		changeSetKey     = fmtChangeSetKey(s.configKey, committedVersion)
-	)
-
-	gomock.InOrder(
-		// Retrieve the config value
-		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(committedVersion,
-			&changesettest.Config{
-				Text: "shoop\nwoop\nhoop",
-			}), nil),
-
-		// Retrieve the change set
-		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
-			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
-				Lines: []string{"foo", "bar"},
-			})), nil),
-
-		// Mark as committing
-		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, gomock.Any()).
-			Return(changeSetVersion+1, nil),
-
-		// Update with new config
-		s.kv.EXPECT().CheckAndSet(s.configKey, committedVersion, gomock.Any()).
-			Return(committedVersion+1, nil),
-
-		// Mark as committed - FAIL
-		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion+1, gomock.Any()).
-			Return(0, errBadThingsHappened),
-	)
-
-	err := s.mgr.Commit(committedVersion, commit)
-	require.Equal(t, errBadThingsHappened, err)
-}
-
-func TestManagerCommit_ChangeSetVersionMismatchMarkingAsCommitted(t *testing.T) {
-	s := newTestSuite(t)
-	defer s.finish()
-
-	var (
-		committedVersion = 22
-		changeSetVersion = 17
-		changeSetKey     = fmtChangeSetKey(s.configKey, committedVersion)
-	)
-
-	gomock.InOrder(
-		// Retrieve the config value
-		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(committedVersion,
-			&changesettest.Config{
-				Text: "shoop\nwoop\nhoop",
-			}), nil),
-
-		// Retrieve the change set
-		s.kv.EXPECT().Get(changeSetKey).Return(kv.NewFakeValue(changeSetVersion,
-			s.newChangeSet(committedVersion, changesetpb.ChangeSetState_COMMITTING, &changesettest.Changes{
-				Lines: []string{"foo", "bar"},
-			})), nil),
-
-		// Mark as committing
-		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion, gomock.Any()).
-			Return(changeSetVersion+1, nil),
-
-		// Update with new config
-		s.kv.EXPECT().CheckAndSet(s.configKey, committedVersion, gomock.Any()).
-			Return(committedVersion+1, nil),
-
-		// Mark as committed - FAIL
-		s.kv.EXPECT().CheckAndSet(changeSetKey, changeSetVersion+1, gomock.Any()).
-			Return(0, kv.ErrVersionMismatch),
-	)
-
-	err := s.mgr.Commit(committedVersion, commit)
-	require.Equal(t, ErrAlreadyCommitted, err)
 }
 
 func TestManager_GetPendingChangesSuccess(t *testing.T) {
@@ -856,33 +717,6 @@ func TestManager_GetPendingChangesChangeSetUnmarshalError(t *testing.T) {
 
 	_, _, _, err := s.mgr.GetPendingChanges()
 	require.Error(t, err)
-}
-
-func TestManager_GetPendingChangesChangeSetCommitted(t *testing.T) {
-	s := newTestSuite(t)
-	defer s.finish()
-
-	config := &changesettest.Config{
-		Text: "foo\nbar\n",
-	}
-	changes := &changesettest.Changes{
-		Lines: []string{"zed", "brack"},
-	}
-
-	gomock.InOrder(
-		s.kv.EXPECT().Get(s.configKey).Return(kv.NewFakeValue(13, config), nil),
-		s.kv.EXPECT().Get(fmtChangeSetKey(s.configKey, 13)).Return(kv.NewFakeValue(24, &changesetpb.ChangeSet{
-			ForVersion: 13,
-			State:      changesetpb.ChangeSetState_COMMITTED,
-			Changes:    s.marshal(changes),
-		}), nil),
-	)
-
-	vers, returnedConfig, returnedChanges, err := s.mgr.GetPendingChanges()
-	require.NoError(t, err)
-	require.Equal(t, 13, vers)
-	require.Equal(t, *config, *(returnedConfig.(*changesettest.Config)))
-	require.Nil(t, returnedChanges)
 }
 
 func TestManager_GetPendingChangesChangeUnmarshalError(t *testing.T) {

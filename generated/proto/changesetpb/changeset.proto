@@ -25,9 +25,8 @@ package changesetpb;
 // ChangeSetState tracks the stateof a changeset
 enum ChangeSetState {
 	UNKNOWN = 0;
-	OPEN = 1;
-	COMMITTING = 2;
-	COMMITTED = 3;
+	OPEN = 1; 		// accepting new changes
+	CLOSED = 2;		// commit in progress, new changes rejected
 }
 
 // A ChangeSet is a set of changes that are applied together.  The exact
