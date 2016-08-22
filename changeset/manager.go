@@ -132,7 +132,7 @@ func NewManager(opts ManagerOptions) (Manager, error) {
 		logger = xlog.NullLogger
 	}
 
-	return &manager{
+	return manager{
 		key:         opts.GetConfigKey(),
 		kv:          opts.GetKV(),
 		configType:  proto.Clone(opts.GetConfigType()),
