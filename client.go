@@ -22,6 +22,7 @@ package cluster
 
 import (
 	"github.com/m3db/m3cluster/kv"
+	"github.com/m3db/m3x/watch"
 )
 
 // A ServiceInstance is a single instance of a service
@@ -38,6 +39,17 @@ type ServiceInstance interface {
 
 // NewServiceInstance creates a new ServiceInstance
 func NewServiceInstance() ServiceInstance { return new(serviceInstance) }
+
+// A Shard represents a piece of data owned by the service
+type Shard interface {
+	ID() uint32
+}
+
+// InstanceAssignment represents a ServiceInstance and the shards owned by it
+type InstanceAssignment interface {
+	ServiceInstance() ServiceInstance // ServiceInstance returns the ServiceInstance
+	Shards() Shard                    // Shards returns the shards
+}
 
 // Advertisement advertises the availability of a given instance of a service
 type Advertisement interface {
@@ -75,6 +87,9 @@ type Services interface {
 
 	// QueryInstances returns the list of available instances for a given service
 	QueryInstances(service string, opts QueryOptions) ([]ServiceInstance, error)
+
+	// WatchAssignment returns a watch on InstanceAssignment updates for a given service
+	WatchAssignment(service string, opts QueryOptions) (watch.Watch, error)
 }
 
 // Client is the base interface into the cluster management system, providing
