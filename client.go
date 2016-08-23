@@ -25,23 +25,6 @@ import (
 	"github.com/m3db/m3x/watch"
 )
 
-// A Shard represents a piece of data owned by the service
-type Shard interface {
-	ID() uint32 // ID returns the id of the shard
-}
-
-// NewShard returns a new Shard
-func NewShard(s uint32) Shard { return &shard{id: s} }
-
-// Shards is a collection of shards owned by one ServiceInstance
-type Shards interface {
-	Shards() []Shard // Shards returns the shards
-	ShardsLen() int  // ShardsLen returns the length of the shards
-}
-
-// NewShards returns a new instance of Shards
-func NewShards(ss []Shard) Shards { return &shards{ss: ss} }
-
 // A ServiceInstance is a single instance of a service
 type ServiceInstance interface {
 	Service() string                      // the service implemented by the instance
@@ -109,19 +92,6 @@ type Client interface {
 	// KV returns access to the distributed configuration store
 	KV() kv.Store
 }
-
-type shard struct {
-	id uint32
-}
-
-func (s *shard) ID() uint32 { return s.id }
-
-type shards struct {
-	ss []Shard
-}
-
-func (s *shards) Shards() []Shard { return s.ss }
-func (s *shards) ShardsLen() int { return len(s.ss) }
 
 type serviceInstance struct {
 	id       string
