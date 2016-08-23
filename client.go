@@ -36,6 +36,7 @@ func NewShard(s uint32) Shard { return &shard{id: s} }
 // Shards is a collection of shards owned by one ServiceInstance
 type Shards interface {
 	Shards() []Shard // Shards returns the shards
+	ShardsLen() int  // ShardsLen returns the length of the shards
 }
 
 // NewShards returns a new instance of Shards
@@ -120,6 +121,7 @@ type shards struct {
 }
 
 func (s *shards) Shards() []Shard { return s.ss }
+func (s *shards) ShardsLen() int { return len(s.ss) }
 
 type serviceInstance struct {
 	id       string
