@@ -5,7 +5,7 @@ package services
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	m3cluster "github.com/m3db/m3cluster"
+	shard "github.com/m3db/m3cluster/shard"
 	watch "github.com/m3db/m3x/watch"
 )
 
@@ -110,9 +110,9 @@ func (_mr *_MockServiceInstanceRecorder) SetEndpoint(arg0 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetEndpoint", arg0)
 }
 
-func (_m *MockServiceInstance) Shards() m3cluster.Shards {
+func (_m *MockServiceInstance) Shards() shard.Shards {
 	ret := _m.ctrl.Call(_m, "Shards")
-	ret0, _ := ret[0].(m3cluster.Shards)
+	ret0, _ := ret[0].(shard.Shards)
 	return ret0
 }
 
@@ -120,7 +120,7 @@ func (_mr *_MockServiceInstanceRecorder) Shards() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Shards")
 }
 
-func (_m *MockServiceInstance) SetShards(s m3cluster.Shards) ServiceInstance {
+func (_m *MockServiceInstance) SetShards(s shard.Shards) ServiceInstance {
 	ret := _m.ctrl.Call(_m, "SetShards", s)
 	ret0, _ := ret[0].(ServiceInstance)
 	return ret0
