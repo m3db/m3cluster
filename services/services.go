@@ -21,8 +21,8 @@
 package services
 
 import (
-	"github.com/m3db/m3cluster"
-	"github.com/m3db/m3x/watch"
+	cluster "github.com/m3db/m3cluster"
+	xwatch "github.com/m3db/m3x/watch"
 )
 
 // A ServiceInstance is a single instance of a service
