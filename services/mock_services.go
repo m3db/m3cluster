@@ -132,14 +132,14 @@ func (_m *MockServiceSharding) EXPECT() *_MockServiceShardingRecorder {
 	return _m.recorder
 }
 
-func (_m *MockServiceSharding) Range() uint32 {
-	ret := _m.ctrl.Call(_m, "Range")
-	ret0, _ := ret[0].(uint32)
+func (_m *MockServiceSharding) Len() int {
+	ret := _m.ctrl.Call(_m, "Len")
+	ret0, _ := ret[0].(int)
 	return ret0
 }
 
-func (_mr *_MockServiceShardingRecorder) Range() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Range")
+func (_mr *_MockServiceShardingRecorder) Len() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Len")
 }
 
 // Mock of ServiceInstance interface

@@ -51,8 +51,8 @@ func NewServiceReplication() ServiceReplication { return new(serviceReplication)
 
 // ServiceSharding describes the sharding of a service
 type ServiceSharding interface {
-	// Range is the count of shards to shard over
-	Range() uint32
+	// Len is the count of shards to use as the sharding range
+	Len() int
 }
 
 // NewServiceSharding creates a new ServiceSharding
@@ -137,11 +137,11 @@ func (r *serviceReplication) Replicas() int                          { return r.
 func (r *serviceReplication) SetReplicas(rep int) ServiceReplication { r.replicas = rep; return r }
 
 type serviceSharding struct {
-	rng uint32
+	count int
 }
 
-func (s *serviceSharding) Range() uint32                     { return s.rng }
-func (s *serviceSharding) SetRange(r uint32) ServiceSharding { s.rng = r; return s }
+func (s *serviceSharding) Len() int                     { return s.count }
+func (s *serviceSharding) SetLen(l int) ServiceSharding { s.count = l; return s }
 
 type serviceInstance struct {
 	id       string
