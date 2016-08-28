@@ -30,6 +30,9 @@ type Service interface {
 	// Instances returns the service instances
 	Instances() []ServiceInstance
 
+	// SetInstances sets the service instances
+	SetInstances(insts []ServiceInstance) Service
+
 	// Replication returns the service replication description or nil if none
 	Replication() ServiceReplication
 

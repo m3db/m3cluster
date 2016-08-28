@@ -60,6 +60,16 @@ func (_mr *_MockServiceRecorder) Instances() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Instances")
 }
 
+func (_m *MockService) SetInstances(insts []ServiceInstance) Service {
+	ret := _m.ctrl.Call(_m, "SetInstances", insts)
+	ret0, _ := ret[0].(Service)
+	return ret0
+}
+
+func (_mr *_MockServiceRecorder) SetInstances(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetInstances", arg0)
+}
+
 func (_m *MockService) Replication() ServiceReplication {
 	ret := _m.ctrl.Call(_m, "Replication")
 	ret0, _ := ret[0].(ServiceReplication)
