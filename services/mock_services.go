@@ -374,3 +374,14 @@ func (_m *MockServices) WatchInstances(service string, opts QueryOptions) (watch
 func (_mr *_MockServicesRecorder) WatchInstances(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "WatchInstances", arg0, arg1)
 }
+
+func (_m *MockServices) QueryShardingInfo(service string) (shard.ShardingInfo, error) {
+	ret := _m.ctrl.Call(_m, "QueryShardingInfo", service)
+	ret0, _ := ret[0].(shard.ShardingInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockServicesRecorder) QueryShardingInfo(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "QueryShardingInfo", arg0)
+}

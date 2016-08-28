@@ -81,6 +81,9 @@ type Services interface {
 
 	// WatchInstances returns a watch on instances updates for a given service
 	WatchInstances(service string, opts QueryOptions) (xwatch.Watch, error)
+
+	// QueryShardingInfo queries sharding information for a given service
+	QueryShardingInfo(service string) (shard.ShardingInfo, error)
 }
 
 type serviceInstance struct {
