@@ -53,28 +53,3 @@ type shards struct {
 
 func (s shards) Shards() []Shard { return s.ss }
 func (s shards) ShardsLen() int  { return len(s.ss) }
-
-// ShardingInfo is a set of information for a service's sharding
-type ShardingInfo interface {
-	// Replicas returns the replica count
-	Replicas() int
-
-	// Range returns the sharding range
-	Range() uint32
-}
-
-// NewShardingInfo returns a new ShardingInfo
-func NewShardingInfo(replicas int, shardingRange uint32) ShardingInfo {
-	return shardingInfo{
-		replicas:      replicas,
-		shardingRange: shardingRange,
-	}
-}
-
-type shardingInfo struct {
-	replicas      int
-	shardingRange uint32
-}
-
-func (i shardingInfo) Replicas() int { return i.replicas }
-func (i shardingInfo) Range() uint32 { return i.shardingRange }
