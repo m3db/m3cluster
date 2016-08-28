@@ -33,8 +33,14 @@ type Service interface {
 	// Replication returns the service replication description or nil if none
 	Replication() ServiceReplication
 
+	// SetReplication sets the service replication description or nil if none
+	SetReplication(r ServiceReplication) Service
+
 	// Sharding returns the service sharding description or nil if none
 	Sharding() ServiceSharding
+
+	// SetSharding sets the service sharding description or nil if none
+	SetSharding(s ServiceSharding) Service
 }
 
 // NewService creates a new Service
@@ -44,6 +50,9 @@ func NewService() Service { return new(service) }
 type ServiceReplication interface {
 	// Replicas is the count of replicas
 	Replicas() int
+
+	// SetReplicas sets the count of replicas
+	SetReplicas(r int) ServiceReplication
 }
 
 // NewServiceReplication creates a new ServiceReplication
@@ -53,6 +62,9 @@ func NewServiceReplication() ServiceReplication { return new(serviceReplication)
 type ServiceSharding interface {
 	// Len is the count of shards to use as the sharding range
 	Len() int
+
+	// SetLen sets the count of shards to use as the sharding range
+	SetLen(l int) ServiceSharding
 }
 
 // NewServiceSharding creates a new ServiceSharding
