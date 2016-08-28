@@ -137,11 +137,11 @@ func (r *serviceReplication) Replicas() int                          { return r.
 func (r *serviceReplication) SetReplicas(rep int) ServiceReplication { r.replicas = rep; return r }
 
 type serviceSharding struct {
-	count int
+	length int
 }
 
-func (s *serviceSharding) Len() int                     { return s.count }
-func (s *serviceSharding) SetLen(l int) ServiceSharding { s.count = l; return s }
+func (s *serviceSharding) Len() int                     { return s.length }
+func (s *serviceSharding) SetLen(l int) ServiceSharding { s.length = l; return s }
 
 type serviceInstance struct {
 	id       string
