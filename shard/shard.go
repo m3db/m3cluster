@@ -56,7 +56,7 @@ type shards struct {
 
 func (s shards) Shards() []Shard { return s.ss }
 func (s shards) ShardsLen() int  { return len(s.ss) }
-func (s shards) ShardIDs() []Shard {
+func (s shards) ShardIDs() []uint32 {
 	r := make([]uint32, s.ShardsLen())
 	for i, s := range s.ss {
 		r[i] = s.ID()
