@@ -34,6 +34,9 @@ type Shards interface {
 	// Shards returns the shards
 	Shards() []Shard
 
+	// ShardIDs returns the shard ids
+	ShardIDs() []uint32
+
 	// ShardsLen returns the length of the shards
 	ShardsLen() int
 }
@@ -53,3 +56,10 @@ type shards struct {
 
 func (s shards) Shards() []Shard { return s.ss }
 func (s shards) ShardsLen() int  { return len(s.ss) }
+func (s shards) ShardIDs() []Shard {
+	r := make([]uint32, s.ShardsLen())
+	for i, s := range s.ss {
+		r[i] = s.ID()
+	}
+	return r
+}
