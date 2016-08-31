@@ -21,6 +21,7 @@
 package kv
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/m3db/m3cluster/generated/proto/kvtest"
@@ -110,12 +111,8 @@ func TestFakeStore(t *testing.T) {
 	require.Equal(t, "update3", read.Msg)
 }
 
-func TestFakeStoreSubscriptions(t *testing.T) {
+func TestFakeStoreWatch(t *testing.T) {
 	kv := NewFakeStore()
-
-	s, err := kv.Subscribe([]string{"foo"})
-	require.Error(t, err)
-	require.Nil(t, s)
 
 	version, err := kv.SetIfNotExists("foo", &kvtest.Foo{
 		Msg: "first",
@@ -123,54 +120,50 @@ func TestFakeStoreSubscriptions(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, version)
 
-	version, err = kv.SetIfNotExists("bar", &kvtest.Foo{
-		Msg: "first",
-	})
+	fooWatch1, err := kv.Watch("foo")
 	require.NoError(t, err)
-	require.Equal(t, 1, version)
+	require.NotNil(t, fooWatch1)
 
-	fooSub, err := kv.Subscribe([]string{"foo"})
-	require.NoError(t, err)
-	validateFooValueMap(t, fooSub, map[string]string{"foo": "first"})
+	var foo kvtest.Foo
+	require.NoError(t, fooWatch1.Get().Unmarshal(&foo))
+	require.Equal(t, "first", foo.Msg)
 
-	bothSub, err := kv.Subscribe([]string{"foo", "bar"})
-	require.NoError(t, err)
-	validateFooValueMap(t, bothSub, map[string]string{
-		"foo": "first",
-		"bar": "first",
-	})
+	fooWatch2, err := kv.Watch("foo")
+	require.NoError(t, fooWatch2.Get().Unmarshal(&foo))
+	require.Equal(t, "first", foo.Msg)
 
-	_, err = kv.Set("foo", &kvtest.Foo{
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		<-fooWatch1.C()
+		var foo kvtest.Foo
+		require.NoError(t, fooWatch1.Get().Unmarshal(&foo))
+		require.Equal(t, "second", foo.Msg)
+	}()
+
+	go func() {
+		defer wg.Done()
+		<-fooWatch2.C()
+		var foo kvtest.Foo
+		require.NoError(t, fooWatch2.Get().Unmarshal(&foo))
+		require.Equal(t, "second", foo.Msg)
+	}()
+
+	version, err = kv.Set("foo", &kvtest.Foo{
 		Msg: "second",
 	})
 	require.NoError(t, err)
-	validateFooValueMap(t, fooSub, map[string]string{"foo": "second"})
-	validateFooValueMap(t, bothSub, map[string]string{"foo": "second"})
+	require.Equal(t, 2, version)
+	wg.Wait()
 
-	_, err = kv.Set("bar", &kvtest.Foo{
-		Msg: "second",
-	})
-	require.NoError(t, err)
-	validateFooValueMap(t, bothSub, map[string]string{"bar": "second"})
-
-	kv.Unsubscribe(bothSub)
-	_, err = kv.Set("foo", &kvtest.Foo{
+	fooWatch1.Close()
+	version, err = kv.Set("foo", &kvtest.Foo{
 		Msg: "third",
 	})
 	require.NoError(t, err)
-	validateFooValueMap(t, fooSub, map[string]string{"foo": "third"})
-
-	kv.Unsubscribe(fooSub)
-}
-
-func validateFooValueMap(t *testing.T, s Subscription, expectedVals map[string]string) {
-	require.NotNil(t, s)
-	require.Equal(t, 1, len(s))
-	vals := <-s
-	require.Equal(t, len(expectedVals), len(vals))
-	for key, val := range expectedVals {
-		var foo kvtest.Foo
-		require.NoError(t, vals[key].Unmarshal(&foo))
-		require.Equal(t, val, foo.Msg)
-	}
+	require.Equal(t, 3, version)
+	require.NoError(t, fooWatch2.Get().Unmarshal(&foo))
+	require.Equal(t, "third", foo.Msg)
 }
