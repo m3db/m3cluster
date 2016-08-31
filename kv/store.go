@@ -38,6 +38,9 @@ var (
 	// ErrNotFound is returned when attempting a Get but no value is found for
 	// the given key
 	ErrNotFound = errors.New("key not found")
+
+	// ErrNoKeysProvided is returned when attempting to subscribe with no keys
+	ErrNoKeysProvided = errors.New("no keys provided")
 )
 
 // A Value provides access to a versioned value in the configuration store
@@ -49,10 +52,20 @@ type Value interface {
 	Version() int
 }
 
+// Subscription provides value updates
+type Subscription <-chan map[string]Value
+
 // Store provides access to the configuration store
 type Store interface {
 	// Get retrieves the value for the given key
 	Get(key string) (Value, error)
+
+	// Subscribe for value updates for given keys. Initial values
+	// will be returned in the Subscription
+	Subscribe(keys []string) (Subscription, error)
+
+	// Unsubscribe from value updates for given keys
+	Unsubscribe(s Subscription)
 
 	// Set stores the value for the given key
 	Set(key string, v proto.Message) (int, error)
