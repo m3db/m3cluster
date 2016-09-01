@@ -167,3 +167,19 @@ func TestFakeStoreWatch(t *testing.T) {
 	require.NoError(t, fooWatch2.Get().Unmarshal(&foo))
 	require.Equal(t, "third", foo.Msg)
 }
+
+func TestFakeStoreErrors(t *testing.T) {
+	kv := NewFakeStore()
+
+	_, err := kv.Set("foo", nil)
+	require.Error(t, err)
+
+	_, err = kv.SetIfNotExists("foo", nil)
+	require.Error(t, err)
+
+	_, err = kv.CheckAndSet("foo", 1, nil)
+	require.Error(t, err)
+
+	_, err = kv.Watch("foo")
+	require.Equal(t, err, ErrNotFound)
+}
