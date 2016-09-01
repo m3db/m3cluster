@@ -1,5 +1,5 @@
-hash: 0edf6e7f692e81c1a30407a447cd1ae24dfebaf5cdaffc16ddd78396750668d4
-updated: 2016-08-17T17:14:18.464514136-04:00
+hash: 4ba5bbb4793df27262e2f298209ef74b278782f70d83c23734c7f7f1592bbec5
+updated: 2016-09-01T12:26:13.527208927-04:00
 imports:
 - name: github.com/golang/mock
   version: bd3c8e81be01eef76d4b503f5e687d2d1354d2d9
@@ -11,8 +11,9 @@ imports:
   subpackages:
   - proto
 - name: github.com/m3db/m3x
-  version: df2d32d7c103a4ae2ed727eb50f1208bd825802f
+  version: bafb005b9448e769f5c565ae86270146917cc89b
   subpackages:
+  - close
   - log
   - watch
 - name: github.com/stretchr/testify
@@ -20,4 +21,12 @@ imports:
   subpackages:
   - assert
   - require
-devImports: []
+testImports:
+- name: github.com/davecgh/go-spew
+  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  subpackages:
+  - difflib

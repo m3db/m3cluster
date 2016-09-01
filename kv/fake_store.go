@@ -89,10 +89,10 @@ func (kv *fakeStore) Watch(key string) (ValueWatch, error) {
 	if !ok {
 		watchable = xwatch.NewWatchable()
 		kv.watchables[key] = watchable
+		watchable.Update(val)
 	}
 
 	_, watch, _ := watchable.Watch()
-	watchable.Update(val)
 	return NewValueWatch(watch), nil
 }
 
