@@ -85,7 +85,7 @@ type ManagerOptions interface {
 }
 
 // NewManagerOptions creates an empty ManagerOptions
-func NewManagerOptions() ManagerOptions { return new(managerOptions) }
+func NewManagerOptions() ManagerOptions { return managerOptions{} }
 
 // A ChangeFn adds a change to an existing set of changes
 type ChangeFn func(config, changes proto.Message) error
@@ -363,34 +363,34 @@ type managerOptions struct {
 	changesType proto.Message
 }
 
-func (opts *managerOptions) KV() kv.Store               { return opts.kv }
-func (opts *managerOptions) Logger() xlog.Logger        { return opts.logger }
-func (opts *managerOptions) ConfigKey() string          { return opts.configKey }
-func (opts *managerOptions) ConfigType() proto.Message  { return opts.configType }
-func (opts *managerOptions) ChangesType() proto.Message { return opts.changesType }
+func (opts managerOptions) KV() kv.Store               { return opts.kv }
+func (opts managerOptions) Logger() xlog.Logger        { return opts.logger }
+func (opts managerOptions) ConfigKey() string          { return opts.configKey }
+func (opts managerOptions) ConfigType() proto.Message  { return opts.configType }
+func (opts managerOptions) ChangesType() proto.Message { return opts.changesType }
 
-func (opts *managerOptions) SetKV(kv kv.Store) ManagerOptions {
+func (opts managerOptions) SetKV(kv kv.Store) ManagerOptions {
 	opts.kv = kv
 	return opts
 }
-func (opts *managerOptions) SetLogger(logger xlog.Logger) ManagerOptions {
+func (opts managerOptions) SetLogger(logger xlog.Logger) ManagerOptions {
 	opts.logger = logger
 	return opts
 }
-func (opts *managerOptions) SetConfigKey(k string) ManagerOptions {
+func (opts managerOptions) SetConfigKey(k string) ManagerOptions {
 	opts.configKey = k
 	return opts
 }
-func (opts *managerOptions) SetConfigType(ct proto.Message) ManagerOptions {
+func (opts managerOptions) SetConfigType(ct proto.Message) ManagerOptions {
 	opts.configType = ct
 	return opts
 }
-func (opts *managerOptions) SetChangesType(ct proto.Message) ManagerOptions {
+func (opts managerOptions) SetChangesType(ct proto.Message) ManagerOptions {
 	opts.changesType = ct
 	return opts
 }
 
-func (opts *managerOptions) Validate() error {
+func (opts managerOptions) Validate() error {
 	if opts.ConfigKey() == "" {
 		return errConfigKeyNotSet
 	}
