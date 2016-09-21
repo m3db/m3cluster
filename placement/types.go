@@ -85,6 +85,12 @@ type Host interface {
 	fmt.Stringer
 	ID() string
 	Rack() string
+	Zone() string
+}
+
+// NewHost returns a Host
+func NewHost(id, rack, zone string) Host {
+	return host{id: id, rack: rack, zone: zone}
 }
 
 // Service handles the placement related operations for registered services
@@ -108,8 +114,62 @@ type SnapshotStorage interface {
 
 // Options is the interface for placement options
 type Options interface {
-	// looseRackCheck enables the placement to loose the rack check
+	// LooseRackCheck enables the placement to loose the rack check
 	// during host replacement to achieve full ownership transfer
 	LooseRackCheck() bool
 	SetLooseRackCheck(looseRackCheck bool) Options
+
+	// AcrossZone enables the placement have hosts across zones
+	AcrossZones() bool
+	SetAcrossZones(acrossZones bool) Options
+}
+
+// NewOptions returns an Options instance
+func NewOptions() Options {
+	return options{}
+}
+
+type host struct {
+	id   string
+	rack string
+	zone string
+}
+
+func (h host) ID() string {
+	return h.id
+}
+
+func (h host) Rack() string {
+	return h.rack
+}
+
+func (h host) Zone() string {
+	return h.zone
+}
+
+func (h host) String() string {
+	return fmt.Sprintf("[id:%s, rack:%s, zone:%s]", h.id, h.rack, h.zone)
+}
+
+type options struct {
+	looseRackCheck bool
+	acrossZones    bool
+}
+
+func (o options) LooseRackCheck() bool {
+	return o.looseRackCheck
+}
+
+func (o options) SetLooseRackCheck(looseRackCheck bool) Options {
+	o.looseRackCheck = looseRackCheck
+	return o
+}
+
+func (o options) AcrossZones() bool {
+	return o.acrossZones
+}
+
+func (o options) SetAcrossZones(acrossZones bool) Options {
+	o.acrossZones = acrossZones
+	return o
 }

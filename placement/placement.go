@@ -23,16 +23,15 @@ package placement
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sort"
 )
 
 var (
-	errShardsWithDifferentReplicas = errors.New("invalid placement, found shards with different number of replications")
-	errInvalidHostShards           = errors.New("invalid shards assigned to a host")
-	errDuplicatedShards            = errors.New("invalid placement, there are duplicated shards in one replica")
-	errUnexpectedShardsOnHost      = errors.New("invalid placement, there are unexpected shard ids on host")
-	errTotalShardsMismatch         = errors.New("invalid placement, the total shards on all the hosts does not match expected number")
+	errInvalidHostShards   = errors.New("invalid shards assigned to a host")
+	errDuplicatedShards    = errors.New("invalid placement, there are duplicated shards in one replica")
+	errUnexpectedShards    = errors.New("invalid placement, there are unexpected shard ids on host")
+	errTotalShardsMismatch = errors.New("invalid placement, the total shards in the placement does not match expected number")
+	errInvalidShardsCount  = errors.New("invalid placement, the count for a shard does not match replica factor")
 )
 
 // snapshot implements Snapshot
@@ -91,8 +90,8 @@ func (ps snapshot) HostShard(id string) HostShards {
 }
 
 func (ps snapshot) Validate() error {
-	set := ConvertShardSliceToSet(ps.shards)
-	if len(set) != len(ps.shards) {
+	shardCountMap := ConvertShardSliceToMap(ps.shards)
+	if len(shardCountMap) != len(ps.shards) {
 		return errDuplicatedShards
 	}
 
@@ -100,8 +99,10 @@ func (ps snapshot) Validate() error {
 	actualTotal := 0
 	for _, hs := range ps.hostShards {
 		for _, id := range hs.Shards() {
-			if _, exist := set[id]; !exist {
-				return errUnexpectedShardsOnHost
+			if count, exist := shardCountMap[id]; !exist {
+				return errUnexpectedShards
+			} else {
+				shardCountMap[id] = count + 1
 			}
 		}
 		actualTotal += hs.ShardsLen()
@@ -109,6 +110,12 @@ func (ps snapshot) Validate() error {
 
 	if expectedTotal != actualTotal {
 		return errTotalShardsMismatch
+	}
+
+	for _, c := range shardCountMap {
+		if ps.rf != c {
+			return errInvalidShardsCount
+		}
 	}
 	return nil
 }
@@ -126,6 +133,18 @@ func (ps snapshot) MarshalJSON() ([]byte, error) {
 	return json.Marshal(ps.placementSnapshotToJSON())
 }
 
+func (ps *snapshot) UnmarshalJSON(data []byte) error {
+	var m map[string]hostShardsJSON
+	var err error
+	if err = json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	if *ps, err = convertJSONtoSnapshot(m); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (ps snapshot) placementSnapshotToJSON() map[string]hostShardsJSON {
 	m := make(map[string]hostShardsJSON, ps.HostsLen())
 	for _, hs := range ps.hostShards {
@@ -138,7 +157,12 @@ func newHostShardsJSON(hs HostShards) hostShardsJSON {
 	shards := hs.Shards()
 	uintShards := sortableUInt32(shards)
 	sort.Sort(uintShards)
-	return hostShardsJSON{ID: hs.Host().ID(), Rack: hs.Host().Rack(), Shards: shards}
+	return hostShardsJSON{
+		ID:     hs.Host().ID(),
+		Rack:   hs.Host().Rack(),
+		Zone:   hs.Host().Zone(),
+		Shards: shards,
+	}
 }
 
 type sortableUInt32 []uint32
@@ -153,18 +177,6 @@ func (su sortableUInt32) Less(i, j int) bool {
 
 func (su sortableUInt32) Swap(i, j int) {
 	su[i], su[j] = su[j], su[i]
-}
-
-func (ps *snapshot) UnmarshalJSON(data []byte) error {
-	var m map[string]hostShardsJSON
-	var err error
-	if err = json.Unmarshal(data, &m); err != nil {
-		return err
-	}
-	if *ps, err = convertJSONtoSnapshot(m); err != nil {
-		return err
-	}
-	return nil
 }
 
 func convertJSONtoSnapshot(m map[string]hostShardsJSON) (snapshot, error) {
@@ -190,20 +202,21 @@ func convertJSONtoSnapshot(m map[string]hostShardsJSON) (snapshot, error) {
 			continue
 		}
 		if snapshotReplica != r {
-			return snapshot{}, errShardsWithDifferentReplicas
+			return snapshot{}, errInvalidShardsCount
 		}
 	}
 	return snapshot{hostShards: hss, shards: shards, rf: snapshotReplica}, nil
 }
 
 type hostShardsJSON struct {
-	ID     string `json:"id"`
-	Rack   string `json:"rack"`
+	ID     string   `json:"id"`
+	Rack   string   `json:"rack"`
+	Zone   string   `json:"zone"`
 	Shards []uint32 `json:"shards"`
 }
 
 func hostShardsFromJSON(hsj hostShardsJSON) (HostShards, error) {
-	hs := NewEmptyHostShards(hsj.ID, hsj.Rack)
+	hs := NewEmptyHostShards(hsj.ID, hsj.Rack, hsj.Zone)
 	for _, shard := range hsj.Shards {
 		hs.AddShard(shard)
 	}
@@ -226,8 +239,8 @@ func NewEmptyHostShardsFromHost(host Host) HostShards {
 }
 
 // NewEmptyHostShards returns a HostShards with no shards assigned
-func NewEmptyHostShards(id, rack string) HostShards {
-	return NewEmptyHostShardsFromHost(NewHost(id, rack))
+func NewEmptyHostShards(id, rack, zone string) HostShards {
+	return NewEmptyHostShardsFromHost(NewHost(id, rack, zone))
 }
 
 func (h hostShards) Host() Host {
@@ -261,51 +274,11 @@ func (h hostShards) ShardsLen() int {
 	return len(h.shardsSet)
 }
 
-// NewHost returns a Host
-func NewHost(id, rack string) Host {
-	return host{id: id, rack: rack}
-}
-
-type host struct {
-	rack string
-	id   string
-}
-
-func (h host) ID() string {
-	return h.id
-}
-
-func (h host) Rack() string {
-	return h.rack
-}
-
-func (h host) String() string {
-	return fmt.Sprintf("[id:%s, rack:%s]", h.id, h.rack)
-}
-
 // ConvertShardSliceToSet is an util function that converts a slice of shards to a set
-func ConvertShardSliceToSet(ids []uint32) map[uint32]struct{} {
-	set := make(map[uint32]struct{})
+func ConvertShardSliceToMap(ids []uint32) map[uint32]int {
+	set := make(map[uint32]int)
 	for _, id := range ids {
-		set[id] = struct{}{}
+		set[id] = 0
 	}
 	return set
-}
-
-type options struct {
-	looseRackCheck bool
-}
-
-func (o options) LooseRackCheck() bool {
-	return o.looseRackCheck
-}
-
-func (o options) SetLooseRackCheck(looseRackCheck bool) Options {
-	o.looseRackCheck = looseRackCheck
-	return o
-}
-
-// NewOptions returns an Options instance
-func NewOptions() Options {
-	return options{}
 }
