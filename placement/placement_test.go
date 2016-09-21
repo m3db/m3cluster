@@ -180,7 +180,6 @@ func TestValidate(t *testing.T) {
 	hss = []HostShards{h1, h2, h3}
 	s = NewPlacementSnapshot(hss, []uint32{1, 2, 3, 4}, 2)
 	assert.Error(t, s.Validate())
-	assert.Equal(t, errInvalidShardsCount, s.Validate())
 }
 
 func TestSnapshotMarshalling(t *testing.T) {

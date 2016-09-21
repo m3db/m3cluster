@@ -23,6 +23,7 @@ package placement
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 )
 
@@ -112,9 +113,9 @@ func (ps snapshot) Validate() error {
 		return errTotalShardsMismatch
 	}
 
-	for _, c := range shardCountMap {
+	for shard, c := range shardCountMap {
 		if ps.rf != c {
-			return errInvalidShardsCount
+			return fmt.Errorf("invalid shard count for shard %d: expected %d, actual %d", shard, ps.rf, c)
 		}
 	}
 	return nil
