@@ -283,3 +283,58 @@ func ConvertShardSliceToMap(ids []uint32) map[uint32]int {
 	}
 	return set
 }
+
+// NewHost returns a Host
+func NewHost(id, rack, zone string) Host {
+	return host{id: id, rack: rack, zone: zone}
+}
+
+type host struct {
+	id   string
+	rack string
+	zone string
+}
+
+func (h host) ID() string {
+	return h.id
+}
+
+func (h host) Rack() string {
+	return h.rack
+}
+
+func (h host) Zone() string {
+	return h.zone
+}
+
+func (h host) String() string {
+	return fmt.Sprintf("[id:%s, rack:%s, zone:%s]", h.id, h.rack, h.zone)
+}
+
+// NewOptions returns an Options instance
+func NewOptions() Options {
+	return options{}
+}
+
+type options struct {
+	looseRackCheck bool
+	acrossZones    bool
+}
+
+func (o options) LooseRackCheck() bool {
+	return o.looseRackCheck
+}
+
+func (o options) SetLooseRackCheck(looseRackCheck bool) Options {
+	o.looseRackCheck = looseRackCheck
+	return o
+}
+
+func (o options) AcrossZones() bool {
+	return o.acrossZones
+}
+
+func (o options) SetAcrossZones(acrossZones bool) Options {
+	o.acrossZones = acrossZones
+	return o
+}
