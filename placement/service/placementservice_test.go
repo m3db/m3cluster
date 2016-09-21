@@ -116,7 +116,7 @@ func TestBadInitialPlacement(t *testing.T) {
 }
 
 func TestBadAddReplica(t *testing.T) {
-	ps := NewPlacementService(placement.NewOptions().SetLooseRackCheck(false), NewMockStorage())
+	ps := NewPlacementService(placement.NewOptions(), NewMockStorage())
 
 	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1", "z1")}, 10, 1)
 	assert.NoError(t, err)
@@ -133,7 +133,7 @@ func TestBadAddReplica(t *testing.T) {
 }
 
 func TestBadAddHost(t *testing.T) {
-	ps := NewPlacementService(placement.NewOptions().SetLooseRackCheck(false), NewMockStorage())
+	ps := NewPlacementService(placement.NewOptions(), NewMockStorage())
 
 	err := ps.BuildInitialPlacement("serviceA", []placement.Host{placement.NewHost("r1h1", "r1", "z1")}, 10, 1)
 	assert.NoError(t, err)
@@ -156,6 +156,17 @@ func TestBadAddHost(t *testing.T) {
 	err = ps.AddHost("badService", []placement.Host{placement.NewHost("r2h2", "r2", "z1")})
 	assert.Error(t, err)
 
+	ps = NewPlacementService(placement.NewOptions().SetAcrossZones(true), NewMockStorage())
+	err = ps.BuildInitialPlacement("serviceA",
+		[]placement.Host{placement.NewHost("h1", "r1", "z1"), placement.NewHost("h2", "r2", "z2")},
+		10,
+		1,
+	)
+	assert.NoError(t, err)
+	ps = NewPlacementService(placement.NewOptions().SetAcrossZones(false), NewMockStorage())
+	err = ps.AddHost("serviceA", []placement.Host{placement.NewHost("r1h1", "r1", "z1")})
+	assert.Error(t, err)
+	assert.Equal(t, errDisableAcrossZones, err)
 	cleanUpTestFiles(t, "serviceA")
 }
 
@@ -294,6 +305,22 @@ func TestFindReplaceHost(t *testing.T) {
 	assert.NoError(t, err)
 	// gonna prefer r2 because across zone is allowed and r2 has no conflict
 	assert.Equal(t, "r22", hs.Rack())
+
+	h1 = placement.NewEmptyHostShards("h1", "r1", "z1")
+	h1.AddShard(1)
+	h1.AddShard(2)
+
+	h2 = placement.NewEmptyHostShards("h2", "r2", "z2")
+	h2.AddShard(3)
+	h2.AddShard(4)
+
+	ids = []uint32{1, 2, 3, 4}
+	s = placement.NewPlacementSnapshot([]placement.HostShards{h1, h2}, ids, 1)
+	ps = NewPlacementService(placement.NewOptions(), NewMockStorage()).(placementService)
+	hs, err = ps.findReplaceHost(s, candidates, h4)
+	assert.Error(t, err)
+	assert.Equal(t, errDisableAcrossZones, err)
+	assert.Nil(t, hs)
 }
 
 func TestRackLenSort(t *testing.T) {

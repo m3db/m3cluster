@@ -267,6 +267,8 @@ func TestOptions(t *testing.T) {
 	assert.False(t, o.LooseRackCheck())
 	o = o.SetLooseRackCheck(true)
 	assert.True(t, o.LooseRackCheck())
+	o = o.SetAcrossZones(true)
+	assert.True(t, o.AcrossZones())
 }
 
 func testSnapshotJSONRoundTrip(t *testing.T, s Snapshot) {
