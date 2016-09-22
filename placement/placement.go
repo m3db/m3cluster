@@ -275,13 +275,13 @@ func (h hostShards) ShardsLen() int {
 	return len(h.shardsSet)
 }
 
-// ConvertShardSliceToSet is an util function that converts a slice of shards to a set
+// ConvertShardSliceToSet is an util function that converts a slice of shards to a map
 func ConvertShardSliceToMap(ids []uint32) map[uint32]int {
-	set := make(map[uint32]int)
+	shardCounts := make(map[uint32]int)
 	for _, id := range ids {
-		set[id] = 0
+		shardCounts[id] = 0
 	}
-	return set
+	return shardCounts
 }
 
 // NewHost returns a Host
