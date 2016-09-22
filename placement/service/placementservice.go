@@ -54,7 +54,7 @@ func (ps placementService) BuildInitialPlacement(service string, hosts []placeme
 	}
 
 	var err error
-	if err = validateInitHosts(ps.options, hosts); err != nil {
+	if err = ps.validateInitHosts(hosts); err != nil {
 		return err
 	}
 
@@ -321,8 +321,8 @@ func buildRackHostMapFromHostShards(hosts []placement.HostShards) map[string][]p
 	return buildRackHostMap(hs)
 }
 
-func validateInitHosts(opts placement.Options, hosts []placement.Host) error {
-	if opts.AcrossZones() {
+func (ps placementService) validateInitHosts(hosts []placement.Host) error {
+	if ps.options.AcrossZones() {
 		return nil
 	}
 
