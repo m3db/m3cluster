@@ -133,7 +133,7 @@ type Services interface {
 	// Unadvertise indicates a given instance is no longer available
 	Unadvertise(service, id string) error
 	
-	QueryDeploymentGroup(hostname string) (string, error)
+	QueryDeploymentGroup(instanceID string) (string, error)
 
 	// Query returns metadata and a list of available instances for a given service
 	Query(service string, opts QueryOptions) (Service, error)
