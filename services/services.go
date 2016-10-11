@@ -114,6 +114,8 @@ func NewAdvertisement() Advertisement { return new(advertisement) }
 
 // QueryOptions are options to service discovery queries
 type QueryOptions interface {
+	DeploymentGroup() string
+	SetDeploymentGroup(group string)
 	Zones() []string                         // list of zones to consult. if empty only the local zone will be queried
 	SetZones(zones []string) QueryOptions    // sets the list of zones to consult
 	IncludeUnhealthy() bool                  // if true, will return unhealthy instances
@@ -130,6 +132,8 @@ type Services interface {
 
 	// Unadvertise indicates a given instance is no longer available
 	Unadvertise(service, id string) error
+	
+	QueryDeploymentGroup(hostname string) (string, error)
 
 	// Query returns metadata and a list of available instances for a given service
 	Query(service string, opts QueryOptions) (Service, error)
