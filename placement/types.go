@@ -68,6 +68,9 @@ type Snapshot interface {
 
 	// Validate checks if the snapshot is valid
 	Validate() error
+
+	// Copy copies the Snapshot
+	Copy() Snapshot
 }
 
 // HostShards represents a host and its assigned shards

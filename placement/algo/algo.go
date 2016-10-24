@@ -54,7 +54,7 @@ func (a rackAwarePlacementAlgorithm) BuildInitialPlacement(hosts []placement.Hos
 }
 
 func (a rackAwarePlacementAlgorithm) AddReplica(ps placement.Snapshot) (placement.Snapshot, error) {
-	ps = placement.CopySnapshot(ps)
+	ps = ps.Copy()
 	ph := newAddReplicaHelper(ps, a.options)
 	if err := ph.PlaceShards(ps.Shards(), nil); err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func (a rackAwarePlacementAlgorithm) AddReplica(ps placement.Snapshot) (placemen
 }
 
 func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHost placement.Host) (placement.Snapshot, error) {
-	ps = placement.CopySnapshot(ps)
+	ps = ps.Copy()
 	ph, leavingHostShards, err := newRemoveHostHelper(ps, leavingHost, a.options)
 	if err != nil {
 		return nil, err
@@ -76,12 +76,12 @@ func (a rackAwarePlacementAlgorithm) RemoveHost(ps placement.Snapshot, leavingHo
 }
 
 func (a rackAwarePlacementAlgorithm) AddHost(ps placement.Snapshot, addingHost placement.Host) (placement.Snapshot, error) {
-	ps = placement.CopySnapshot(ps)
+	ps = ps.Copy()
 	return a.addHostShards(ps, placement.NewHostShards(addingHost))
 }
 
 func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost placement.Host, addingHosts []placement.Host) (placement.Snapshot, error) {
-	ps = placement.CopySnapshot(ps)
+	ps = ps.Copy()
 	ph, leavingHostShards, addingHostShards, err := newReplaceHostHelper(ps, leavingHost, addingHosts, a.options)
 	if err != nil {
 		return nil, err

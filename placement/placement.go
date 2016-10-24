@@ -57,19 +57,6 @@ func NewPlacementSnapshot(hss []HostShards, shards []uint32, rf int) Snapshot {
 	return snapshot{hostShards: hss, rf: rf, shards: shards}
 }
 
-// CopySnapshot copies a placement
-func CopySnapshot(s Snapshot) Snapshot {
-	return snapshot{hostShards: copyHostShards(s.HostShards()), rf: s.Replicas(), shards: s.Shards()}
-}
-
-func copyHostShards(hss []HostShards) []HostShards {
-	copied := make([]HostShards, len(hss))
-	for i, hs := range hss {
-		copied[i] = newHostShards(hs.Host(), hs.Shards())
-	}
-	return copied
-}
-
 func (ps snapshot) HostShards() []HostShards {
 	result := make([]HostShards, ps.HostsLen())
 	for i, hs := range ps.hostShards {
@@ -133,6 +120,19 @@ func (ps snapshot) Validate() error {
 		}
 	}
 	return nil
+}
+
+// Copy copies a snapshot
+func (ps snapshot) Copy() Snapshot {
+	return snapshot{hostShards: copyHostShards(ps.HostShards()), rf: ps.Replicas(), shards: ps.Shards()}
+}
+
+func copyHostShards(hss []HostShards) []HostShards {
+	copied := make([]HostShards, len(hss))
+	for i, hs := range hss {
+		copied[i] = newHostShards(hs.Host(), hs.Shards())
+	}
+	return copied
 }
 
 // NewPlacementFromJSON creates a Snapshot from JSON

@@ -271,7 +271,7 @@ func TestHostShards(t *testing.T) {
 	assert.Equal(t, "r1", h1.Host().Rack())
 }
 
-func TestCopySnapshot(t *testing.T) {
+func TestCopy(t *testing.T) {
 	h1 := NewHostShards(NewHost("r1h1", "r1", "z1", 1))
 	h1.AddShard(1)
 	h1.AddShard(2)
@@ -286,7 +286,7 @@ func TestCopySnapshot(t *testing.T) {
 
 	ids := []uint32{1, 2, 3, 4, 5, 6}
 	s := NewPlacementSnapshot(hss, ids, 1)
-	copy := CopySnapshot(s)
+	copy := s.Copy()
 	assert.Equal(t, s.HostsLen(), copy.HostsLen())
 	assert.Equal(t, s.Shards(), copy.Shards())
 	assert.Equal(t, s.Replicas(), copy.Replicas())
