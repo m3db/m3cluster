@@ -406,10 +406,10 @@ func TestGroupHostsByConflict(t *testing.T) {
 	h3 := placement.NewHost("h3", "", "", 1)
 	h4 := placement.NewHost("h4", "", "", 2)
 	hostConflicts := []sortableValue{
-		sortableValue{thing: h1, value: 1},
-		sortableValue{thing: h2, value: 0},
-		sortableValue{thing: h3, value: 3},
-		sortableValue{thing: h4, value: 2},
+		sortableValue{value: h1, weight: 1},
+		sortableValue{value: h2, weight: 0},
+		sortableValue{value: h3, weight: 3},
+		sortableValue{value: h4, weight: 2},
 	}
 
 	groups := groupHostsByConflict(hostConflicts, true)
@@ -528,20 +528,20 @@ func TestFillWeight(t *testing.T) {
 }
 
 func TestRackLenSort(t *testing.T) {
-	r1 := sortableValue{thing: "r1", value: 1}
-	r2 := sortableValue{thing: "r2", value: 2}
-	r3 := sortableValue{thing: "r3", value: 3}
-	r4 := sortableValue{thing: "r4", value: 2}
-	r5 := sortableValue{thing: "r5", value: 1}
-	r6 := sortableValue{thing: "r6", value: 2}
-	r7 := sortableValue{thing: "r7", value: 3}
+	r1 := sortableValue{value: "r1", weight: 1}
+	r2 := sortableValue{value: "r2", weight: 2}
+	r3 := sortableValue{value: "r3", weight: 3}
+	r4 := sortableValue{value: "r4", weight: 2}
+	r5 := sortableValue{value: "r5", weight: 1}
+	r6 := sortableValue{value: "r6", weight: 2}
+	r7 := sortableValue{value: "r7", weight: 3}
 	rs := sortableThings{r1, r2, r3, r4, r5, r6, r7}
 	sort.Sort(rs)
 
 	seen := 0
 	for _, rl := range rs {
-		assert.True(t, seen <= rl.value)
-		seen = rl.value
+		assert.True(t, seen <= rl.weight)
+		seen = rl.weight
 	}
 }
 

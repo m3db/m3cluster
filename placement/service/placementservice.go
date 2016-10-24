@@ -191,12 +191,12 @@ func (ps placementService) findAddingHost(s placement.Snapshot, candidateHosts [
 		for _, hs := range hss {
 			weight += int(hs.Weight())
 		}
-		racks = append(racks, sortableValue{thing: rack, value: weight})
+		racks = append(racks, sortableValue{value: rack, weight: weight})
 	}
 	sort.Sort(racks)
 
 	for _, rackLen := range racks {
-		if hs, exist := candidateRackHostMap[rackLen.thing.(string)]; exist {
+		if hs, exist := candidateRackHostMap[rackLen.value.(string)]; exist {
 			for _, host := range hs {
 				return host, nil
 			}
@@ -235,7 +235,7 @@ func (ps placementService) findReplaceHost(
 			}
 		}
 		for _, host := range hostsInRack {
-			hosts = append(hosts, sortableValue{thing: host, value: conflicts})
+			hosts = append(hosts, sortableValue{value: host, weight: conflicts})
 		}
 	}
 
@@ -258,15 +258,15 @@ func groupHostsByConflict(hostsSortedByConflicts []sortableValue, allowConflict 
 	var groups [][]placement.Host
 	lastSeenConflict := -1
 	for _, host := range hostsSortedByConflicts {
-		if !allowConflict && host.value > 0 {
+		if !allowConflict && host.weight > 0 {
 			break
 		}
-		if host.value > lastSeenConflict {
-			lastSeenConflict = host.value
+		if host.weight > lastSeenConflict {
+			lastSeenConflict = host.weight
 			groups = append(groups, []placement.Host{})
 		}
-		if lastSeenConflict == host.value {
-			groups[len(groups)-1] = append(groups[len(groups)-1], host.thing.(placement.Host))
+		if lastSeenConflict == host.weight {
+			groups[len(groups)-1] = append(groups[len(groups)-1], host.value.(placement.Host))
 		}
 	}
 	return groups
@@ -395,8 +395,8 @@ func (ps placementService) validateInitHosts(hosts []placement.Host) error {
 }
 
 type sortableValue struct {
-	thing interface{}
-	value int
+	value  interface{}
+	weight int
 }
 
 type sortableThings []sortableValue
@@ -406,7 +406,7 @@ func (things sortableThings) Len() int {
 }
 
 func (things sortableThings) Less(i, j int) bool {
-	return things[i].value < things[j].value
+	return things[i].weight < things[j].weight
 }
 
 func (things sortableThings) Swap(i, j int) {
