@@ -82,7 +82,7 @@ func (a rackAwarePlacementAlgorithm) AddHost(ps placement.Snapshot, addingHost p
 
 func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingHost placement.Host, addingHosts []placement.Host) (placement.Snapshot, error) {
 	ps = placement.CopySnapshot(ps)
-	ph, leavingHostShards, addingHostShards, err := newReplaceHostPlacementHelper(ps, leavingHost, addingHosts, a.options)
+	ph, leavingHostShards, addingHostShards, err := newReplaceHostHelper(ps, leavingHost, addingHosts, a.options)
 	if err != nil {
 		return nil, err
 	}
@@ -99,10 +99,16 @@ func (a rackAwarePlacementAlgorithm) ReplaceHost(ps placement.Snapshot, leavingH
 		}
 	}
 
-	if leavingHostShards.ShardsLen() > 0 && !a.options.AllowPartialReplace() {
-		return nil, fmt.Errorf("could not fully replace all shards from %s, %v shards left unassigned", leavingHost.ID(), leavingHostShards.ShardsLen())
+	if !a.options.AllowPartialReplace() {
+		if leavingHostShards.ShardsLen() > 0 {
+			return nil, fmt.Errorf("could not fully replace all shards from %s, %v shards left unassigned", leavingHost.ID(), leavingHostShards.ShardsLen())
+		}
+		return ph.GenerateSnapshot(), nil
 	}
 
+	if leavingHostShards.ShardsLen() == 0 {
+		return ph.GenerateSnapshot(), nil
+	}
 	// place the shards from the leaving host to the rest of the cluster
 	if err := ph.PlaceShards(leavingHostShards.Shards(), leavingHostShards); err != nil {
 		return nil, err
@@ -127,7 +133,7 @@ func (a rackAwarePlacementAlgorithm) addHostShards(ps placement.Snapshot, adding
 	if ps.HostShard(addingHostShard.Host().ID()) != nil {
 		return nil, errAddingHostAlreadyExist
 	}
-	ph := newAddHostShardsPlacementHelper(ps, addingHostShard, a.options)
+	ph := newAddHostShardsHelper(ps, addingHostShard, a.options)
 	targetLoad := ph.GetTargetLoadForHost(addingHostShard.Host().ID())
 	// try to take shards from the most loaded hosts until the adding host reaches target load
 	hh := ph.BuildHostHeap(ps.HostShards(), false)

@@ -271,13 +271,44 @@ func TestHostShards(t *testing.T) {
 	assert.Equal(t, "r1", h1.Host().Rack())
 }
 
+func TestCopySnapshot(t *testing.T) {
+	h1 := NewHostShards(NewHost("r1h1", "r1", "z1", 1))
+	h1.AddShard(1)
+	h1.AddShard(2)
+	h1.AddShard(3)
+
+	h2 := NewHostShards(NewHost("r2h2", "r2", "z1", 1))
+	h2.AddShard(4)
+	h2.AddShard(5)
+	h2.AddShard(6)
+
+	hss := []HostShards{h1, h2}
+
+	ids := []uint32{1, 2, 3, 4, 5, 6}
+	s := NewPlacementSnapshot(hss, ids, 1)
+	copy := CopySnapshot(s)
+	assert.Equal(t, s.HostsLen(), copy.HostsLen())
+	assert.Equal(t, s.Shards(), copy.Shards())
+	assert.Equal(t, s.Replicas(), copy.Replicas())
+	for _, hs := range s.HostShards() {
+		assert.Equal(t, copy.HostShard(hs.Host().ID()), hs)
+		// make sure they are different objects, updating one won't update the other
+		hs.AddShard(100)
+		assert.NotEqual(t, copy.HostShard(hs.Host().ID()), hs)
+	}
+}
+
 func TestOptions(t *testing.T) {
 	o := NewOptions()
 	assert.False(t, o.LooseRackCheck())
+	assert.False(t, o.AcrossZones())
+	assert.False(t, o.AllowPartialReplace())
 	o = o.SetLooseRackCheck(true)
 	assert.True(t, o.LooseRackCheck())
 	o = o.SetAcrossZones(true)
 	assert.True(t, o.AcrossZones())
+	o = o.SetAllowPartialReplace(true)
+	assert.True(t, o.AllowPartialReplace())
 }
 
 func testSnapshotJSONRoundTrip(t *testing.T, s Snapshot) {

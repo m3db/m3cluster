@@ -86,7 +86,7 @@ type Host interface {
 	ID() string
 	Rack() string
 	Zone() string
-	Weight() int
+	Weight() uint32
 }
 
 // Service handles the placement related operations for registered services

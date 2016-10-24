@@ -332,7 +332,7 @@ func TestFindReplaceHost(t *testing.T) {
 	h2.AddShard(8)
 	h2.AddShard(9)
 
-	h3 := placement.NewHostShards(placement.NewHost("r3h3", "r13", "z1", 1))
+	h3 := placement.NewHostShards(placement.NewHost("r3h3", "r13", "z1", 3))
 	h3.AddShard(1)
 	h3.AddShard(3)
 	h3.AddShard(4)
@@ -352,12 +352,21 @@ func TestFindReplaceHost(t *testing.T) {
 
 	candidates := []placement.Host{
 		placement.NewHost("h11", "r11", "z1", 1),
-		placement.NewHost("h22", "r22", "z2", 1),
+		placement.NewHost("h22", "r22", "z2", 1), // bad zone
 	}
 
 	ps := NewPlacementService(placement.NewOptions(), NewMockStorage()).(placementService)
 	hs, err := ps.findReplaceHost(s, candidates, h4)
 	assert.Error(t, err)
+	assert.Nil(t, hs)
+
+	noConflictCandidates := []placement.Host{
+		placement.NewHost("h11", "r0", "z1", 1),
+		placement.NewHost("h22", "r0", "z2", 1),
+	}
+	hs, err = ps.findReplaceHost(s, noConflictCandidates, h3)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "could not find enough host to replace")
 	assert.Nil(t, hs)
 
 	ps = NewPlacementService(placement.NewOptions().SetLooseRackCheck(true), NewMockStorage()).(placementService)
@@ -395,11 +404,11 @@ func TestGroupHostsByConflict(t *testing.T) {
 	h2 := placement.NewHost("h2", "", "", 1)
 	h3 := placement.NewHost("h3", "", "", 1)
 	h4 := placement.NewHost("h4", "", "", 2)
-	hostConflicts := []sortableThing{
-		sortableThing{thing: h1, value: 1},
-		sortableThing{thing: h2, value: 0},
-		sortableThing{thing: h3, value: 3},
-		sortableThing{thing: h4, value: 2},
+	hostConflicts := []sortableValue{
+		sortableValue{thing: h1, value: 1},
+		sortableValue{thing: h2, value: 0},
+		sortableValue{thing: h3, value: 3},
+		sortableValue{thing: h4, value: 2},
 	}
 
 	groups := groupHostsByConflict(hostConflicts, true)
@@ -518,13 +527,13 @@ func TestFillWeight(t *testing.T) {
 }
 
 func TestRackLenSort(t *testing.T) {
-	r1 := sortableThing{thing: "r1", value: 1}
-	r2 := sortableThing{thing: "r2", value: 2}
-	r3 := sortableThing{thing: "r3", value: 3}
-	r4 := sortableThing{thing: "r4", value: 2}
-	r5 := sortableThing{thing: "r5", value: 1}
-	r6 := sortableThing{thing: "r6", value: 2}
-	r7 := sortableThing{thing: "r7", value: 3}
+	r1 := sortableValue{thing: "r1", value: 1}
+	r2 := sortableValue{thing: "r2", value: 2}
+	r3 := sortableValue{thing: "r3", value: 3}
+	r4 := sortableValue{thing: "r4", value: 2}
+	r5 := sortableValue{thing: "r5", value: 1}
+	r6 := sortableValue{thing: "r6", value: 2}
+	r7 := sortableValue{thing: "r7", value: 3}
 	rs := sortableThings{r1, r2, r3, r4, r5, r6, r7}
 	sort.Sort(rs)
 

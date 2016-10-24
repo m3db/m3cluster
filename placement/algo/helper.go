@@ -49,8 +49,8 @@ type placementHelper struct {
 	targetLoad      map[string]int
 	shardToHostMap  map[uint32]map[placement.HostShards]struct{}
 	rackToHostsMap  map[string]map[placement.HostShards]struct{}
-	rackToWeightMap map[string]int
-	totalWeight     int
+	rackToWeightMap map[string]uint32
+	totalWeight     uint32
 	rf              int
 	uniqueShards    []uint32
 	hostShards      []placement.HostShards
@@ -189,7 +189,7 @@ func newAddReplicaHelper(ps placement.Snapshot, opt placement.Options) Placement
 	return newHelper(ps, ps.Replicas()+1, opt)
 }
 
-func newAddHostShardsPlacementHelper(ps placement.Snapshot, hostShards placement.HostShards, opt placement.Options) PlacementHelper {
+func newAddHostShardsHelper(ps placement.Snapshot, hostShards placement.HostShards, opt placement.Options) PlacementHelper {
 	ps = placement.NewPlacementSnapshot(append(ps.HostShards(), hostShards), ps.Shards(), ps.Replicas())
 	return newHelper(ps, ps.Replicas(), opt)
 }
@@ -202,7 +202,7 @@ func newRemoveHostHelper(ps placement.Snapshot, leavingHost placement.Host, opt 
 	return newHelper(ps, ps.Replicas(), opt), leavingHostShards, nil
 }
 
-func newReplaceHostPlacementHelper(
+func newReplaceHostHelper(
 	ps placement.Snapshot,
 	leavingHost placement.Host,
 	addingHosts []placement.Host,
@@ -239,8 +239,8 @@ func newHelper(ps placement.Snapshot, targetRF int, opt placement.Options) Place
 func (ph *placementHelper) scanCurrentLoad() {
 	ph.shardToHostMap = make(map[uint32]map[placement.HostShards]struct{}, len(ph.uniqueShards))
 	ph.rackToHostsMap = make(map[string]map[placement.HostShards]struct{})
-	ph.rackToWeightMap = make(map[string]int)
-	totalWeight := 0
+	ph.rackToWeightMap = make(map[string]uint32)
+	totalWeight := uint32(0)
 	for _, h := range ph.hostShards {
 		if _, exist := ph.rackToHostsMap[h.Host().Rack()]; !exist {
 			ph.rackToHostsMap[h.Host().Rack()] = make(map[placement.HostShards]struct{})
@@ -262,9 +262,8 @@ func (ph *placementHelper) scanCurrentLoad() {
 
 func (ph *placementHelper) buildTargetLoad() {
 	overWeightedRack := 0
-	overWeight := 0
+	overWeight := uint32(0)
 	for _, weight := range ph.rackToWeightMap {
-		// rackHostNumber := len(ph.rackToHostsMap[rack])
 		if isRackOverWeight(weight, ph.totalWeight, ph.rf) {
 			overWeightedRack++
 			overWeight += weight
@@ -276,16 +275,16 @@ func (ph *placementHelper) buildTargetLoad() {
 		rackWeight := ph.rackToWeightMap[host.Host().Rack()]
 		if isRackOverWeight(rackWeight, ph.totalWeight, ph.rf) {
 			// if the host is on a over-sized rack, the target load is topped at shardLen / rackSize
-			targetLoad[host.Host().ID()] = int(math.Ceil(float64(ph.getShardLen()*host.Host().Weight()) / float64(rackWeight)))
+			targetLoad[host.Host().ID()] = int(math.Ceil(float64(ph.getShardLen()) * float64(host.Host().Weight()) / float64(rackWeight)))
 		} else {
 			// if the host is on a normal rack, get the target load with aware of other over-sized rack
-			targetLoad[host.Host().ID()] = ph.getShardLen() * (ph.rf - overWeightedRack) * host.Host().Weight() / (ph.totalWeight - overWeight)
+			targetLoad[host.Host().ID()] = ph.getShardLen() * (ph.rf - overWeightedRack) * int(host.Host().Weight()) / int(ph.totalWeight-overWeight)
 		}
 	}
 	ph.targetLoad = targetLoad
 }
 
-func isRackOverWeight(rackWeight, totalWeight, rf int) bool {
+func isRackOverWeight(rackWeight, totalWeight uint32, rf int) bool {
 	return float64(rackWeight)/float64(totalWeight) >= 1.0/float64(rf)
 }
 
@@ -325,12 +324,12 @@ func (ph placementHelper) removeShardFromHost(shard uint32, from placement.HostS
 // hostHeap provides an easy way to get best candidate host to assign/steal a shard
 type hostHeap struct {
 	hosts                 []placement.HostShards
-	rackToWeightMap       map[string]int
+	rackToWeightMap       map[string]uint32
 	targetLoad            map[string]int
 	hostCapacityAscending bool
 }
 
-func newHostHeap(hosts []placement.HostShards, hostCapacityAscending bool, targetLoad map[string]int, rackToWeightMap map[string]int) *hostHeap {
+func newHostHeap(hosts []placement.HostShards, hostCapacityAscending bool, targetLoad map[string]int, rackToWeightMap map[string]uint32) *hostHeap {
 	hHeap := &hostHeap{hostCapacityAscending: hostCapacityAscending, hosts: hosts, targetLoad: targetLoad, rackToWeightMap: rackToWeightMap}
 	heap.Init(hHeap)
 	return hHeap
@@ -392,14 +391,12 @@ func removeHostFromPlacement(ps placement.Snapshot, leavingHost placement.Host) 
 		return nil, nil, errHostAbsent
 	}
 
+	var hsArr []placement.HostShards
 	for i, phs := range ps.HostShards() {
 		if phs.Host().ID() == leavingHost.ID() {
-			return placement.NewPlacementSnapshot(
-				append(ps.HostShards()[:i], ps.HostShards()[i+1:]...),
-				ps.Shards(),
-				ps.Replicas(),
-			), leavingHostShards, nil
+			hsArr = append(ps.HostShards()[:i], ps.HostShards()[i+1:]...)
+			break
 		}
 	}
-	return nil, nil, errHostAbsent
+	return placement.NewPlacementSnapshot(hsArr, ps.Shards(), ps.Replicas()), leavingHostShards, nil
 }

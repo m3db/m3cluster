@@ -564,6 +564,6 @@ func validateDistribution(t *testing.T, mp placement.Snapshot, expectPeakOverAvg
 	assert.NoError(t, mp.Validate(), "snapshot validation failed")
 }
 
-func getWeightedLoad(ph *placementHelper, weight int) int {
-	return ph.rf * len(ph.shardToHostMap) * weight / ph.totalWeight
+func getWeightedLoad(ph *placementHelper, weight uint32) int {
+	return ph.rf * len(ph.shardToHostMap) * int(weight) / int(ph.totalWeight)
 }

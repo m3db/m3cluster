@@ -228,7 +228,7 @@ type hostShardsJSON struct {
 	ID     string   `json:"id"`
 	Rack   string   `json:"rack"`
 	Zone   string   `json:"zone"`
-	Weight int      `json:"weight"`
+	Weight uint32   `json:"weight"`
 	Shards []uint32 `json:"shards"`
 }
 
@@ -304,7 +304,7 @@ func ConvertShardSliceToMap(ids []uint32) map[uint32]int {
 }
 
 // NewHost returns a Host
-func NewHost(id, rack, zone string, weight int) Host {
+func NewHost(id, rack, zone string, weight uint32) Host {
 	return host{id: id, rack: rack, zone: zone, weight: weight}
 }
 
@@ -312,7 +312,7 @@ type host struct {
 	id     string
 	rack   string
 	zone   string
-	weight int
+	weight uint32
 }
 
 func (h host) ID() string {
@@ -327,7 +327,7 @@ func (h host) Zone() string {
 	return h.zone
 }
 
-func (h host) Weight() int {
+func (h host) Weight() uint32 {
 	return h.weight
 }
 

@@ -189,9 +189,9 @@ func (ps placementService) findAddingHost(s placement.Snapshot, candidateHosts [
 	for rack, hss := range placementRackHostMap {
 		weight := 0
 		for _, hs := range hss {
-			weight += hs.Weight()
+			weight += int(hs.Weight())
 		}
-		racks = append(racks, sortableThing{thing: rack, value: weight})
+		racks = append(racks, sortableValue{thing: rack, value: weight})
 	}
 	sort.Sort(racks)
 
@@ -226,7 +226,7 @@ func (ps placementService) findReplaceHost(
 
 	// otherwise sort the candidate hosts by the number of conflicts
 	ph := algo.NewPlacementHelper(s, ps.options)
-	hosts := make([]sortableThing, 0, len(rackHostMap))
+	hosts := make([]sortableValue, 0, len(rackHostMap))
 	for rack, hostsInRack := range rackHostMap {
 		conflicts := 0
 		for _, shard := range leaving.Shards() {
@@ -235,7 +235,7 @@ func (ps placementService) findReplaceHost(
 			}
 		}
 		for _, host := range hostsInRack {
-			hosts = append(hosts, sortableThing{thing: host, value: conflicts})
+			hosts = append(hosts, sortableValue{thing: host, value: conflicts})
 		}
 	}
 
@@ -244,7 +244,7 @@ func (ps placementService) findReplaceHost(
 		return nil, errNoValidHost
 	}
 
-	result, leftWeight := fillWeight(groups, leaving.Host().Weight())
+	result, leftWeight := fillWeight(groups, int(leaving.Host().Weight()))
 
 	if leftWeight > 0 {
 		return nil, fmt.Errorf("could not find enough host to replace %s, %v weight could not be replaced",
@@ -253,7 +253,7 @@ func (ps placementService) findReplaceHost(
 	return result, nil
 }
 
-func groupHostsByConflict(hostsSortedByConflicts []sortableThing, allowConflict bool) [][]placement.Host {
+func groupHostsByConflict(hostsSortedByConflicts []sortableValue, allowConflict bool) [][]placement.Host {
 	sort.Sort(sortableThings(hostsSortedByConflicts))
 	var groups [][]placement.Host
 	lastSeenConflict := -1
@@ -291,20 +291,20 @@ func fillWeight(groups [][]placement.Host, targetWeight int) ([]placement.Host, 
 func knapsack(hosts []placement.Host, targetWeight int) ([]placement.Host, int) {
 	totalWeight := 0
 	for _, host := range hosts {
-		totalWeight += host.Weight()
+		totalWeight += int(host.Weight())
 	}
 	if totalWeight <= targetWeight {
 		return hosts[:], targetWeight - totalWeight
 	}
 	// totalWeight > targetWeight, there is a combination of hosts to meet targetWeight for sure
-	// we do dp until totalWeight rather than targetWeight here because we need
-	// to guarantee we cover the targetWeight which is a little bit different than the knapsack problem
+	// we do dp until totalWeight rather than targetWeight here because we need to cover the targetWeight
+	// which is a little bit different than the knapsack problem that goes
 	weights := make([]int, totalWeight+1)
 	combination := make([][]placement.Host, totalWeight+1)
 
 	for _, host := range hosts {
 		for i := totalWeight; i >= 1; i-- {
-			weight := host.Weight()
+			weight := int(host.Weight())
 			if i-weight < 0 {
 				continue
 			}
@@ -392,12 +392,12 @@ func (ps placementService) validateInitHosts(hosts []placement.Host) error {
 	return nil
 }
 
-type sortableThing struct {
+type sortableValue struct {
 	thing interface{}
 	value int
 }
 
-type sortableThings []sortableThing
+type sortableThings []sortableValue
 
 func (things sortableThings) Len() int {
 	return len(things)
