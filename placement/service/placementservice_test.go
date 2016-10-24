@@ -399,6 +399,7 @@ func TestFindReplaceHost(t *testing.T) {
 	assert.Equal(t, errDisableAcrossZones, err)
 	assert.Nil(t, hs)
 }
+
 func TestGroupHostsByConflict(t *testing.T) {
 	h1 := placement.NewHost("h1", "", "", 1)
 	h2 := placement.NewHost("h2", "", "", 1)
@@ -424,52 +425,52 @@ func TestGroupHostsByConflict(t *testing.T) {
 }
 
 func TestKnapSack(t *testing.T) {
-	h1 := placement.NewHost("h1", "", "", 4)
-	h2 := placement.NewHost("h2", "", "", 2)
-	h3 := placement.NewHost("h3", "", "", 8)
-	h4 := placement.NewHost("h4", "", "", 5)
-	h5 := placement.NewHost("h5", "", "", 19)
+	h1 := placement.NewHost("h1", "", "", 40000)
+	h2 := placement.NewHost("h2", "", "", 20000)
+	h3 := placement.NewHost("h3", "", "", 80000)
+	h4 := placement.NewHost("h4", "", "", 50000)
+	h5 := placement.NewHost("h5", "", "", 190000)
 	hosts := []placement.Host{h1, h2, h3, h4, h5}
 
-	res, leftWeight := knapsack(hosts, 1)
-	assert.Equal(t, -1, leftWeight)
+	res, leftWeight := knapsack(hosts, 10000)
+	assert.Equal(t, -10000, leftWeight)
 	assert.Equal(t, []placement.Host{h2}, res)
 
-	res, leftWeight = knapsack(hosts, 2)
+	res, leftWeight = knapsack(hosts, 20000)
 	assert.Equal(t, 0, leftWeight)
 	assert.Equal(t, []placement.Host{h2}, res)
 
-	res, leftWeight = knapsack(hosts, 3)
-	assert.Equal(t, -1, leftWeight)
+	res, leftWeight = knapsack(hosts, 30000)
+	assert.Equal(t, -10000, leftWeight)
 	assert.Equal(t, []placement.Host{h1}, res)
 
-	res, leftWeight = knapsack(hosts, 6)
+	res, leftWeight = knapsack(hosts, 60000)
 	assert.Equal(t, 0, leftWeight)
 	assert.Equal(t, []placement.Host{h1, h2}, res)
 
-	res, leftWeight = knapsack(hosts, 12)
+	res, leftWeight = knapsack(hosts, 120000)
 	assert.Equal(t, 0, leftWeight)
 	assert.Equal(t, []placement.Host{h1, h3}, res)
 
-	res, leftWeight = knapsack(hosts, 17)
+	res, leftWeight = knapsack(hosts, 170000)
 	assert.Equal(t, 0, leftWeight)
 	assert.Equal(t, []placement.Host{h1, h3, h4}, res)
 
-	res, leftWeight = knapsack(hosts, 19)
+	res, leftWeight = knapsack(hosts, 190000)
 	assert.Equal(t, 0, leftWeight)
 	// will prefer h5 than h1+h2+h3+h4
 	assert.Equal(t, []placement.Host{h5}, res)
 
-	res, leftWeight = knapsack(hosts, 20)
-	assert.Equal(t, -1, leftWeight)
+	res, leftWeight = knapsack(hosts, 200000)
+	assert.Equal(t, -10000, leftWeight)
 	assert.Equal(t, []placement.Host{h2, h5}, res)
 
-	res, leftWeight = knapsack(hosts, 21)
+	res, leftWeight = knapsack(hosts, 210000)
 	assert.Equal(t, 0, leftWeight)
 	assert.Equal(t, []placement.Host{h2, h5}, res)
 
-	res, leftWeight = knapsack(hosts, 40)
-	assert.Equal(t, 2, leftWeight)
+	res, leftWeight = knapsack(hosts, 400000)
+	assert.Equal(t, 20000, leftWeight)
 	assert.Equal(t, []placement.Host{h1, h2, h3, h4, h5}, res)
 }
 

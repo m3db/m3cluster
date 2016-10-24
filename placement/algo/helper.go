@@ -247,9 +247,6 @@ func (ph *placementHelper) scanCurrentLoad() {
 		}
 		ph.rackToHostsMap[h.Host().Rack()][h] = struct{}{}
 
-		if _, exist := ph.rackToWeightMap[h.Host().Rack()]; !exist {
-			ph.rackToWeightMap[h.Host().Rack()] = 0
-		}
 		ph.rackToWeightMap[h.Host().Rack()] = ph.rackToWeightMap[h.Host().Rack()] + h.Host().Weight()
 		totalWeight += h.Host().Weight()
 

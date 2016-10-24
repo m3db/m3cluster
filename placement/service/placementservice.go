@@ -302,20 +302,23 @@ func knapsack(hosts []placement.Host, targetWeight int) ([]placement.Host, int) 
 	weights := make([]int, totalWeight+1)
 	combination := make([][]placement.Host, totalWeight+1)
 
-	for _, host := range hosts {
-		for i := totalWeight; i >= 1; i-- {
-			weight := int(host.Weight())
-			if i-weight < 0 {
+	// dp: weights[i][j] = max(weights[i-1][j], weights[i-1][j-host.Weight] + host.Weight)
+	// when there are multiple combination to reach a target weight, we prefer the one with less hosts
+	for i := range hosts {
+		// this loop needs to go from len to 1 because updating weights[] is being updated in place
+		for j := totalWeight; j >= 1; j-- {
+			weight := int(hosts[i].Weight())
+			if j-weight < 0 {
 				continue
 			}
-			newWeight := weights[i-weight] + weight
-			if newWeight > weights[i] {
-				weights[i] = weights[i-weight] + weight
-				combination[i] = append(combination[i-weight], host)
-			} else if newWeight == weights[i] {
-				// if can reach same weight, find a combination with least number of hosts
-				if len(combination[i-weight])+1 < len(combination[i]) {
-					combination[i] = append(combination[i-weight], host)
+			newWeight := weights[j-weight] + weight
+			if newWeight > weights[j] {
+				weights[j] = weights[j-weight] + weight
+				combination[j] = append(combination[j-weight], hosts[i])
+			} else if newWeight == weights[j] {
+				// if can reach same weight, find a combination with less hosts
+				if len(combination[j-weight])+1 < len(combination[j]) {
+					combination[j] = append(combination[j-weight], hosts[i])
 				}
 			}
 		}
@@ -326,8 +329,7 @@ func knapsack(hosts []placement.Host, targetWeight int) ([]placement.Host, int) 
 		}
 	}
 
-	// will never reach here
-	return nil, 0
+	panic("should never reach here")
 }
 
 func filterZones(p placement.Snapshot, opts placement.Options, candidateHosts []placement.Host) ([]placement.Host, error) {

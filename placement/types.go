@@ -37,7 +37,7 @@ type Algorithm interface {
 	RemoveHost(p Snapshot, h Host) (Snapshot, error)
 
 	// ReplaceHost replace a host with new hosts
-	ReplaceHost(p Snapshot, leavingHost Host, addingHost []Host) (Snapshot, error)
+	ReplaceHost(p Snapshot, leavingHost Host, addingHosts []Host) (Snapshot, error)
 }
 
 // DeploymentPlanner generates deployment steps for a placement
