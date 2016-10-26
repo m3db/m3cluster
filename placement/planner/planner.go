@@ -26,26 +26,6 @@ import (
 	"github.com/m3db/m3cluster/placement"
 )
 
-const defaultMaxStepSize = 3
-
-type deploymentOptions struct {
-	maxStepSize int
-}
-
-// NewDeploymentOptions returns a default DeploymentOptions
-func NewDeploymentOptions() placement.DeploymentOptions {
-	return deploymentOptions{maxStepSize: defaultMaxStepSize}
-}
-
-func (o deploymentOptions) MaxStepSize() int {
-	return o.maxStepSize
-}
-
-func (o deploymentOptions) SetMaxStepSize(stepSize int) placement.DeploymentOptions {
-	o.maxStepSize = stepSize
-	return o
-}
-
 // shardAwareDeploymentPlanner plans the deployment so that as many hosts can be deployed
 // at the same time without making more than 1 replica of any shard unavailable
 type shardAwareDeploymentPlanner struct {
@@ -58,7 +38,6 @@ func NewShardAwareDeploymentPlanner(options placement.DeploymentOptions) placeme
 }
 
 func (dp shardAwareDeploymentPlanner) DeploymentSteps(ps placement.Snapshot) [][]placement.HostShards {
-	//ph := newReplicaPlacementHelper(ps, ps.Replicas())
 	hss := ps.HostShards()
 	var steps sortableSteps
 	for len(hss) > 0 {
