@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 var (
@@ -333,4 +334,18 @@ func (h host) Weight() uint32 {
 
 func (h host) String() string {
 	return fmt.Sprintf("[id:%s, rack:%s, zone:%s, weight:%v]", h.id, h.rack, h.zone, h.weight)
+}
+
+type SortHostByID []Host
+
+func (s SortHostByID) Len() int {
+	return len(s)
+}
+
+func (s SortHostByID) Less(i, j int) bool {
+	return strings.Compare(s[i].ID(), s[j].ID()) < 0
+}
+
+func (s SortHostByID) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
 }
