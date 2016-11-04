@@ -336,6 +336,7 @@ func (h host) String() string {
 	return fmt.Sprintf("[id:%s, rack:%s, zone:%s, weight:%v]", h.id, h.rack, h.zone, h.weight)
 }
 
+// SortHostByID sorts Hosts by ID
 type SortHostByID []Host
 
 func (s SortHostByID) Len() int {
