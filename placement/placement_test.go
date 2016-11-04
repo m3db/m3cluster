@@ -308,7 +308,7 @@ func TestSortHostByID(t *testing.T) {
 	h6 := NewHost("h6", "", "", 1)
 
 	hs := []Host{h1, h6, h4, h2, h3, h5}
-	sort.Sort(SortHostByID(hs))
+	sort.Sort(ByIDAscending(hs))
 
 	assert.Equal(t, []Host{h1, h2, h3, h4, h5, h6}, hs)
 }
