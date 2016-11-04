@@ -124,7 +124,7 @@ func TestBadInitialPlacement(t *testing.T) {
 		placement.NewHost("r2h2", "r2", "z2", 1),
 	}, 100, 2)
 	assert.Error(t, err)
-	assert.Equal(t, errHostsAcrossZones, err)
+	assert.Equal(t, errMultipleZones, err)
 
 	_, err = ps.BuildInitialPlacement("serviceA", []placement.Host{
 		placement.NewHost("r1h1", "r1", "z1", 1),

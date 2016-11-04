@@ -33,7 +33,7 @@ var (
 	errInvalidShardLen      = errors.New("shardLen should be greater than zero")
 	errHostAbsent           = errors.New("could not remove or replace a host that does not exist")
 	errNoValidHost          = errors.New("no valid host in the candidate list")
-	errHostsAcrossZones     = errors.New("could not init placement on hosts across zones with acrossZones disabled")
+	errMultipleZones        = errors.New("could not init placement on hosts from multiple zones")
 	errSnapshotAlreadyExist = errors.New("could not init placement for service, there is already a placement")
 )
 
@@ -189,7 +189,7 @@ func (ps placementService) validateInitHosts(hosts []placement.Host) error {
 			continue
 		}
 		if zone != hostShards.Zone() {
-			return errHostsAcrossZones
+			return errMultipleZones
 		}
 	}
 	return nil
