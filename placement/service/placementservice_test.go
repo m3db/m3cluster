@@ -537,12 +537,14 @@ func TestFillWeightDeterministic(t *testing.T) {
 
 	h6 := placement.NewHost("h6", "", "", 1)
 	h7 := placement.NewHost("h7", "", "", 1)
+	h8 := placement.NewHost("h8", "", "", 1)
+	h9 := placement.NewHost("h9", "", "", 2)
 	groups := [][]placement.Host{
 		[]placement.Host{h1, h2, h3, h4, h5},
-		[]placement.Host{h6, h7},
+		[]placement.Host{h6, h7, h8, h9},
 	}
 
-	for i := 1; i < 15; i++ {
+	for i := 1; i < 17; i++ {
 		testResultDeterministic(t, groups, i)
 	}
 }
