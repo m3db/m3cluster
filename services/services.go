@@ -21,13 +21,9 @@
 package services
 
 import (
-	"errors"
-
 	"github.com/m3db/m3cluster/shard"
 	xwatch "github.com/m3db/m3x/watch"
 )
-
-var errInstanceNotFound = errors.New("instance not found")
 
 // Service describes the metadata and instances of a service
 type Service interface {
@@ -53,8 +49,29 @@ type Service interface {
 	SetSharding(s ServiceSharding) Service
 }
 
-// NewService creates a new Service
-func NewService() Service { return new(service) }
+// PlacementSnapshot describes how shards are placed on instances
+type PlacementSnapshot interface {
+	// Instances returns the placement instances
+	Instances() []PlacementInstance
+
+	// SetInstances sets the placement instances
+	SetInstances(insts []PlacementInstance) PlacementSnapshot
+
+	// Replication returns the placement replication description or nil if none
+	Replication() ServiceReplication
+
+	// SetReplication sets the placement replication description or nil if none
+	SetReplication(r ServiceReplication) PlacementSnapshot
+
+	// Sharding returns the placement sharding description or nil if none
+	Sharding() ServiceSharding
+
+	// SetSharding sets the placement sharding description or nil if none
+	SetSharding(s ServiceSharding) PlacementSnapshot
+
+	// Validate checks if the placement is valid
+	Validate() error
+}
 
 // ServiceReplication describes the replication of a service
 type ServiceReplication interface {
@@ -65,9 +82,6 @@ type ServiceReplication interface {
 	SetReplicas(r int) ServiceReplication
 }
 
-// NewServiceReplication creates a new ServiceReplication
-func NewServiceReplication() ServiceReplication { return new(serviceReplication) }
-
 // ServiceSharding describes the sharding of a service
 type ServiceSharding interface {
 	// NumShards is the number of shards to use for sharding
@@ -77,25 +91,27 @@ type ServiceSharding interface {
 	SetNumShards(n int) ServiceSharding
 }
 
-// NewServiceSharding creates a new ServiceSharding
-func NewServiceSharding() ServiceSharding { return new(serviceSharding) }
-
 // ServiceInstance is a single instance of a service
 type ServiceInstance interface {
-	Service() string                          // the service implemented by the instance
-	SetService(s string) ServiceInstance      // sets the service implemented by the instance
-	ID() string                               // ID of the instance
-	SetID(id string) ServiceInstance          // sets the ID of the instance
-	Zone() string                             // Zone in which the instance resides
-	SetZone(z string) ServiceInstance         // sets the zone in which the instance resides
-	Endpoint() string                         // Endpoint address for contacting the instance
-	SetEndpoint(e string) ServiceInstance     // sets the endpoint address for the instance
-	Shards() shard.Shards                     // Shards owned by the instance
-	SetShards(s shard.Shards) ServiceInstance // sets the Shards assigned to the instance
+	PlacementInstance() string
+	SetPlacementInstance(i PlacementInstance) ServiceInstance
+	Service() string                         // the service implemented by the instance
+	SetService(s string) ServiceInstance     // sets the service implemented by the instance
+	Endpoints() []string                     // Endpoint addresses for contacting the instance
+	SetEndpoints(e []string) ServiceInstance // sets the endpoint addresses for the instance
 }
 
-// NewServiceInstance creates a new ServiceInstance
-func NewServiceInstance() ServiceInstance { return new(serviceInstance) }
+// PlacementInstance is a single instance in a placement
+type PlacementInstance interface {
+	ID() string                                 // ID of the instance
+	SetID(id string) PlacementInstance          // sets the ID of the instance
+	Zone() string                               // Zone in which the instance resides
+	SetZone(z string) PlacementInstance         // sets the zone in which the instance resides
+	Shards() shard.Shards                       // Shards owned by the instance
+	SetShards(s shard.Shards) PlacementInstance // sets the Shards assigned to the instance
+	// weight
+	// rack
+}
 
 // Advertisement advertises the availability of a given instance of a service
 type Advertisement interface {
@@ -109,19 +125,21 @@ type Advertisement interface {
 	SetEndpoint(e string) Advertisement          // sets the endpoint exposed by the service
 }
 
-// NewAdvertisement creates a new Advertisement
-func NewAdvertisement() Advertisement { return new(advertisement) }
+// ServiceQuery contains the fields required for service discovery queries
+type ServiceQuery interface {
+	Service() string                        // the service name of the query
+	SetService(s string) ServiceQuery       // set the service name of the query
+	Environment() string                    // the environemnt of the query
+	SetEnvironment(env string) ServiceQuery // sets the environemnt of the query
+	Zone() string                           // the zone of the query
+	SetZone(zone string) ServiceQuery       // sets the zone of the query
+}
 
 // QueryOptions are options to service discovery queries
 type QueryOptions interface {
-	Zones() []string                         // list of zones to consult. if empty only the local zone will be queried
-	SetZones(zones []string) QueryOptions    // sets the list of zones to consult
 	IncludeUnhealthy() bool                  // if true, will return unhealthy instances
 	SetIncludeUnhealthy(h bool) QueryOptions // sets whether to include unhealthy instances
 }
-
-// NewQueryOptions creates new QueryOptions
-func NewQueryOptions() QueryOptions { return new(queryOptions) }
 
 // Services provides access to the service topology
 type Services interface {
@@ -129,91 +147,30 @@ type Services interface {
 	Advertise(ad Advertisement) error
 
 	// Unadvertise indicates a given instance is no longer available
-	Unadvertise(service, id string) error
+	Unadvertise(service ServiceQuery, id string) error
 
 	// Query returns metadata and a list of available instances for a given service
-	Query(service string, opts QueryOptions) (Service, error)
+	Query(service ServiceQuery, opts QueryOptions) (Service, error)
 
 	// Watch returns a watch on metadata and a list of available instances for a given service
-	Watch(service string, opts QueryOptions) (xwatch.Watch, error)
+	Watch(service ServiceQuery, opts QueryOptions) (xwatch.Watch, error)
 }
 
-type service struct {
-	instances   []ServiceInstance
-	replication ServiceReplication
-	sharding    ServiceSharding
+// PlacementService handles the placement related operations for registered services
+// all write or update operations will persist the generated snapshot before returning success
+type PlacementService interface {
+	BuildInitialPlacement(service ServiceQuery, hosts []PlacementInstance, shardLen int, rf int) (PlacementSnapshot, error)
+	AddReplica(service ServiceQuery) (PlacementSnapshot, error)
+	AddHost(service ServiceQuery, candidateHosts []PlacementInstance) (PlacementSnapshot, error)
+	RemoveHost(service ServiceQuery, host PlacementInstance) (PlacementSnapshot, error)
+	ReplaceHost(service ServiceQuery, leavingHost PlacementInstance, candidateHosts []PlacementInstance) (PlacementSnapshot, error)
+
+	// Snapshot gets the persisted snapshot for service
+	Snapshot(service ServiceQuery) (PlacementSnapshot, error)
 }
 
-func (s *service) Instance(instanceID string) (ServiceInstance, error) {
-	for _, instance := range s.instances {
-		if instance.ID() == instanceID {
-			return instance, nil
-		}
-	}
-	return nil, errInstanceNotFound
+// PlacementStorage provides read and write access to placement snapshots
+type PlacementStorage interface {
+	SaveSnapshotForService(service ServiceQuery, p PlacementSnapshot) error
+	ReadSnapshotForService(service ServiceQuery) (PlacementSnapshot, error)
 }
-func (s *service) Instances() []ServiceInstance                 { return s.instances }
-func (s *service) Replication() ServiceReplication              { return s.replication }
-func (s *service) Sharding() ServiceSharding                    { return s.sharding }
-func (s *service) SetInstances(insts []ServiceInstance) Service { s.instances = insts; return s }
-func (s *service) SetReplication(r ServiceReplication) Service  { s.replication = r; return s }
-func (s *service) SetSharding(ss ServiceSharding) Service       { s.sharding = ss; return s }
-
-type serviceReplication struct {
-	replicas int
-}
-
-func (r *serviceReplication) Replicas() int                          { return r.replicas }
-func (r *serviceReplication) SetReplicas(rep int) ServiceReplication { r.replicas = rep; return r }
-
-type serviceSharding struct {
-	numShards int
-}
-
-func (s *serviceSharding) NumShards() int                     { return s.numShards }
-func (s *serviceSharding) SetNumShards(n int) ServiceSharding { s.numShards = n; return s }
-
-type serviceInstance struct {
-	id       string
-	service  string
-	zone     string
-	endpoint string
-	shards   shard.Shards
-}
-
-func (i *serviceInstance) Service() string                          { return i.service }
-func (i *serviceInstance) ID() string                               { return i.id }
-func (i *serviceInstance) Zone() string                             { return i.zone }
-func (i *serviceInstance) Endpoint() string                         { return i.endpoint }
-func (i *serviceInstance) Shards() shard.Shards                     { return i.shards }
-func (i *serviceInstance) SetService(s string) ServiceInstance      { i.service = s; return i }
-func (i *serviceInstance) SetID(id string) ServiceInstance          { i.id = id; return i }
-func (i *serviceInstance) SetZone(z string) ServiceInstance         { i.zone = z; return i }
-func (i *serviceInstance) SetEndpoint(e string) ServiceInstance     { i.endpoint = e; return i }
-func (i *serviceInstance) SetShards(s shard.Shards) ServiceInstance { i.shards = s; return i }
-
-type advertisement struct {
-	id       string
-	service  string
-	endpoint string
-	health   func() error
-}
-
-func (a *advertisement) ID() string                             { return a.id }
-func (a *advertisement) Service() string                        { return a.service }
-func (a *advertisement) Endpoint() string                       { return a.endpoint }
-func (a *advertisement) Health() func() error                   { return a.health }
-func (a *advertisement) SetID(id string) Advertisement          { a.id = id; return a }
-func (a *advertisement) SetService(s string) Advertisement      { a.service = s; return a }
-func (a *advertisement) SetEndpoint(e string) Advertisement     { a.endpoint = e; return a }
-func (a *advertisement) SetHealth(h func() error) Advertisement { a.health = h; return a }
-
-type queryOptions struct {
-	zones            []string
-	includeUnhealthy bool
-}
-
-func (qo *queryOptions) Zones() []string                         { return qo.zones }
-func (qo *queryOptions) IncludeUnhealthy() bool                  { return qo.includeUnhealthy }
-func (qo *queryOptions) SetZones(z []string) QueryOptions        { qo.zones = z; return qo }
-func (qo *queryOptions) SetIncludeUnhealthy(h bool) QueryOptions { qo.includeUnhealthy = h; return qo }
