@@ -40,33 +40,6 @@ type Algorithm interface {
 	ReplaceHost(p Snapshot, leavingHost Host, addingHosts []Host) (Snapshot, error)
 }
 
-// Snapshot describes how shards are placed on hosts
-type Snapshot interface {
-	// HostShards returns all HostShards in the placement
-	HostShards() []HostShards
-
-	// HostsLen returns the length of all hosts in the placement
-	HostsLen() int
-
-	// Replicas returns the replication factor in the placement
-	Replicas() int
-
-	// ShardsLen returns the number of shards in a replica
-	ShardsLen() int
-
-	// Shards returns all the unique shard ids for a replica
-	Shards() []uint32
-
-	// HostShard returns the HostShards for the requested host
-	HostShard(id string) HostShards
-
-	// Validate checks if the snapshot is valid
-	Validate() error
-
-	// Copy copies the Snapshot
-	Copy() Snapshot
-}
-
 // HostShards represents a host and its assigned shards
 type HostShards interface {
 	Host() Host
@@ -84,25 +57,6 @@ type Host interface {
 	Rack() string
 	Zone() string
 	Weight() uint32
-}
-
-// Service handles the placement related operations for registered services
-// all write or update operations will persist the generated snapshot before returning success
-type Service interface {
-	BuildInitialPlacement(service string, hosts []Host, shardLen int, rf int) (Snapshot, error)
-	AddReplica(service string) (Snapshot, error)
-	AddHost(service string, candidateHosts []Host) (Snapshot, error)
-	RemoveHost(service string, host Host) (Snapshot, error)
-	ReplaceHost(service string, leavingHost Host, candidateHosts []Host) (Snapshot, error)
-
-	// Snapshot gets the persisted snapshot for service
-	Snapshot(service string) (Snapshot, error)
-}
-
-// SnapshotStorage provides read and write access to placement snapshots
-type SnapshotStorage interface {
-	SaveSnapshotForService(service string, p Snapshot) error
-	ReadSnapshotForService(service string) (Snapshot, error)
 }
 
 // Options is the interface for placement options

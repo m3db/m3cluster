@@ -20,10 +20,24 @@
 
 package shard
 
+const (
+	// INITIALIZING represents a shard newly assigned to an instance
+	INITIALIZING State = iota
+
+	// AVAILABLE represends a shard bootstraped and ready to serve
+	AVAILABLE
+)
+
+// State represends the state of a shard
+type State int
+
 // A Shard represents a piece of data owned by the service
 type Shard interface {
 	// ID returns the ID of the shard
 	ID() uint32
+
+	// State returns the state of the shard
+	State() State
 }
 
 // NewShard returns a new Shard
@@ -45,10 +59,12 @@ type Shards interface {
 func NewShards(ss []Shard) Shards { return shards{ss: ss} }
 
 type shard struct {
-	id uint32
+	id    uint32
+	state State
 }
 
-func (s shard) ID() uint32 { return s.id }
+func (s shard) ID() uint32   { return s.id }
+func (s shard) State() State { return s.state }
 
 type shards struct {
 	ss []Shard
