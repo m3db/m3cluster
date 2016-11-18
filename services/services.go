@@ -99,29 +99,42 @@ func NewAdvertisement() Advertisement { return new(advertisement) }
 
 type advertisement struct {
 	id       string
-	service  string
+	service  ServiceQuery
 	endpoint string
 	health   func() error
 }
 
-func (a *advertisement) ID() string                             { return a.id }
-func (a *advertisement) Service() string                        { return a.service }
-func (a *advertisement) Endpoint() string                       { return a.endpoint }
-func (a *advertisement) Health() func() error                   { return a.health }
-func (a *advertisement) SetID(id string) Advertisement          { a.id = id; return a }
-func (a *advertisement) SetService(s string) Advertisement      { a.service = s; return a }
-func (a *advertisement) SetEndpoint(e string) Advertisement     { a.endpoint = e; return a }
-func (a *advertisement) SetHealth(h func() error) Advertisement { a.health = h; return a }
+func (a *advertisement) ID() string                              { return a.id }
+func (a *advertisement) Service() ServiceQuery                   { return a.service }
+func (a *advertisement) Endpoint() string                        { return a.endpoint }
+func (a *advertisement) Health() func() error                    { return a.health }
+func (a *advertisement) SetID(id string) Advertisement           { a.id = id; return a }
+func (a *advertisement) SetService(s ServiceQuery) Advertisement { a.service = s; return a }
+func (a *advertisement) SetEndpoint(e string) Advertisement      { a.endpoint = e; return a }
+func (a *advertisement) SetHealth(h func() error) Advertisement  { a.health = h; return a }
+
+// NewServiceQuery creates new ServiceQuery
+func NewServiceQuery() ServiceQuery { return new(serviceQuery) }
+
+type serviceQuery struct {
+	service string
+	env     string
+	zone    string
+}
+
+func (sq *serviceQuery) Service() string                      { return sq.service }
+func (sq *serviceQuery) Environment() string                  { return sq.env }
+func (sq *serviceQuery) Zone() string                         { return sq.zone }
+func (sq *serviceQuery) SetService(s string) ServiceQuery     { sq.service = s; return sq }
+func (sq *serviceQuery) SetEnvironment(e string) ServiceQuery { sq.env = e; return sq }
+func (sq *serviceQuery) SetZone(z string) ServiceQuery        { sq.zone = z; return sq }
 
 // NewQueryOptions creates new QueryOptions
 func NewQueryOptions() QueryOptions { return new(queryOptions) }
 
 type queryOptions struct {
-	zones            []string
 	includeUnhealthy bool
 }
 
-func (qo *queryOptions) Zones() []string                         { return qo.zones }
 func (qo *queryOptions) IncludeUnhealthy() bool                  { return qo.includeUnhealthy }
-func (qo *queryOptions) SetZones(z []string) QueryOptions        { qo.zones = z; return qo }
 func (qo *queryOptions) SetIncludeUnhealthy(h bool) QueryOptions { qo.includeUnhealthy = h; return qo }
