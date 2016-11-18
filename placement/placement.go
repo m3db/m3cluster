@@ -42,8 +42,8 @@ type snapshot struct {
 }
 
 // NewPlacementSnapshot returns a placement snapshot
-func NewPlacementSnapshot(hss []HostShards, shards []uint32, rf int) Snapshot {
-	return snapshot{hostShards: hss, rf: rf, shards: shards}
+func NewPlacementSnapshot(hss []HostShards, ids []uint32, rf int) Snapshot {
+	return snapshot{hostShards: hss, rf: rf, shards: ids}
 }
 
 // NewEmptyPlacementSnapshot returns an empty placement
