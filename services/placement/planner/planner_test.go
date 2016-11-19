@@ -60,9 +60,9 @@ func TestDeployment(t *testing.T) {
 	h6.Shards().AddShard(3)
 	h6.Shards().AddShard(4)
 
-	hss := []services.PlacementInstance{h1, h2, h3, h4, h5, h6}
+	instances := []services.PlacementInstance{h1, h2, h3, h4, h5, h6}
 
-	mp := placement.NewPlacement(hss, []uint32{1, 2, 3, 4, 5, 6}, 3)
+	mp := placement.NewPlacement(instances, []uint32{1, 2, 3, 4, 5, 6}, 3)
 
 	dp := NewShardAwareDeploymentPlanner(placement.NewDeploymentOptions())
 	steps := dp.DeploymentSteps(mp)
@@ -111,9 +111,9 @@ func TestDeploymentWithThreeReplica(t *testing.T) {
 	h9.Shards().AddShard(6)
 	h9.Shards().AddShard(1)
 
-	hss := []services.PlacementInstance{h1, h2, h3, h4, h5, h6, h7, h8, h9}
+	instances := []services.PlacementInstance{h1, h2, h3, h4, h5, h6, h7, h8, h9}
 
-	mp := placement.NewPlacement(hss, []uint32{1, 2, 3, 4, 5, 6}, 3)
+	mp := placement.NewPlacement(instances, []uint32{1, 2, 3, 4, 5, 6}, 3)
 
 	dp := NewShardAwareDeploymentPlanner(placement.NewDeploymentOptions())
 	steps := dp.DeploymentSteps(mp)

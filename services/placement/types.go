@@ -48,8 +48,11 @@ type DeploymentPlanner interface {
 
 // Storage provides read and write access to service placement
 type Storage interface {
-	SaveSnapshot(service services.ServiceQuery, p services.ServicePlacement) error
-	ReadSnapshot(service services.ServiceQuery) (services.ServicePlacement, error)
+	// SetPlacement writes a placement for a service
+	SetPlacement(service services.ServiceQuery, p services.ServicePlacement) error
+
+	// Placement reads a placement for a service
+	Placement(service services.ServiceQuery) (services.ServicePlacement, error)
 }
 
 // Options is the interface for placement options

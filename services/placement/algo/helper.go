@@ -32,7 +32,7 @@ import (
 type PlacementHelper interface {
 	// PlaceShards distributes shards to the instances in the helper, with aware of where are the shards coming from
 	PlaceShards(shards []uint32, from services.PlacementInstance) error
-	// GeneratePlacement generates a placement snapshot
+	// GeneratePlacement generates a placement
 	GeneratePlacement() services.ServicePlacement
 	// TargetLoadForInstance returns the targe load for a instance
 	TargetLoadForInstance(id string) int
@@ -140,7 +140,7 @@ func (ph placementHelper) PlaceShards(shards []uint32, from services.PlacementIn
 
 // placeToRacksOtherThanOrigin move shards from a instance to the rest of the cluster
 // the goal of this function is to assign "some" of the shards to the instances in other racks
-func (ph placementHelper) placeToRacksOtherThanOrigin(shards map[uint32]int, from services.PlacementInstance) {
+func (ph placementHelper) placeToRacksOtherThanOrigin(shardsSet map[uint32]int, from services.PlacementInstance) {
 	var otherRack []services.PlacementInstance
 	for rack, instances := range ph.rackToInstancesMap {
 		if rack == from.Rack() {
@@ -154,7 +154,7 @@ func (ph placementHelper) placeToRacksOtherThanOrigin(shards map[uint32]int, fro
 	instanceHeap := ph.BuildInstanceHeap(otherRack, true)
 
 	var triedInstances []services.PlacementInstance
-	for shard := range shards {
+	for shard := range shardsSet {
 		for instanceHeap.Len() > 0 {
 			tryInstance := heap.Pop(instanceHeap).(services.PlacementInstance)
 			if ph.TargetLoadForInstance(tryInstance.ID())-tryInstance.Shards().NumShards() <= 0 {
@@ -164,7 +164,7 @@ func (ph placementHelper) placeToRacksOtherThanOrigin(shards map[uint32]int, fro
 			}
 			triedInstances = append(triedInstances, tryInstance)
 			if ph.MoveShard(shard, from, tryInstance) {
-				delete(shards, shard)
+				delete(shardsSet, shard)
 				break
 			}
 		}
@@ -177,8 +177,8 @@ func (ph placementHelper) placeToRacksOtherThanOrigin(shards map[uint32]int, fro
 }
 
 // NewPlacementHelper returns a placement helper
-func NewPlacementHelper(ps services.ServicePlacement, opt placement.Options) PlacementHelper {
-	return newHelper(ps, ps.ReplicaFactor(), opt)
+func NewPlacementHelper(p services.ServicePlacement, opt placement.Options) PlacementHelper {
+	return newHelper(p, p.ReplicaFactor(), opt)
 }
 
 func newInitHelper(instances []services.PlacementInstance, ids []uint32, opt placement.Options) PlacementHelper {
@@ -186,53 +186,53 @@ func newInitHelper(instances []services.PlacementInstance, ids []uint32, opt pla
 	return newHelper(emptyPlacement, emptyPlacement.ReplicaFactor()+1, opt)
 }
 
-func newAddReplicaHelper(ps services.ServicePlacement, opt placement.Options) PlacementHelper {
-	return newHelper(ps, ps.ReplicaFactor()+1, opt)
+func newAddReplicaHelper(p services.ServicePlacement, opt placement.Options) PlacementHelper {
+	return newHelper(p, p.ReplicaFactor()+1, opt)
 }
 
-func newAddInstanceHelper(ps services.ServicePlacement, i services.PlacementInstance, opt placement.Options) PlacementHelper {
-	ps = placement.NewPlacement(append(ps.Instances(), i), ps.Shards(), ps.ReplicaFactor())
-	return newHelper(ps, ps.ReplicaFactor(), opt)
+func newAddInstanceHelper(p services.ServicePlacement, i services.PlacementInstance, opt placement.Options) PlacementHelper {
+	p = placement.NewPlacement(append(p.Instances(), i), p.Shards(), p.ReplicaFactor())
+	return newHelper(p, p.ReplicaFactor(), opt)
 }
 
 func newRemoveInstanceHelper(
-	ps services.ServicePlacement,
+	p services.ServicePlacement,
 	i services.PlacementInstance,
 	opt placement.Options,
 ) (PlacementHelper, services.PlacementInstance, error) {
-	ps, leavingInstance, err := removeInstanceFromPlacement(ps, i)
+	p, leavingInstance, err := removeInstanceFromPlacement(p, i)
 	if err != nil {
 		return nil, nil, err
 	}
-	return newHelper(ps, ps.ReplicaFactor(), opt), leavingInstance, nil
+	return newHelper(p, p.ReplicaFactor(), opt), leavingInstance, nil
 }
 
 func newReplaceInstanceHelper(
-	ps services.ServicePlacement,
+	p services.ServicePlacement,
 	leavingInstance services.PlacementInstance,
 	addingInstances []services.PlacementInstance,
 	opt placement.Options,
 ) (PlacementHelper, services.PlacementInstance, []services.PlacementInstance, error) {
-	ps, leavingInstance, err := removeInstanceFromPlacement(ps, leavingInstance)
+	p, leavingInstance, err := removeInstanceFromPlacement(p, leavingInstance)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	newAddingInstances := make([]services.PlacementInstance, len(addingInstances))
 	for i, instance := range addingInstances {
-		ps, newAddingInstances[i], err = addInstanceToPlacement(ps, instance)
+		p, newAddingInstances[i], err = addInstanceToPlacement(p, instance)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 	}
-	return newHelper(ps, ps.ReplicaFactor(), opt), leavingInstance, newAddingInstances, nil
+	return newHelper(p, p.ReplicaFactor(), opt), leavingInstance, newAddingInstances, nil
 }
 
-func newHelper(ps services.ServicePlacement, targetRF int, opt placement.Options) PlacementHelper {
+func newHelper(p services.ServicePlacement, targetRF int, opt placement.Options) PlacementHelper {
 	ph := &placementHelper{
 		rf:           targetRF,
-		instances:    ps.Instances(),
-		uniqueShards: ps.Shards(),
+		instances:    p.Instances(),
+		uniqueShards: p.Shards(),
 		options:      opt,
 	}
 
@@ -388,8 +388,8 @@ func addInstanceToPlacement(p services.ServicePlacement, i services.PlacementIns
 	if p.Instance(i.ID()) != nil {
 		return nil, nil, errAddingInstanceAlreadyExist
 	}
-	hss := placement.NewEmptyInstance(i.ID(), i.Rack(), i.Zone(), i.Weight())
-	return placement.NewPlacement(append(p.Instances(), hss), p.Shards(), p.ReplicaFactor()), hss, nil
+	instances := placement.NewEmptyInstance(i.ID(), i.Rack(), i.Zone(), i.Weight())
+	return placement.NewPlacement(append(p.Instances(), instances), p.Shards(), p.ReplicaFactor()), instances, nil
 }
 
 func removeInstanceFromPlacement(p services.ServicePlacement, leavingInstance services.PlacementInstance) (services.ServicePlacement, services.PlacementInstance, error) {
@@ -398,12 +398,12 @@ func removeInstanceFromPlacement(p services.ServicePlacement, leavingInstance se
 		return nil, nil, errInstanceAbsent
 	}
 
-	var hsArr []services.PlacementInstance
-	for i, phs := range p.Instances() {
-		if phs.ID() == leavingInstance.ID() {
-			hsArr = append(p.Instances()[:i], p.Instances()[i+1:]...)
+	var instances []services.PlacementInstance
+	for i, instance := range p.Instances() {
+		if instance.ID() == leavingInstance.ID() {
+			instances = append(p.Instances()[:i], p.Instances()[i+1:]...)
 			break
 		}
 	}
-	return placement.NewPlacement(hsArr, p.Shards(), p.ReplicaFactor()), leavingInstance, nil
+	return placement.NewPlacement(instances, p.Shards(), p.ReplicaFactor()), leavingInstance, nil
 }

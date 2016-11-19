@@ -417,7 +417,7 @@ func TestAddInstancesCouldNotReachTargetLoad(t *testing.T) {
 
 	p1, err := a.AddInstance(p, r1h1)
 	// errCouldNotReachTargetLoad should only happen when trying to add a instance to
-	// an invalid snapshot that does not have enough shards for the rf it thought it has
+	// an invalid placement that does not have enough shards for the rf it thought it has
 	assert.Equal(t, errCouldNotReachTargetLoad, err)
 	assert.Nil(t, p1)
 }
@@ -527,9 +527,9 @@ func TestCanAssignInstance(t *testing.T) {
 	h6.Shards().AddShard(3)
 	h6.Shards().AddShard(4)
 
-	hss := []services.PlacementInstance{h1, h2, h3, h4, h5, h6}
+	instances := []services.PlacementInstance{h1, h2, h3, h4, h5, h6}
 
-	mp := placement.NewPlacement(hss, []uint32{1, 2, 3, 4, 5, 6}, 3)
+	mp := placement.NewPlacement(instances, []uint32{1, 2, 3, 4, 5, 6}, 3)
 
 	ph := newHelper(mp, 3, placement.NewOptions()).(*placementHelper)
 	assert.True(t, ph.canAssignInstance(2, h6, h5))
@@ -562,7 +562,7 @@ func validateDistribution(t *testing.T, mp services.ServicePlacement, expectPeak
 		}
 	}
 	assert.Equal(t, total, mp.ReplicaFactor()*mp.NumShards(), fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.ReplicaFactor()*mp.NumShards(), total))
-	assert.NoError(t, mp.Validate(), "snapshot validation failed")
+	assert.NoError(t, mp.Validate(), "placement validation failed")
 }
 
 func getWeightedLoad(ph *placementHelper, weight uint32) int {

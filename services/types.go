@@ -41,8 +41,11 @@ type Services interface {
 	// Watch returns a watch on metadata and a list of available instances for a given service
 	Watch(service ServiceQuery, opts QueryOptions) (xwatch.Watch, error)
 
-	// PlacementService returns a client of Placement Service for a given service
+	// PlacementService returns a client of Placement Service
 	PlacementService(service ServiceQuery) (PlacementService, error)
+
+	// MetadataService returns a client of Metadata Service
+	MetadataService(service ServiceQuery) (MetadataService, error)
 }
 
 // Service describes the metadata and instances of a service
@@ -129,6 +132,22 @@ type QueryOptions interface {
 	SetIncludeUnhealthy(h bool) QueryOptions // sets whether to include unhealthy instances
 }
 
+// ServiceMetadata contains the metadata for a service
+type ServiceMetadata interface {
+	Ports() []uint64           // Ports returns the ports to be used to contact the service
+	LivenessInterval() uint64  // LivenessInterval is the ttl interval for an instance to be considered as healthy in milliseconds
+	HeartbeatInterval() uint64 // HeartbeatInterval is the interval for heatbeats in milliseconds
+}
+
+// MetadataService handles the placement related operations for registered services
+type MetadataService interface {
+	// Metadata returns the metadata for a given service
+	Metadata() (ServiceMetadata, error)
+
+	// SetMetadata sets the metadata for a given service
+	SetMetadata(m ServiceMetadata) error
+}
+
 // PlacementService handles the placement related operations for registered services
 // all write or update operations will persist the generated snapshot before returning success
 type PlacementService interface {
@@ -181,9 +200,18 @@ type ServicePlacement interface {
 // PlacementInstance represents an instance in a service placement
 type PlacementInstance interface {
 	fmt.Stringer
-	ID() string           // ID is the id of the instance
-	Rack() string         // Rack is the rack of the instance
-	Zone() string         // Zone is the zone of the instance
-	Weight() uint32       // Weight is the weight of the instance
-	Shards() shard.Shards // Shards returns the shards owned by the instance
+	ID() string                                 // ID is the id of the instance
+	SetID(id string) PlacementInstance          // SetID sets the id of the instance
+	Rack() string                               // Rack is the rack of the instance
+	SetRack(r string) PlacementInstance         // SetRack sets the rack of the instance
+	Zone() string                               // Zone is the zone of the instance
+	SetZone(z string) PlacementInstance         // SetZone sets the zone of the instance
+	Weight() uint32                             // Weight is the weight of the instance
+	SetWeight(w uint32) PlacementInstance       // SetWeight sets the weight of the instance
+	Name() string                               // Name is the name of the instance
+	SetName(n string) PlacementInstance         // SetName sets the name of the instance
+	Port() string                               // Port is the port to contact the instance
+	SetPort(p string) PlacementInstance         // SetPort sets the port of the instance
+	Shards() shard.Shards                       // Shards returns the shards owned by the instance
+	SetShards(s shard.Shards) PlacementInstance // Shards returns the shards owned by the instance
 }

@@ -38,38 +38,38 @@ func NewShardAwareDeploymentPlanner(options placement.DeploymentOptions) placeme
 	return shardAwareDeploymentPlanner{options: options}
 }
 
-func (dp shardAwareDeploymentPlanner) DeploymentSteps(ps services.ServicePlacement) [][]services.PlacementInstance {
-	hss := ps.Instances()
+func (dp shardAwareDeploymentPlanner) DeploymentSteps(p services.ServicePlacement) [][]services.PlacementInstance {
+	instances := p.Instances()
 	var steps sortableSteps
-	for len(hss) > 0 {
-		step := getDeployStep(hss, dp.options.MaxStepSize())
+	for len(instances) > 0 {
+		step := getDeployStep(instances, dp.options.MaxStepSize())
 		steps = append(steps, step)
-		hss = getLeftInstances(hss, step)
+		instances = getLeftInstances(instances, step)
 	}
 	sort.Sort(steps)
 	return steps
 }
 
-func getDeployStep(hss []services.PlacementInstance, maxStepSize int) []services.PlacementInstance {
+func getDeployStep(instances []services.PlacementInstance, maxStepSize int) []services.PlacementInstance {
 	var parallel []services.PlacementInstance
 	shards := make(map[uint32]struct{})
-	for _, hs := range hss {
+	for _, instance := range instances {
 		if len(parallel) >= maxStepSize {
 			break
 		}
-		if isSharingShard(shards, hs) {
+		if isSharingShard(shards, instance) {
 			continue
 		}
-		parallel = append(parallel, hs)
-		for _, shard := range hs.Shards().ShardIDs() {
+		parallel = append(parallel, instance)
+		for _, shard := range instance.Shards().ShardIDs() {
 			shards[shard] = struct{}{}
 		}
 	}
 	return parallel
 }
 
-func isSharingShard(shards map[uint32]struct{}, hs services.PlacementInstance) bool {
-	for _, shard := range hs.Shards().ShardIDs() {
+func isSharingShard(shards map[uint32]struct{}, instance services.PlacementInstance) bool {
+	for _, shard := range instance.Shards().ShardIDs() {
 		if _, exist := shards[shard]; exist {
 			return true
 		}
@@ -78,15 +78,15 @@ func isSharingShard(shards map[uint32]struct{}, hs services.PlacementInstance) b
 }
 
 func getLeftInstances(all, toBeRemoved []services.PlacementInstance) []services.PlacementInstance {
-	for _, hs := range toBeRemoved {
-		all = removeInstance(all, hs)
+	for _, instance := range toBeRemoved {
+		all = removeInstance(all, instance)
 	}
 	return all
 }
 
 func removeInstance(all []services.PlacementInstance, remove services.PlacementInstance) []services.PlacementInstance {
-	for i, hs := range all {
-		if hs.ID() == remove.ID() {
+	for i, instance := range all {
+		if instance.ID() == remove.ID() {
 			return append(all[:i], all[i+1:]...)
 		}
 	}

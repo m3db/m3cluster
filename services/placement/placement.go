@@ -48,49 +48,49 @@ type placement struct {
 	shards    []uint32
 }
 
-func (ps placement) Instances() []services.PlacementInstance {
-	result := make([]services.PlacementInstance, ps.NumInstances())
-	for i, hs := range ps.instances {
-		result[i] = hs
+func (p placement) Instances() []services.PlacementInstance {
+	result := make([]services.PlacementInstance, p.NumInstances())
+	for i, instance := range p.instances {
+		result[i] = instance
 	}
 	return result
 }
 
-func (ps placement) NumInstances() int {
-	return len(ps.instances)
+func (p placement) NumInstances() int {
+	return len(p.instances)
 }
 
-func (ps placement) Instance(id string) services.PlacementInstance {
-	for _, phs := range ps.Instances() {
-		if phs.ID() == id {
-			return phs
+func (p placement) Instance(id string) services.PlacementInstance {
+	for _, instance := range p.Instances() {
+		if instance.ID() == id {
+			return instance
 		}
 	}
 	return nil
 }
 
-func (ps placement) ReplicaFactor() int {
-	return ps.rf
+func (p placement) ReplicaFactor() int {
+	return p.rf
 }
 
-func (ps placement) Shards() []uint32 {
-	return ps.shards
+func (p placement) Shards() []uint32 {
+	return p.shards
 }
 
-func (ps placement) NumShards() int {
-	return len(ps.shards)
+func (p placement) NumShards() int {
+	return len(p.shards)
 }
 
-func (ps placement) Validate() error {
-	shardCountMap := ConvertShardSliceToMap(ps.shards)
-	if len(shardCountMap) != len(ps.shards) {
+func (p placement) Validate() error {
+	shardCountMap := ConvertShardSliceToMap(p.shards)
+	if len(shardCountMap) != len(p.shards) {
 		return errDuplicatedShards
 	}
 
-	expectedTotal := len(ps.shards) * ps.rf
+	expectedTotal := len(p.shards) * p.rf
 	actualTotal := 0
-	for _, hs := range ps.instances {
-		for _, id := range hs.Shards().ShardIDs() {
+	for _, instance := range p.instances {
+		for _, id := range instance.Shards().ShardIDs() {
 			if count, exist := shardCountMap[id]; exist {
 				shardCountMap[id] = count + 1
 				continue
@@ -98,7 +98,7 @@ func (ps placement) Validate() error {
 
 			return errUnexpectedShards
 		}
-		actualTotal += hs.Shards().NumShards()
+		actualTotal += instance.Shards().NumShards()
 	}
 
 	if expectedTotal != actualTotal {
@@ -106,23 +106,46 @@ func (ps placement) Validate() error {
 	}
 
 	for shard, c := range shardCountMap {
-		if ps.rf != c {
-			return fmt.Errorf("invalid shard count for shard %d: expected %d, actual %d", shard, ps.rf, c)
+		if p.rf != c {
+			return fmt.Errorf("invalid shard count for shard %d: expected %d, actual %d", shard, p.rf, c)
 		}
 	}
 	return nil
 }
 
-func (ps placement) Copy() services.ServicePlacement {
-	return placement{instances: copyInstances(ps.Instances()), rf: ps.ReplicaFactor(), shards: ps.Shards()}
+func (p placement) Copy() services.ServicePlacement {
+	return placement{instances: copyInstances(p.Instances()), rf: p.ReplicaFactor(), shards: p.Shards()}
 }
 
-func copyInstances(hss []services.PlacementInstance) []services.PlacementInstance {
-	copied := make([]services.PlacementInstance, len(hss))
-	for i, hs := range hss {
-		copied[i] = NewInstance(hs.ID(), hs.Rack(), hs.Zone(), hs.Weight(), hs.Shards().ShardIDs())
+func copyInstances(instances []services.PlacementInstance) []services.PlacementInstance {
+	copied := make([]services.PlacementInstance, len(instances))
+	for i, instance := range instances {
+		copied[i] = NewInstance().
+			SetID(instance.ID()).
+			SetName(instance.Name()).
+			SetPort(instance.Port()).
+			SetRack(instance.Rack()).
+			SetZone(instance.Zone()).
+			SetWeight(instance.Weight()).
+			SetShards(shard.NewShardsWithIDs(instance.Shards().ShardIDs()))
 	}
 	return copied
+}
+
+// NewInstance returns a new PlacementInstance
+func NewInstance() services.PlacementInstance {
+	return &instance{shards: shard.NewShards(nil)}
+}
+
+// NewEmptyInstance returns a PlacementInstance with some basic properties but no shards assigned
+func NewEmptyInstance(id, rack, zone string, weight uint32) services.PlacementInstance {
+	return &instance{
+		id:     id,
+		rack:   rack,
+		zone:   zone,
+		weight: weight,
+		shards: shard.NewShards(nil),
+	}
 }
 
 type instance struct {
@@ -130,47 +153,76 @@ type instance struct {
 	rack   string
 	zone   string
 	weight uint32
+	name   string
+	port   string
 	shards shard.Shards
 }
 
-// NewEmptyInstance returns a PlacementInstance with no shards assigned
-func NewEmptyInstance(id, rack, zone string, weight uint32) services.PlacementInstance {
-	return NewInstance(id, rack, zone, weight, nil)
-}
-
-// NewInstance returns a PlacementInstance with shards
-func NewInstance(id, rack, zone string, weight uint32, shards []uint32) services.PlacementInstance {
-	return &instance{
-		id:     id,
-		rack:   rack,
-		zone:   zone,
-		weight: weight,
-		shards: shard.NewShards(shards),
-	}
-}
-
-func (h instance) String() string {
+func (h *instance) String() string {
 	return fmt.Sprintf("[id:%s, rack:%s, zone:%s, weight:%v]", h.id, h.rack, h.zone, h.weight)
 }
 
-func (h instance) ID() string {
+func (h *instance) ID() string {
 	return h.id
 }
 
-func (h instance) Rack() string {
+func (h *instance) SetID(id string) services.PlacementInstance {
+	h.id = id
+	return h
+}
+
+func (h *instance) Rack() string {
 	return h.rack
 }
 
-func (h instance) Zone() string {
+func (h *instance) SetRack(r string) services.PlacementInstance {
+	h.rack = r
+	return h
+}
+
+func (h *instance) Zone() string {
 	return h.zone
 }
 
-func (h instance) Weight() uint32 {
+func (h *instance) SetZone(z string) services.PlacementInstance {
+	h.zone = z
+	return h
+}
+
+func (h *instance) Weight() uint32 {
 	return h.weight
 }
 
-func (h instance) Shards() shard.Shards {
+func (h *instance) SetWeight(w uint32) services.PlacementInstance {
+	h.weight = w
+	return h
+}
+
+func (h *instance) Name() string {
+	return h.name
+}
+
+func (h *instance) SetName(n string) services.PlacementInstance {
+	h.name = n
+	return h
+}
+
+func (h *instance) Port() string {
+	return h.port
+}
+
+func (h *instance) SetPort(p string) services.PlacementInstance {
+	h.port = p
+	return h
+}
+
+func (h *instance) Shards() shard.Shards {
 	return h.shards
+}
+
+func (h *instance) SetShards(s shard.Shards) services.PlacementInstance {
+	h.shards = s
+	return h
 }
 
 // ByIDAscending sorts PlacementInstance by ID ascending

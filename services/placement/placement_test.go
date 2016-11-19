@@ -28,7 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSnapshot(t *testing.T) {
+func TestPlacement(t *testing.T) {
 	h1 := NewEmptyInstance("r1h1", "r1", "z1", 1)
 	h1.Shards().AddShard(1)
 	h1.Shards().AddShard(2)
@@ -59,21 +59,22 @@ func TestSnapshot(t *testing.T) {
 	h6.Shards().AddShard(3)
 	h6.Shards().AddShard(4)
 
-	hss := []services.PlacementInstance{h1, h2, h3, h4, h5, h6}
+	instances := []services.PlacementInstance{h1, h2, h3, h4, h5, h6}
 
 	ids := []uint32{1, 2, 3, 4, 5, 6}
-	s := NewPlacement(hss, ids, 3)
+	s := NewPlacement(instances, ids, 3)
 	assert.NoError(t, s.Validate())
 
-	hs := s.Instance("r6h6")
-	assert.Equal(t, h6, hs)
-	hs = s.Instance("h100")
-	assert.Nil(t, hs)
+	i := s.Instance("r6h6")
+	assert.Equal(t, h6, i)
+	i = s.Instance("h100")
+	assert.Nil(t, i)
 
 	assert.Equal(t, 6, s.NumInstances())
 	assert.Equal(t, 3, s.ReplicaFactor())
 	assert.Equal(t, ids, s.Shards())
-	assert.Equal(t, hss, s.Instances())
+	assert.Equal(t, 6, s.NumShards())
+	assert.Equal(t, instances, s.Instances())
 
 	s = NewPlacement([]services.PlacementInstance{NewEmptyInstance("h1", "r1", "z1", 1), NewEmptyInstance("h2", "r2", "z1", 1)}, ids, 0)
 	assert.Equal(t, 0, s.ReplicaFactor())
@@ -94,12 +95,12 @@ func TestValidate(t *testing.T) {
 	h2.Shards().AddShard(5)
 	h2.Shards().AddShard(6)
 
-	hss := []services.PlacementInstance{h1, h2}
-	s := NewPlacement(hss, ids, 1)
+	instances := []services.PlacementInstance{h1, h2}
+	s := NewPlacement(instances, ids, 1)
 	assert.NoError(t, s.Validate())
 
 	// mismatch shards
-	s = NewPlacement(hss, append(ids, 7), 1)
+	s = NewPlacement(instances, append(ids, 7), 1)
 	assert.Error(t, s.Validate())
 	assert.Error(t, s.Validate())
 
@@ -119,12 +120,12 @@ func TestValidate(t *testing.T) {
 	h2.Shards().AddShard(5)
 	h2.Shards().AddShard(6)
 
-	hss = []services.PlacementInstance{h1, h2}
-	s = NewPlacement(hss, ids, 2)
+	instances = []services.PlacementInstance{h1, h2}
+	s = NewPlacement(instances, ids, 2)
 	assert.Error(t, s.Validate())
 	assert.Equal(t, errTotalShardsMismatch, s.Validate())
 
-	// contains shard that's unexpected to be in snapshot
+	// contains shard that's unexpected to be in placement
 	h1 = NewEmptyInstance("r1h1", "r1", "z1", 1)
 	h1.Shards().AddShard(1)
 	h1.Shards().AddShard(2)
@@ -141,8 +142,8 @@ func TestValidate(t *testing.T) {
 	h2.Shards().AddShard(5)
 	h2.Shards().AddShard(6)
 
-	hss = []services.PlacementInstance{h1, h2}
-	s = NewPlacement(hss, ids, 2)
+	instances = []services.PlacementInstance{h1, h2}
+	s = NewPlacement(instances, ids, 2)
 	assert.Error(t, s.Validate())
 	assert.Equal(t, errUnexpectedShards, s.Validate())
 
@@ -157,8 +158,8 @@ func TestValidate(t *testing.T) {
 	h2.Shards().AddShard(5)
 	h2.Shards().AddShard(6)
 
-	hss = []services.PlacementInstance{h1, h2}
-	s = NewPlacement(hss, []uint32{2, 3, 4, 4, 5, 6}, 1)
+	instances = []services.PlacementInstance{h1, h2}
+	s = NewPlacement(instances, []uint32{2, 3, 4, 4, 5, 6}, 1)
 	assert.Error(t, s.Validate())
 	assert.Equal(t, errDuplicatedShards, s.Validate())
 
@@ -177,8 +178,8 @@ func TestValidate(t *testing.T) {
 	h3.Shards().AddShard(1)
 	h3.Shards().AddShard(2)
 
-	hss = []services.PlacementInstance{h1, h2, h3}
-	s = NewPlacement(hss, []uint32{1, 2, 3, 4}, 2)
+	instances = []services.PlacementInstance{h1, h2, h3}
+	s = NewPlacement(instances, []uint32{1, 2, 3, 4}, 2)
 	assert.Error(t, s.Validate())
 }
 
@@ -215,19 +216,19 @@ func TestCopy(t *testing.T) {
 	h2.Shards().AddShard(5)
 	h2.Shards().AddShard(6)
 
-	hss := []services.PlacementInstance{h1, h2}
+	instances := []services.PlacementInstance{h1, h2}
 
 	ids := []uint32{1, 2, 3, 4, 5, 6}
-	s := NewPlacement(hss, ids, 1)
+	s := NewPlacement(instances, ids, 1)
 	copy := s.Copy()
 	assert.Equal(t, s.NumInstances(), copy.NumInstances())
 	assert.Equal(t, s.Shards(), copy.Shards())
 	assert.Equal(t, s.ReplicaFactor(), copy.ReplicaFactor())
-	for _, hs := range s.Instances() {
-		assert.Equal(t, copy.Instance(hs.ID()), hs)
+	for _, i := range s.Instances() {
+		assert.Equal(t, copy.Instance(i.ID()), i)
 		// make sure they are different objects, updating one won't update the other
-		hs.Shards().AddShard(100)
-		assert.NotEqual(t, copy.Instance(hs.ID()), hs)
+		i.Shards().AddShard(100)
+		assert.NotEqual(t, copy.Instance(i.ID()), i)
 	}
 }
 
@@ -239,10 +240,10 @@ func TestSortInstanceByID(t *testing.T) {
 	h5 := NewEmptyInstance("h5", "", "", 1)
 	h6 := NewEmptyInstance("h6", "", "", 1)
 
-	hs := []services.PlacementInstance{h1, h6, h4, h2, h3, h5}
-	sort.Sort(ByIDAscending(hs))
+	i := []services.PlacementInstance{h1, h6, h4, h2, h3, h5}
+	sort.Sort(ByIDAscending(i))
 
-	assert.Equal(t, []services.PlacementInstance{h1, h2, h3, h4, h5, h6}, hs)
+	assert.Equal(t, []services.PlacementInstance{h1, h2, h3, h4, h5, h6}, i)
 }
 
 func TestOptions(t *testing.T) {

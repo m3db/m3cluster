@@ -56,8 +56,17 @@ type Shards interface {
 	ContainsShard(shard uint32) bool
 }
 
-// NewShards returns a new instance of Shards
-func NewShards(ss []uint32) Shards {
+// NewShards creates a new instance of Shards
+func NewShards(ss []Shard) Shards {
+	shardMap := make(map[uint32]Shard, len(ss))
+	for _, s := range ss {
+		shardMap[s.ID()] = s
+	}
+	return shards{shardsMap: shardMap}
+}
+
+// NewShardsWithIDs creates a new instance of Shards from ids
+func NewShardsWithIDs(ss []uint32) Shards {
 	shardMap := make(map[uint32]Shard, len(ss))
 	for _, s := range ss {
 		shardMap[s] = NewShard(s)

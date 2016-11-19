@@ -54,18 +54,18 @@ func (a rackAwarePlacementAlgorithm) InitialPlacement(instances []services.Place
 	return ph.GeneratePlacement(), nil
 }
 
-func (a rackAwarePlacementAlgorithm) AddReplica(ps services.ServicePlacement) (services.ServicePlacement, error) {
-	ps = ps.Copy()
-	ph := newAddReplicaHelper(ps, a.options)
-	if err := ph.PlaceShards(ps.Shards(), nil); err != nil {
+func (a rackAwarePlacementAlgorithm) AddReplica(p services.ServicePlacement) (services.ServicePlacement, error) {
+	p = p.Copy()
+	ph := newAddReplicaHelper(p, a.options)
+	if err := ph.PlaceShards(p.Shards(), nil); err != nil {
 		return nil, err
 	}
 	return ph.GeneratePlacement(), nil
 }
 
-func (a rackAwarePlacementAlgorithm) RemoveInstance(ps services.ServicePlacement, i services.PlacementInstance) (services.ServicePlacement, error) {
-	ps = ps.Copy()
-	ph, leavingInstance, err := newRemoveInstanceHelper(ps, i, a.options)
+func (a rackAwarePlacementAlgorithm) RemoveInstance(p services.ServicePlacement, i services.PlacementInstance) (services.ServicePlacement, error) {
+	p = p.Copy()
+	ph, leavingInstance, err := newRemoveInstanceHelper(p, i, a.options)
 	if err != nil {
 		return nil, err
 	}
@@ -76,14 +76,14 @@ func (a rackAwarePlacementAlgorithm) RemoveInstance(ps services.ServicePlacement
 	return ph.GeneratePlacement(), nil
 }
 
-func (a rackAwarePlacementAlgorithm) AddInstance(ps services.ServicePlacement, i services.PlacementInstance) (services.ServicePlacement, error) {
-	ps = ps.Copy()
-	return a.addInstance(ps, placement.NewEmptyInstance(i.ID(), i.Rack(), i.Zone(), i.Weight()))
+func (a rackAwarePlacementAlgorithm) AddInstance(p services.ServicePlacement, i services.PlacementInstance) (services.ServicePlacement, error) {
+	p = p.Copy()
+	return a.addInstance(p, placement.NewEmptyInstance(i.ID(), i.Rack(), i.Zone(), i.Weight()))
 }
 
-func (a rackAwarePlacementAlgorithm) ReplaceInstance(ps services.ServicePlacement, leavingInstance services.PlacementInstance, addingInstances []services.PlacementInstance) (services.ServicePlacement, error) {
-	ps = ps.Copy()
-	ph, leavingInstance, addingInstances, err := newReplaceInstanceHelper(ps, leavingInstance, addingInstances, a.options)
+func (a rackAwarePlacementAlgorithm) ReplaceInstance(p services.ServicePlacement, leavingInstance services.PlacementInstance, addingInstances []services.PlacementInstance) (services.ServicePlacement, error) {
+	p = p.Copy()
+	ph, leavingInstance, addingInstances, err := newReplaceInstanceHelper(p, leavingInstance, addingInstances, a.options)
 	if err != nil {
 		return nil, err
 	}
@@ -115,29 +115,29 @@ func (a rackAwarePlacementAlgorithm) ReplaceInstance(ps services.ServicePlacemen
 		return nil, err
 	}
 	// fill up to the target load for added instances if have not already done so
-	newPS := ph.GeneratePlacement()
+	newP := ph.GeneratePlacement()
 	for _, addingInstance := range addingInstances {
-		newPS, leavingInstance, err = removeInstanceFromPlacement(newPS, addingInstance)
+		newP, leavingInstance, err = removeInstanceFromPlacement(newP, addingInstance)
 		if err != nil {
 			return nil, err
 		}
-		newPS, err = a.addInstance(newPS, leavingInstance)
+		newP, err = a.addInstance(newP, leavingInstance)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return newPS, nil
+	return newP, nil
 }
 
-func (a rackAwarePlacementAlgorithm) addInstance(ps services.ServicePlacement, addingInstance services.PlacementInstance) (services.ServicePlacement, error) {
-	if ps.Instance(addingInstance.ID()) != nil {
+func (a rackAwarePlacementAlgorithm) addInstance(p services.ServicePlacement, addingInstance services.PlacementInstance) (services.ServicePlacement, error) {
+	if p.Instance(addingInstance.ID()) != nil {
 		return nil, errAddingInstanceAlreadyExist
 	}
-	ph := newAddInstanceHelper(ps, addingInstance, a.options)
+	ph := newAddInstanceHelper(p, addingInstance, a.options)
 	targetLoad := ph.TargetLoadForInstance(addingInstance.ID())
 	// try to take shards from the most loaded instances until the adding instance reaches target load
-	hh := ph.BuildInstanceHeap(ps.Instances(), false)
+	hh := ph.BuildInstanceHeap(p.Instances(), false)
 	for addingInstance.Shards().NumShards() < targetLoad {
 		if hh.Len() == 0 {
 			return nil, errCouldNotReachTargetLoad
