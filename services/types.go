@@ -21,8 +21,6 @@
 package services
 
 import (
-	"fmt"
-
 	"github.com/m3db/m3cluster/shard"
 	xwatch "github.com/m3db/m3x/watch"
 )
@@ -199,7 +197,7 @@ type ServicePlacement interface {
 
 // PlacementInstance represents an instance in a service placement
 type PlacementInstance interface {
-	fmt.Stringer
+	String() string                             // String is for debugging
 	ID() string                                 // ID is the id of the instance
 	SetID(id string) PlacementInstance          // SetID sets the id of the instance
 	Rack() string                               // Rack is the rack of the instance
