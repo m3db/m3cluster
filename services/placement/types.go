@@ -55,19 +55,6 @@ type Storage interface {
 	Placement(service services.ServiceQuery) (services.ServicePlacement, error)
 }
 
-// Options is the interface for placement options
-type Options interface {
-	// LooseRackCheck enables the placement to loose the rack check
-	// during host replacement to achieve full ownership transfer
-	LooseRackCheck() bool
-	SetLooseRackCheck(looseRackCheck bool) Options
-
-	// AllowPartialReplace allows shards from the leaving host to be
-	// placed on hosts other than the new hosts in a replace operation
-	AllowPartialReplace() bool
-	SetAllowPartialReplace(allowPartialReplace bool) Options
-}
-
 // DeploymentOptions provides options for DeploymentPlanner
 type DeploymentOptions interface {
 	// MaxStepSize limits the number of instances to be deployed in one step

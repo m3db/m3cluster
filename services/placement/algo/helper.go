@@ -55,7 +55,7 @@ type placementHelper struct {
 	rf                 int
 	uniqueShards       []uint32
 	instances          []services.PlacementInstance
-	options            placement.Options
+	opts               services.PlacementOptions
 }
 
 func (ph *placementHelper) TargetLoadForInstance(id string) int {
@@ -177,41 +177,41 @@ func (ph placementHelper) placeToRacksOtherThanOrigin(shardsSet map[uint32]int, 
 }
 
 // NewPlacementHelper returns a placement helper
-func NewPlacementHelper(p services.ServicePlacement, opt placement.Options) PlacementHelper {
-	return newHelper(p, p.ReplicaFactor(), opt)
+func NewPlacementHelper(p services.ServicePlacement, opts services.PlacementOptions) PlacementHelper {
+	return newHelper(p, p.ReplicaFactor(), opts)
 }
 
-func newInitHelper(instances []services.PlacementInstance, ids []uint32, opt placement.Options) PlacementHelper {
+func newInitHelper(instances []services.PlacementInstance, ids []uint32, opts services.PlacementOptions) PlacementHelper {
 	emptyPlacement := placement.NewPlacement(instances, ids, 0)
-	return newHelper(emptyPlacement, emptyPlacement.ReplicaFactor()+1, opt)
+	return newHelper(emptyPlacement, emptyPlacement.ReplicaFactor()+1, opts)
 }
 
-func newAddReplicaHelper(p services.ServicePlacement, opt placement.Options) PlacementHelper {
-	return newHelper(p, p.ReplicaFactor()+1, opt)
+func newAddReplicaHelper(p services.ServicePlacement, opts services.PlacementOptions) PlacementHelper {
+	return newHelper(p, p.ReplicaFactor()+1, opts)
 }
 
-func newAddInstanceHelper(p services.ServicePlacement, i services.PlacementInstance, opt placement.Options) PlacementHelper {
+func newAddInstanceHelper(p services.ServicePlacement, i services.PlacementInstance, opts services.PlacementOptions) PlacementHelper {
 	p = placement.NewPlacement(append(p.Instances(), i), p.Shards(), p.ReplicaFactor())
-	return newHelper(p, p.ReplicaFactor(), opt)
+	return newHelper(p, p.ReplicaFactor(), opts)
 }
 
 func newRemoveInstanceHelper(
 	p services.ServicePlacement,
 	i services.PlacementInstance,
-	opt placement.Options,
+	opts services.PlacementOptions,
 ) (PlacementHelper, services.PlacementInstance, error) {
 	p, leavingInstance, err := removeInstanceFromPlacement(p, i)
 	if err != nil {
 		return nil, nil, err
 	}
-	return newHelper(p, p.ReplicaFactor(), opt), leavingInstance, nil
+	return newHelper(p, p.ReplicaFactor(), opts), leavingInstance, nil
 }
 
 func newReplaceInstanceHelper(
 	p services.ServicePlacement,
 	leavingInstance services.PlacementInstance,
 	addingInstances []services.PlacementInstance,
-	opt placement.Options,
+	opts services.PlacementOptions,
 ) (PlacementHelper, services.PlacementInstance, []services.PlacementInstance, error) {
 	p, leavingInstance, err := removeInstanceFromPlacement(p, leavingInstance)
 	if err != nil {
@@ -225,15 +225,15 @@ func newReplaceInstanceHelper(
 			return nil, nil, nil, err
 		}
 	}
-	return newHelper(p, p.ReplicaFactor(), opt), leavingInstance, newAddingInstances, nil
+	return newHelper(p, p.ReplicaFactor(), opts), leavingInstance, newAddingInstances, nil
 }
 
-func newHelper(p services.ServicePlacement, targetRF int, opt placement.Options) PlacementHelper {
+func newHelper(p services.ServicePlacement, targetRF int, opts services.PlacementOptions) PlacementHelper {
 	ph := &placementHelper{
 		rf:           targetRF,
 		instances:    p.Instances(),
 		uniqueShards: p.Shards(),
-		options:      opt,
+		opts:         opts,
 	}
 
 	ph.scanCurrentLoad()
@@ -298,7 +298,7 @@ func (ph placementHelper) canAssignInstance(shard uint32, from, to services.Plac
 	if to.Shards().ContainsShard(shard) {
 		return false
 	}
-	return ph.options.LooseRackCheck() || ph.HasNoRackConflict(shard, from, to.Rack())
+	return ph.opts.LooseRackCheck() || ph.HasNoRackConflict(shard, from, to.Rack())
 }
 
 func (ph placementHelper) assignShardToInstance(shard uint32, to services.PlacementInstance) {

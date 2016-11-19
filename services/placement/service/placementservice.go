@@ -38,18 +38,21 @@ var (
 )
 
 type placementService struct {
-	algo    placement.Algorithm
 	ss      placement.Storage
 	service services.ServiceQuery
-	options placement.Options
 }
 
 // NewPlacementService returns an instance of placement service
-func NewPlacementService(ss placement.Storage, service services.ServiceQuery, options placement.Options) services.PlacementService {
-	return placementService{algo: algo.NewRackAwarePlacementAlgorithm(options), ss: ss, service: service, options: options}
+func NewPlacementService(ss placement.Storage, service services.ServiceQuery) services.PlacementService {
+	return placementService{ss: ss, service: service}
 }
 
-func (ps placementService) BuildInitialPlacement(instances []services.PlacementInstance, shardLen int, rf int) (services.ServicePlacement, error) {
+func (ps placementService) BuildInitialPlacement(
+	instances []services.PlacementInstance,
+	shardLen int,
+	rf int,
+	opts services.PlacementOptions,
+) (services.ServicePlacement, error) {
 	if _, err := ps.Placement(); err == nil {
 		return nil, errPlacementAlreadyExist
 	}
@@ -64,12 +67,13 @@ func (ps placementService) BuildInitialPlacement(instances []services.PlacementI
 		ids[i] = uint32(i)
 	}
 
+	a := algo.NewRackAwarePlacementAlgorithm(opts)
 	var p services.ServicePlacement
 	for i := 0; i < rf; i++ {
 		if i == 0 {
-			p, err = ps.algo.InitialPlacement(instances, ids)
+			p, err = a.InitialPlacement(instances, ids)
 		} else {
-			p, err = ps.algo.AddReplica(p)
+			p, err = a.AddReplica(p)
 		}
 		if err != nil {
 			return nil, err
@@ -83,14 +87,14 @@ func (ps placementService) BuildInitialPlacement(instances []services.PlacementI
 	return p, nil
 }
 
-func (ps placementService) AddReplica() (services.ServicePlacement, error) {
+func (ps placementService) AddReplica(opts services.PlacementOptions) (services.ServicePlacement, error) {
 	var p services.ServicePlacement
 	var err error
 	if p, err = ps.Placement(); err != nil {
 		return nil, err
 	}
 
-	if p, err = ps.algo.AddReplica(p); err != nil {
+	if p, err = algo.NewRackAwarePlacementAlgorithm(opts).AddReplica(p); err != nil {
 		return nil, err
 	}
 
@@ -101,18 +105,21 @@ func (ps placementService) AddReplica() (services.ServicePlacement, error) {
 	return p, nil
 }
 
-func (ps placementService) AddInstance(candidates []services.PlacementInstance) (services.ServicePlacement, error) {
+func (ps placementService) AddInstance(
+	candidates []services.PlacementInstance,
+	opts services.PlacementOptions,
+) (services.ServicePlacement, error) {
 	var p services.ServicePlacement
 	var err error
 	if p, err = ps.Placement(); err != nil {
 		return nil, err
 	}
 	var addingInstance services.PlacementInstance
-	if addingInstance, err = ps.findAddingInstance(p, candidates); err != nil {
+	if addingInstance, err = ps.findAddingInstance(p, candidates, opts); err != nil {
 		return nil, err
 	}
 
-	if p, err = ps.algo.AddInstance(p, addingInstance); err != nil {
+	if p, err = algo.NewRackAwarePlacementAlgorithm(opts).AddInstance(p, addingInstance); err != nil {
 		return nil, err
 	}
 
@@ -123,7 +130,10 @@ func (ps placementService) AddInstance(candidates []services.PlacementInstance) 
 	return p, nil
 }
 
-func (ps placementService) RemoveInstance(instance services.PlacementInstance) (services.ServicePlacement, error) {
+func (ps placementService) RemoveInstance(
+	instance services.PlacementInstance,
+	opts services.PlacementOptions,
+) (services.ServicePlacement, error) {
 	var p services.ServicePlacement
 	var err error
 	if p, err = ps.Placement(); err != nil {
@@ -134,7 +144,7 @@ func (ps placementService) RemoveInstance(instance services.PlacementInstance) (
 		return nil, errInstanceAbsent
 	}
 
-	if p, err = ps.algo.RemoveInstance(p, instance); err != nil {
+	if p, err = algo.NewRackAwarePlacementAlgorithm(opts).RemoveInstance(p, instance); err != nil {
 		return nil, err
 	}
 
@@ -145,7 +155,11 @@ func (ps placementService) RemoveInstance(instance services.PlacementInstance) (
 	return p, nil
 }
 
-func (ps placementService) ReplaceInstance(leavingInstance services.PlacementInstance, candidates []services.PlacementInstance) (services.ServicePlacement, error) {
+func (ps placementService) ReplaceInstance(
+	leavingInstance services.PlacementInstance,
+	candidates []services.PlacementInstance,
+	opts services.PlacementOptions,
+) (services.ServicePlacement, error) {
 	var p services.ServicePlacement
 	var err error
 	if p, err = ps.Placement(); err != nil {
@@ -157,12 +171,12 @@ func (ps placementService) ReplaceInstance(leavingInstance services.PlacementIns
 		return nil, errInstanceAbsent
 	}
 
-	addingInstances, err := ps.findReplaceInstance(p, candidates, leavingInstance)
+	addingInstances, err := ps.findReplaceInstance(p, candidates, leavingInstance, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	if p, err = ps.algo.ReplaceInstance(p, leavingInstance, addingInstances); err != nil {
+	if p, err = algo.NewRackAwarePlacementAlgorithm(opts).ReplaceInstance(p, leavingInstance, addingInstances); err != nil {
 		return nil, err
 	}
 
@@ -191,9 +205,13 @@ func (ps placementService) validateInitInstances(instances []services.PlacementI
 	return nil
 }
 
-func (ps placementService) findAddingInstance(p services.ServicePlacement, candidates []services.PlacementInstance) (services.PlacementInstance, error) {
+func (ps placementService) findAddingInstance(
+	p services.ServicePlacement,
+	candidates []services.PlacementInstance,
+	opts services.PlacementOptions,
+) (services.PlacementInstance, error) {
 	// filter out already existing instances
-	candidates = ps.getNewInstancesToPlacement(p, candidates)
+	candidates = ps.getNewInstancesToPlacement(p, candidates, opts)
 
 	// build rack-instance map for candidate instances
 	candidateRackMap := buildRackMap(candidates)
@@ -231,9 +249,13 @@ func (ps placementService) findAddingInstance(p services.ServicePlacement, candi
 }
 
 func (ps placementService) findReplaceInstance(
-	p services.ServicePlacement, candidates []services.PlacementInstance, leaving services.PlacementInstance) ([]services.PlacementInstance, error) {
+	p services.ServicePlacement,
+	candidates []services.PlacementInstance,
+	leaving services.PlacementInstance,
+	opts services.PlacementOptions,
+) ([]services.PlacementInstance, error) {
 	// filter out already existing instances
-	candidates = ps.getNewInstancesToPlacement(p, candidates)
+	candidates = ps.getNewInstancesToPlacement(p, candidates, opts)
 
 	if len(candidates) == 0 {
 		return nil, errNoValidInstance
@@ -242,7 +264,7 @@ func (ps placementService) findReplaceInstance(
 	rackMap := buildRackMap(candidates)
 
 	// otherwise sort the candidate instances by the number of conflicts
-	ph := algo.NewPlacementHelper(p, ps.options)
+	ph := algo.NewPlacementHelper(p, opts)
 	instances := make([]sortableValue, 0, len(rackMap))
 	for rack, instancesInRack := range rackMap {
 		conflicts := 0
@@ -256,7 +278,7 @@ func (ps placementService) findReplaceInstance(
 		}
 	}
 
-	groups := groupInstancesByConflict(instances, ps.options.LooseRackCheck())
+	groups := groupInstancesByConflict(instances, opts.LooseRackCheck())
 	if len(groups) == 0 {
 		return nil, errNoValidInstance
 	}
@@ -270,17 +292,25 @@ func (ps placementService) findReplaceInstance(
 	return result, nil
 }
 
-func (ps placementService) getNewInstancesToPlacement(p services.ServicePlacement, candidates []services.PlacementInstance) []services.PlacementInstance {
+func (ps placementService) getNewInstancesToPlacement(
+	p services.ServicePlacement,
+	candidates []services.PlacementInstance,
+	opts services.PlacementOptions,
+) []services.PlacementInstance {
 	var instances []services.PlacementInstance
 	for _, h := range candidates {
 		if p.Instance(h.ID()) == nil {
 			instances = append(instances, h)
 		}
 	}
-	return filterZones(p, instances, ps.options)
+	return filterZones(p, instances, opts)
 }
 
-func filterZones(p services.ServicePlacement, candidates []services.PlacementInstance, opts placement.Options) []services.PlacementInstance {
+func filterZones(
+	p services.ServicePlacement,
+	candidates []services.PlacementInstance,
+	opts services.PlacementOptions,
+) []services.PlacementInstance {
 	var validZone string
 	for _, instance := range p.Instances() {
 		if validZone == "" {

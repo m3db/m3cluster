@@ -147,25 +147,38 @@ type MetadataService interface {
 }
 
 // PlacementService handles the placement related operations for registered services
-// all write or update operations will persist the generated snapshot before returning success
+// all write or update operations will persist the generated placement before returning success
 type PlacementService interface {
 	// BuildInitialPlacement initialize a placement
-	BuildInitialPlacement(hosts []PlacementInstance, numShards int, rf int) (ServicePlacement, error)
+	BuildInitialPlacement(instances []PlacementInstance, numShards int, rf int, popts PlacementOptions) (ServicePlacement, error)
 
 	// AddReplica up the replica factor by 1 in the placement
-	AddReplica() (ServicePlacement, error)
+	AddReplica(popts PlacementOptions) (ServicePlacement, error)
 
 	// AddInstance picks an instance from the candidate list to the placement
-	AddInstance(candidates []PlacementInstance) (ServicePlacement, error)
+	AddInstance(candidates []PlacementInstance, popts PlacementOptions) (ServicePlacement, error)
 
-	// RemoveHost removes an instance from the placement
-	RemoveInstance(i PlacementInstance) (ServicePlacement, error)
+	// RemoveInstance removes an instance from the placement
+	RemoveInstance(i PlacementInstance, popts PlacementOptions) (ServicePlacement, error)
 
-	// ReplaceHost picks instances from the candidate list to replace an instance in current placement
-	ReplaceInstance(leavingInstance PlacementInstance, candidates []PlacementInstance) (ServicePlacement, error)
+	// ReplaceInstance picks instances from the candidate list to replace an instance in current placement
+	ReplaceInstance(leavingInstance PlacementInstance, candidates []PlacementInstance, popts PlacementOptions) (ServicePlacement, error)
 
-	// Snapshot gets the persisted placement for service
+	// Placement gets the persisted placement for service
 	Placement() (ServicePlacement, error)
+}
+
+// PlacementOptions is the interface for placement options
+type PlacementOptions interface {
+	// LooseRackCheck enables the placement to loose the rack check
+	// during instance replacement to achieve full ownership transfer
+	LooseRackCheck() bool
+	SetLooseRackCheck(looseRackCheck bool) PlacementOptions
+
+	// AllowPartialReplace allows shards from the leaving instance to be
+	// placed on instances other than the new instances in a replace operation
+	AllowPartialReplace() bool
+	SetAllowPartialReplace(allowPartialReplace bool) PlacementOptions
 }
 
 // ServicePlacement describes how instances are placed in a service
@@ -188,10 +201,10 @@ type ServicePlacement interface {
 	// ShardsLen returns the number of shards in a replica
 	NumShards() int
 
-	// Validate checks if the snapshot is valid
+	// Validate checks if the ServicePlacement is valid
 	Validate() error
 
-	// Copy copies the Snapshot
+	// Copy returns a copy of the ServicePlacement
 	Copy() ServicePlacement
 }
 
