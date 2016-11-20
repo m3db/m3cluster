@@ -122,7 +122,7 @@ func copyInstances(instances []services.PlacementInstance) []services.PlacementI
 	for i, instance := range instances {
 		copied[i] = NewInstance().
 			SetID(instance.ID()).
-			SetName(instance.Name()).
+			SetIP(instance.IP()).
 			SetPort(instance.Port()).
 			SetRack(instance.Rack()).
 			SetZone(instance.Zone()).
@@ -153,76 +153,76 @@ type instance struct {
 	rack   string
 	zone   string
 	weight uint32
-	name   string
+	ip     string
 	port   string
 	shards shard.Shards
 }
 
-func (h *instance) String() string {
-	return fmt.Sprintf("[id:%s, rack:%s, zone:%s, weight:%v]", h.id, h.rack, h.zone, h.weight)
+func (i *instance) String() string {
+	return fmt.Sprintf("[id:%s, rack:%s, zone:%s, weight:%v]", i.id, i.rack, i.zone, i.weight)
 }
 
-func (h *instance) ID() string {
-	return h.id
+func (i *instance) ID() string {
+	return i.id
 }
 
-func (h *instance) SetID(id string) services.PlacementInstance {
-	h.id = id
-	return h
+func (i *instance) SetID(id string) services.PlacementInstance {
+	i.id = id
+	return i
 }
 
-func (h *instance) Rack() string {
-	return h.rack
+func (i *instance) Rack() string {
+	return i.rack
 }
 
-func (h *instance) SetRack(r string) services.PlacementInstance {
-	h.rack = r
-	return h
+func (i *instance) SetRack(r string) services.PlacementInstance {
+	i.rack = r
+	return i
 }
 
-func (h *instance) Zone() string {
-	return h.zone
+func (i *instance) Zone() string {
+	return i.zone
 }
 
-func (h *instance) SetZone(z string) services.PlacementInstance {
-	h.zone = z
-	return h
+func (i *instance) SetZone(z string) services.PlacementInstance {
+	i.zone = z
+	return i
 }
 
-func (h *instance) Weight() uint32 {
-	return h.weight
+func (i *instance) Weight() uint32 {
+	return i.weight
 }
 
-func (h *instance) SetWeight(w uint32) services.PlacementInstance {
-	h.weight = w
-	return h
+func (i *instance) SetWeight(w uint32) services.PlacementInstance {
+	i.weight = w
+	return i
 }
 
-func (h *instance) Name() string {
-	return h.name
+func (i *instance) IP() string {
+	return i.ip
 }
 
-func (h *instance) SetName(n string) services.PlacementInstance {
-	h.name = n
-	return h
+func (i *instance) SetIP(ip string) services.PlacementInstance {
+	i.ip = ip
+	return i
 }
 
-func (h *instance) Port() string {
-	return h.port
+func (i *instance) Port() string {
+	return i.port
 }
 
-func (h *instance) SetPort(p string) services.PlacementInstance {
-	h.port = p
-	return h
+func (i *instance) SetPort(p string) services.PlacementInstance {
+	i.port = p
+	return i
 }
 
-func (h *instance) Shards() shard.Shards {
-	return h.shards
+func (i *instance) Shards() shard.Shards {
+	return i.shards
 }
 
-func (h *instance) SetShards(s shard.Shards) services.PlacementInstance {
-	h.shards = s
-	return h
+func (i *instance) SetShards(s shard.Shards) services.PlacementInstance {
+	i.shards = s
+	return i
 }
 
 // ByIDAscending sorts PlacementInstance by ID ascending

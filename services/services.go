@@ -76,58 +76,55 @@ func (s *serviceSharding) SetNumShards(n int) ServiceSharding { s.numShards = n;
 func NewServiceInstance() ServiceInstance { return new(serviceInstance) }
 
 type serviceInstance struct {
+	service  ServiceID
 	id       string
-	service  string
-	zone     string
 	endpoint string
 	shards   shard.Shards
 }
 
-func (i *serviceInstance) Service() string                          { return i.service }
-func (i *serviceInstance) ID() string                               { return i.id }
-func (i *serviceInstance) Zone() string                             { return i.zone }
-func (i *serviceInstance) Endpoint() string                         { return i.endpoint }
-func (i *serviceInstance) Shards() shard.Shards                     { return i.shards }
-func (i *serviceInstance) SetService(s string) ServiceInstance      { i.service = s; return i }
-func (i *serviceInstance) SetID(id string) ServiceInstance          { i.id = id; return i }
-func (i *serviceInstance) SetZone(z string) ServiceInstance         { i.zone = z; return i }
-func (i *serviceInstance) SetEndpoint(e string) ServiceInstance     { i.endpoint = e; return i }
-func (i *serviceInstance) SetShards(s shard.Shards) ServiceInstance { i.shards = s; return i }
+func (i *serviceInstance) Service() ServiceID                           { return i.service }
+func (i *serviceInstance) ID() string                                   { return i.id }
+func (i *serviceInstance) Endpoint() string                             { return i.endpoint }
+func (i *serviceInstance) Shards() shard.Shards                         { return i.shards }
+func (i *serviceInstance) SetService(service ServiceID) ServiceInstance { i.service = service; return i }
+func (i *serviceInstance) SetID(id string) ServiceInstance              { i.id = id; return i }
+func (i *serviceInstance) SetEndpoint(e string) ServiceInstance         { i.endpoint = e; return i }
+func (i *serviceInstance) SetShards(s shard.Shards) ServiceInstance     { i.shards = s; return i }
 
 // NewAdvertisement creates a new Advertisement
 func NewAdvertisement() Advertisement { return new(advertisement) }
 
 type advertisement struct {
 	id       string
-	service  ServiceQuery
+	service  ServiceID
 	endpoint string
 	health   func() error
 }
 
-func (a *advertisement) ID() string                              { return a.id }
-func (a *advertisement) Service() ServiceQuery                   { return a.service }
-func (a *advertisement) Endpoint() string                        { return a.endpoint }
-func (a *advertisement) Health() func() error                    { return a.health }
-func (a *advertisement) SetID(id string) Advertisement           { a.id = id; return a }
-func (a *advertisement) SetService(s ServiceQuery) Advertisement { a.service = s; return a }
-func (a *advertisement) SetEndpoint(e string) Advertisement      { a.endpoint = e; return a }
-func (a *advertisement) SetHealth(h func() error) Advertisement  { a.health = h; return a }
+func (a *advertisement) ID() string                             { return a.id }
+func (a *advertisement) Service() ServiceID                     { return a.service }
+func (a *advertisement) Endpoint() string                       { return a.endpoint }
+func (a *advertisement) Health() func() error                   { return a.health }
+func (a *advertisement) SetID(id string) Advertisement          { a.id = id; return a }
+func (a *advertisement) SetService(s ServiceID) Advertisement   { a.service = s; return a }
+func (a *advertisement) SetEndpoint(e string) Advertisement     { a.endpoint = e; return a }
+func (a *advertisement) SetHealth(h func() error) Advertisement { a.health = h; return a }
 
-// NewServiceQuery creates new ServiceQuery
-func NewServiceQuery() ServiceQuery { return new(serviceQuery) }
+// NewServiceID creates new ServiceID
+func NewServiceID() ServiceID { return new(serviceID) }
 
-type serviceQuery struct {
-	service string
-	env     string
-	zone    string
+type serviceID struct {
+	name string
+	env  string
+	zone string
 }
 
-func (sq *serviceQuery) Service() string                      { return sq.service }
-func (sq *serviceQuery) Environment() string                  { return sq.env }
-func (sq *serviceQuery) Zone() string                         { return sq.zone }
-func (sq *serviceQuery) SetService(s string) ServiceQuery     { sq.service = s; return sq }
-func (sq *serviceQuery) SetEnvironment(e string) ServiceQuery { sq.env = e; return sq }
-func (sq *serviceQuery) SetZone(z string) ServiceQuery        { sq.zone = z; return sq }
+func (sq *serviceID) Name() string                      { return sq.name }
+func (sq *serviceID) Environment() string               { return sq.env }
+func (sq *serviceID) Zone() string                      { return sq.zone }
+func (sq *serviceID) SetName(n string) ServiceID        { sq.name = n; return sq }
+func (sq *serviceID) SetEnvironment(e string) ServiceID { sq.env = e; return sq }
+func (sq *serviceID) SetZone(z string) ServiceID        { sq.zone = z; return sq }
 
 // NewQueryOptions creates new QueryOptions
 func NewQueryOptions() QueryOptions { return new(queryOptions) }

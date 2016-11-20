@@ -20,7 +20,16 @@
 
 package placement
 
-import "github.com/m3db/m3cluster/services"
+import (
+	"errors"
+
+	"github.com/m3db/m3cluster/services"
+)
+
+var (
+	// ErrPlacementNotExist is returned when no placement was found from Storage
+	ErrPlacementNotExist = errors.New("placement not exist")
+)
 
 // Algorithm places shards on instances
 type Algorithm interface {
@@ -49,10 +58,10 @@ type DeploymentPlanner interface {
 // Storage provides read and write access to service placement
 type Storage interface {
 	// SetPlacement writes a placement for a service
-	SetPlacement(service services.ServiceQuery, p services.ServicePlacement) error
+	SetPlacement(service services.ServiceID, p services.ServicePlacement) error
 
 	// Placement reads a placement for a service
-	Placement(service services.ServiceQuery) (services.ServicePlacement, error)
+	Placement(service services.ServiceID) (services.ServicePlacement, error)
 }
 
 // DeploymentOptions provides options for DeploymentPlanner

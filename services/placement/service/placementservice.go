@@ -39,11 +39,11 @@ var (
 
 type placementService struct {
 	ss      placement.Storage
-	service services.ServiceQuery
+	service services.ServiceID
 }
 
 // NewPlacementService returns an instance of placement service
-func NewPlacementService(ss placement.Storage, service services.ServiceQuery) services.PlacementService {
+func NewPlacementService(ss placement.Storage, service services.ServiceID) services.PlacementService {
 	return placementService{ss: ss, service: service}
 }
 
@@ -53,11 +53,15 @@ func (ps placementService) BuildInitialPlacement(
 	rf int,
 	opts services.PlacementOptions,
 ) (services.ServicePlacement, error) {
-	if _, err := ps.Placement(); err == nil {
+	_, err := ps.Placement()
+	if err == nil {
 		return nil, errPlacementAlreadyExist
 	}
 
-	var err error
+	if err != nil && err != placement.ErrPlacementNotExist {
+		return nil, err
+	}
+
 	if err = ps.validateInitInstances(instances); err != nil {
 		return nil, err
 	}

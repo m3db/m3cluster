@@ -31,15 +31,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func testQuery() services.ServiceQuery {
-	return services.NewServiceQuery().SetService("test_service")
+func testServiceID() services.ServiceID {
+	return services.NewServiceID().SetName("test_service")
 }
 
 func TestGoodWorkflow(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testQuery())
+	p := NewPlacementService(NewMockStorage(), testServiceID())
 	testGoodWorkflow(t, p, placement.NewOptions())
 
-	p = NewPlacementService(NewMockStorage(), testQuery())
+	p = NewPlacementService(NewMockStorage(), testServiceID())
 	testGoodWorkflow(t, p, placement.NewOptions().SetLooseRackCheck(true))
 }
 
@@ -103,7 +103,7 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService, opts services.P
 }
 
 func TestBadInitialPlacement(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testQuery())
+	p := NewPlacementService(NewMockStorage(), testServiceID())
 
 	// not enough instances
 	_, err := p.BuildInitialPlacement([]services.PlacementInstance{}, 10, 1, placement.NewOptions())
@@ -130,16 +130,16 @@ func TestBadInitialPlacement(t *testing.T) {
 	}, 100, 2, placement.NewOptions())
 	assert.NoError(t, err)
 
+	// placement already exist
 	_, err = p.BuildInitialPlacement([]services.PlacementInstance{
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		placement.NewEmptyInstance("r2h2", "r2", "z1", 1),
 	}, 100, 2, placement.NewOptions())
 	assert.Error(t, err)
-	assert.Equal(t, errPlacementAlreadyExist, err)
 }
 
 func TestBadAddReplica(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testQuery())
+	p := NewPlacementService(NewMockStorage(), testServiceID())
 
 	_, err := p.BuildInitialPlacement(
 		[]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)},
@@ -151,14 +151,14 @@ func TestBadAddReplica(t *testing.T) {
 	assert.Error(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testQuery())
+	p = NewPlacementService(NewMockStorage(), testServiceID())
 	_, err = p.AddReplica(placement.NewOptions())
 	assert.Error(t, err)
 }
 
 func TestBadAddInstance(t *testing.T) {
 	ms := NewMockStorage()
-	p := NewPlacementService(ms, testQuery())
+	p := NewPlacementService(ms, testServiceID())
 
 	_, err := p.BuildInitialPlacement(
 		[]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)},
@@ -174,18 +174,18 @@ func TestBadAddInstance(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, errNoValidInstance, err)
 
-	p = NewPlacementService(ms, testQuery())
+	p = NewPlacementService(ms, testServiceID())
 	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)}, placement.NewOptions())
 	assert.Error(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testQuery())
+	p = NewPlacementService(NewMockStorage(), testServiceID())
 	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z1", 1)}, placement.NewOptions())
 	assert.Error(t, err)
 }
 
 func TestBadRemoveInstance(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testQuery())
+	p := NewPlacementService(NewMockStorage(), testServiceID())
 
 	_, err := p.BuildInitialPlacement(
 		[]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)},
@@ -201,13 +201,13 @@ func TestBadRemoveInstance(t *testing.T) {
 	assert.Error(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testQuery())
+	p = NewPlacementService(NewMockStorage(), testServiceID())
 	_, err = p.RemoveInstance(placement.NewEmptyInstance("r1h1", "r1", "z1", 1), placement.NewOptions())
 	assert.Error(t, err)
 }
 
 func TestBadReplaceInstance(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testQuery())
+	p := NewPlacementService(NewMockStorage(), testServiceID())
 
 	_, err := p.BuildInitialPlacement([]services.PlacementInstance{
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
@@ -242,7 +242,7 @@ func TestBadReplaceInstance(t *testing.T) {
 	assert.Error(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testQuery())
+	p = NewPlacementService(NewMockStorage(), testServiceID())
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z1", 1)},
@@ -252,7 +252,7 @@ func TestBadReplaceInstance(t *testing.T) {
 }
 
 func TestReplaceInstanceWithLooseRackCheck(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testQuery())
+	p := NewPlacementService(NewMockStorage(), testServiceID())
 
 	_, err := p.BuildInitialPlacement(
 		[]services.PlacementInstance{
@@ -288,7 +288,7 @@ func TestReplaceInstanceWithLooseRackCheck(t *testing.T) {
 	assert.NoError(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testQuery())
+	p = NewPlacementService(NewMockStorage(), testServiceID())
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z1", 1)},
@@ -336,7 +336,7 @@ func TestFindReplaceInstance(t *testing.T) {
 		placement.NewEmptyInstance("h22", "r22", "z2", 1), // bad zone
 	}
 
-	p := NewPlacementService(NewMockStorage(), testQuery()).(placementService)
+	p := NewPlacementService(NewMockStorage(), testServiceID()).(placementService)
 	i, err := p.findReplaceInstance(s, candidates, h4, placement.NewOptions())
 	assert.Error(t, err)
 	assert.Nil(t, i)
@@ -350,7 +350,7 @@ func TestFindReplaceInstance(t *testing.T) {
 	assert.Contains(t, err.Error(), "could not find enough instance to replace")
 	assert.Nil(t, i)
 
-	p = NewPlacementService(NewMockStorage(), testQuery()).(placementService)
+	p = NewPlacementService(NewMockStorage(), testServiceID()).(placementService)
 	i, err = p.findReplaceInstance(s, candidates, h4, placement.NewOptions().SetLooseRackCheck(true))
 	assert.NoError(t, err)
 	// gonna prefer r1 because r1 would only conflict shard 2, r2 would conflict 7,8,9
@@ -569,18 +569,20 @@ func NewMockStorage() placement.Storage {
 	return &mockStorage{m: map[string]services.ServicePlacement{}}
 }
 
-func (ms *mockStorage) SetPlacement(service services.ServiceQuery, p services.ServicePlacement) error {
+func (ms *mockStorage) SetPlacement(service services.ServiceID, p services.ServicePlacement) error {
 	var err error
 	if err = p.Validate(); err != nil {
 		return err
 	}
-	ms.m[service.Service()] = p
+
+	ms.m[service.Name()] = p
 	return nil
 }
 
-func (ms *mockStorage) Placement(service services.ServiceQuery) (services.ServicePlacement, error) {
-	if p, exist := ms.m[service.Service()]; exist {
+func (ms *mockStorage) Placement(service services.ServiceID) (services.ServicePlacement, error) {
+	if p, exist := ms.m[service.Name()]; exist {
 		return p, nil
 	}
-	return nil, errors.New("could not find placement for service")
+
+	return nil, placement.ErrPlacementNotExist
 }

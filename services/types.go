@@ -31,19 +31,19 @@ type Services interface {
 	Advertise(ad Advertisement) error
 
 	// Unadvertise indicates a given instance is no longer available
-	Unadvertise(service ServiceQuery, id string) error
+	Unadvertise(service ServiceID, id string) error
 
 	// Query returns metadata and a list of available instances for a given service
-	Query(service ServiceQuery, opts QueryOptions) (Service, error)
+	Query(service ServiceID, opts QueryOptions) (Service, error)
 
 	// Watch returns a watch on metadata and a list of available instances for a given service
-	Watch(service ServiceQuery, opts QueryOptions) (xwatch.Watch, error)
+	Watch(service ServiceID, opts QueryOptions) (xwatch.Watch, error)
 
 	// PlacementService returns a client of Placement Service
-	PlacementService(service ServiceQuery) (PlacementService, error)
+	PlacementService(service ServiceID) (PlacementService, error)
 
 	// MetadataService returns a client of Metadata Service
-	MetadataService(service ServiceQuery) (MetadataService, error)
+	MetadataService(service ServiceID) (MetadataService, error)
 }
 
 // Service describes the metadata and instances of a service
@@ -90,38 +90,36 @@ type ServiceSharding interface {
 
 // ServiceInstance is a single instance of a service
 type ServiceInstance interface {
-	Service() string                          // the service implemented by the instance
-	SetService(s string) ServiceInstance      // sets the service implemented by the instance
-	ID() string                               // ID of the instance
-	SetID(id string) ServiceInstance          // sets the ID of the instance
-	Zone() string                             // Zone in which the instance resides
-	SetZone(z string) ServiceInstance         // sets the zone in which the instance resides
-	Endpoint() string                         // Endpoint address for contacting the instance
-	SetEndpoint(e string) ServiceInstance     // sets the endpoint address for the instance
-	Shards() shard.Shards                     // Shards owned by the instance
-	SetShards(s shard.Shards) ServiceInstance // sets the Shards assigned to the instance
+	Service() ServiceID                           // the service implemented by the instance
+	SetService(service ServiceID) ServiceInstance // sets the service implemented by the instance
+	ID() string                                   // ID of the instance
+	SetID(id string) ServiceInstance              // sets the ID of the instance
+	Endpoint() string                             // Endpoint address for contacting the instance
+	SetEndpoint(e string) ServiceInstance         // sets the endpoint address for the instance
+	Shards() shard.Shards                         // Shards owned by the instance
+	SetShards(s shard.Shards) ServiceInstance     // sets the Shards assigned to the instance
 }
 
 // Advertisement advertises the availability of a given instance of a service
 type Advertisement interface {
-	ID() string                                    // the ID of the instance being advertised
-	SetID(id string) Advertisement                 // sets the ID being advertised
-	Service() ServiceQuery                         // the service being advertised
-	SetService(service ServiceQuery) Advertisement // sets the service being advertised
-	Health() func() error                          // optional health function.  return an error to indicate unhealthy
-	SetHealth(health func() error) Advertisement   // sets the health function for the advertised instance
-	Endpoint() string                              // endpoint exposed by the service
-	SetEndpoint(e string) Advertisement            // sets the endpoint exposed by the service
+	ID() string                                  // the ID of the instance being advertised
+	SetID(id string) Advertisement               // sets the ID being advertised
+	Service() ServiceID                          // the service being advertised
+	SetService(service ServiceID) Advertisement  // sets the service being advertised
+	Health() func() error                        // optional health function.  return an error to indicate unhealthy
+	SetHealth(health func() error) Advertisement // sets the health function for the advertised instance
+	Endpoint() string                            // endpoint exposed by the service
+	SetEndpoint(e string) Advertisement          // sets the endpoint exposed by the service
 }
 
-// ServiceQuery contains the fields required for service discovery queries
-type ServiceQuery interface {
-	Service() string                        // the service name of the query
-	SetService(s string) ServiceQuery       // set the service name of the query
-	Environment() string                    // the environemnt of the query
-	SetEnvironment(env string) ServiceQuery // sets the environemnt of the query
-	Zone() string                           // the zone of the query
-	SetZone(zone string) ServiceQuery       // sets the zone of the query
+// ServiceID contains the fields required to id a service
+type ServiceID interface {
+	Name() string                        // the service name of the ServiceID
+	SetName(s string) ServiceID          // set the service name of the ServiceID
+	Environment() string                 // the environemnt of the ServiceID
+	SetEnvironment(env string) ServiceID // sets the environemnt of the ServiceID
+	Zone() string                        // the zone of the ServiceID
+	SetZone(zone string) ServiceID       // sets the zone of the ServiceID
 }
 
 // QueryOptions are options to service discovery queries
@@ -219,9 +217,9 @@ type PlacementInstance interface {
 	SetZone(z string) PlacementInstance         // SetZone sets the zone of the instance
 	Weight() uint32                             // Weight is the weight of the instance
 	SetWeight(w uint32) PlacementInstance       // SetWeight sets the weight of the instance
-	Name() string                               // Name is the name of the instance
-	SetName(n string) PlacementInstance         // SetName sets the name of the instance
-	Port() string                               // Port is the port to contact the instance
+	IP() string                                 // IP is the ip of the instance
+	SetIP(ip string) PlacementInstance          // SetIP sets the ip of the instance
+	Port() string                               // Port is the port of the service process the instance
 	SetPort(p string) PlacementInstance         // SetPort sets the port of the instance
 	Shards() shard.Shards                       // Shards returns the shards owned by the instance
 	SetShards(s shard.Shards) PlacementInstance // Shards returns the shards owned by the instance
