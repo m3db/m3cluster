@@ -82,17 +82,18 @@ type serviceInstance struct {
 	shards   shard.Shards
 }
 
-func (i *serviceInstance) ServiceID() ServiceID { return i.service }
-func (i *serviceInstance) InstanceID() string   { return i.id }
-func (i *serviceInstance) Endpoint() string     { return i.endpoint }
-func (i *serviceInstance) Shards() shard.Shards { return i.shards }
+func (i *serviceInstance) InstanceID() string                       { return i.id }
+func (i *serviceInstance) Endpoint() string                         { return i.endpoint }
+func (i *serviceInstance) Shards() shard.Shards                     { return i.shards }
+func (i *serviceInstance) ServiceID() ServiceID                     { return i.service }
+func (i *serviceInstance) SetInstanceID(id string) ServiceInstance  { i.id = id; return i }
+func (i *serviceInstance) SetEndpoint(e string) ServiceInstance     { i.endpoint = e; return i }
+func (i *serviceInstance) SetShards(s shard.Shards) ServiceInstance { i.shards = s; return i }
+
 func (i *serviceInstance) SetServiceID(service ServiceID) ServiceInstance {
 	i.service = service
 	return i
 }
-func (i *serviceInstance) SetInstanceID(id string) ServiceInstance  { i.id = id; return i }
-func (i *serviceInstance) SetEndpoint(e string) ServiceInstance     { i.endpoint = e; return i }
-func (i *serviceInstance) SetShards(s shard.Shards) ServiceInstance { i.shards = s; return i }
 
 // NewAdvertisement creates a new Advertisement
 func NewAdvertisement() Advertisement { return new(advertisement) }
