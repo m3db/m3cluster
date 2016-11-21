@@ -39,7 +39,7 @@ type service struct {
 
 func (s *service) Instance(instanceID string) (ServiceInstance, error) {
 	for _, instance := range s.instances {
-		if instance.ID() == instanceID {
+		if instance.InstanceID() == instanceID {
 			return instance, nil
 		}
 	}
@@ -82,14 +82,17 @@ type serviceInstance struct {
 	shards   shard.Shards
 }
 
-func (i *serviceInstance) Service() ServiceID                           { return i.service }
-func (i *serviceInstance) ID() string                                   { return i.id }
-func (i *serviceInstance) Endpoint() string                             { return i.endpoint }
-func (i *serviceInstance) Shards() shard.Shards                         { return i.shards }
-func (i *serviceInstance) SetService(service ServiceID) ServiceInstance { i.service = service; return i }
-func (i *serviceInstance) SetID(id string) ServiceInstance              { i.id = id; return i }
-func (i *serviceInstance) SetEndpoint(e string) ServiceInstance         { i.endpoint = e; return i }
-func (i *serviceInstance) SetShards(s shard.Shards) ServiceInstance     { i.shards = s; return i }
+func (i *serviceInstance) ServiceID() ServiceID { return i.service }
+func (i *serviceInstance) InstanceID() string   { return i.id }
+func (i *serviceInstance) Endpoint() string     { return i.endpoint }
+func (i *serviceInstance) Shards() shard.Shards { return i.shards }
+func (i *serviceInstance) SetServiceID(service ServiceID) ServiceInstance {
+	i.service = service
+	return i
+}
+func (i *serviceInstance) SetInstanceID(id string) ServiceInstance  { i.id = id; return i }
+func (i *serviceInstance) SetEndpoint(e string) ServiceInstance     { i.endpoint = e; return i }
+func (i *serviceInstance) SetShards(s shard.Shards) ServiceInstance { i.shards = s; return i }
 
 // NewAdvertisement creates a new Advertisement
 func NewAdvertisement() Advertisement { return new(advertisement) }
@@ -101,12 +104,12 @@ type advertisement struct {
 	health   func() error
 }
 
-func (a *advertisement) ID() string                             { return a.id }
-func (a *advertisement) Service() ServiceID                     { return a.service }
+func (a *advertisement) InstanceID() string                     { return a.id }
+func (a *advertisement) ServiceID() ServiceID                   { return a.service }
 func (a *advertisement) Endpoint() string                       { return a.endpoint }
 func (a *advertisement) Health() func() error                   { return a.health }
-func (a *advertisement) SetID(id string) Advertisement          { a.id = id; return a }
-func (a *advertisement) SetService(s ServiceID) Advertisement   { a.service = s; return a }
+func (a *advertisement) SetInstanceID(id string) Advertisement  { a.id = id; return a }
+func (a *advertisement) SetServiceID(s ServiceID) Advertisement { a.service = s; return a }
 func (a *advertisement) SetEndpoint(e string) Advertisement     { a.endpoint = e; return a }
 func (a *advertisement) SetHealth(h func() error) Advertisement { a.health = h; return a }
 

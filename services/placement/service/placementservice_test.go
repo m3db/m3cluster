@@ -36,27 +36,27 @@ func testServiceID() services.ServiceID {
 }
 
 func TestGoodWorkflow(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testServiceID())
-	testGoodWorkflow(t, p, placement.NewOptions())
+	p := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
+	testGoodWorkflow(t, p)
 
-	p = NewPlacementService(NewMockStorage(), testServiceID())
-	testGoodWorkflow(t, p, placement.NewOptions().SetLooseRackCheck(true))
+	p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions().SetLooseRackCheck(true))
+	testGoodWorkflow(t, p)
 }
 
-func testGoodWorkflow(t *testing.T, p services.PlacementService, opts services.PlacementOptions) {
+func testGoodWorkflow(t *testing.T, p services.PlacementService) {
 	h1 := placement.NewEmptyInstance("r1h1", "r1", "z1", 2)
 	h2 := placement.NewEmptyInstance("r2h2", "r2", "z1", 2)
 	h3 := placement.NewEmptyInstance("r3h3", "r3", "z1", 2)
-	_, err := p.BuildInitialPlacement([]services.PlacementInstance{h1, h2}, 10, 1, opts)
+	_, err := p.BuildInitialPlacement([]services.PlacementInstance{h1, h2}, 10, 1)
 	assert.NoError(t, err)
 
-	_, err = p.AddReplica(opts)
+	_, err = p.AddReplica()
 	assert.NoError(t, err)
 
-	_, err = p.AddInstance([]services.PlacementInstance{h3}, opts)
+	_, err = p.AddInstance([]services.PlacementInstance{h3})
 	assert.NoError(t, err)
 
-	_, err = p.RemoveInstance(h1, opts)
+	_, err = p.RemoveInstance(h1)
 	assert.NoError(t, err)
 
 	_, err = p.ReplaceInstance(
@@ -67,7 +67,6 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService, opts services.P
 			h3, // already in placement
 			placement.NewEmptyInstance("h31", "r3", "z1", 1), // conflict
 		},
-		opts,
 	)
 	assert.NoError(t, err)
 	s, err := p.Placement()
@@ -76,15 +75,15 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService, opts services.P
 	assert.NotNil(t, s.Instance("h21"))
 	assert.NotNil(t, s.Instance("h4"))
 
-	_, err = p.AddInstance([]services.PlacementInstance{h1}, opts)
+	_, err = p.AddInstance([]services.PlacementInstance{h1})
 	assert.NoError(t, err)
 
-	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r2h4", "r2", "z1", 1)}, opts)
+	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r2h4", "r2", "z1", 1)})
 	assert.NoError(t, err)
 
-	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r3h4", "r3", "z1", 1)}, opts)
+	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r3h4", "r3", "z1", 1)})
 	assert.NoError(t, err)
-	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r3h5", "r3", "z1", 1)}, opts)
+	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r3h5", "r3", "z1", 1)})
 	assert.NoError(t, err)
 
 	instances := []services.PlacementInstance{
@@ -95,7 +94,7 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService, opts services.P
 		placement.NewEmptyInstance("r2h3", "r2", "z1", 1),
 		placement.NewEmptyInstance("r4h41", "r4", "z1", 1),
 	}
-	_, err = p.AddInstance(instances, opts)
+	_, err = p.AddInstance(instances)
 	assert.NoError(t, err)
 	s, err = p.Placement()
 	assert.NoError(t, err)
@@ -103,123 +102,122 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService, opts services.P
 }
 
 func TestBadInitialPlacement(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testServiceID())
+	p := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
 
 	// not enough instances
-	_, err := p.BuildInitialPlacement([]services.PlacementInstance{}, 10, 1, placement.NewOptions())
+	_, err := p.BuildInitialPlacement([]services.PlacementInstance{}, 10, 1)
 	assert.Error(t, err)
 
 	// not enough racks
 	_, err = p.BuildInitialPlacement([]services.PlacementInstance{
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		placement.NewEmptyInstance("r1h2", "r1", "z1", 1),
-	}, 100, 2, placement.NewOptions())
+	}, 100, 2)
 	assert.Error(t, err)
 
 	// too many zones
 	_, err = p.BuildInitialPlacement([]services.PlacementInstance{
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		placement.NewEmptyInstance("r2h2", "r2", "z2", 1),
-	}, 100, 2, placement.NewOptions())
+	}, 100, 2)
 	assert.Error(t, err)
 	assert.Equal(t, errMultipleZones, err)
 
 	_, err = p.BuildInitialPlacement([]services.PlacementInstance{
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		placement.NewEmptyInstance("r2h2", "r2", "z1", 1),
-	}, 100, 2, placement.NewOptions())
+	}, 100, 2)
 	assert.NoError(t, err)
 
 	// placement already exist
 	_, err = p.BuildInitialPlacement([]services.PlacementInstance{
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		placement.NewEmptyInstance("r2h2", "r2", "z1", 1),
-	}, 100, 2, placement.NewOptions())
+	}, 100, 2)
 	assert.Error(t, err)
 }
 
 func TestBadAddReplica(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testServiceID())
+	p := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
 
 	_, err := p.BuildInitialPlacement(
 		[]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)},
-		10, 1, placement.NewOptions())
+		10, 1)
 	assert.NoError(t, err)
 
 	// not enough racks/instances
-	_, err = p.AddReplica(placement.NewOptions())
+	_, err = p.AddReplica()
 	assert.Error(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testServiceID())
-	_, err = p.AddReplica(placement.NewOptions())
+	p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
+	_, err = p.AddReplica()
 	assert.Error(t, err)
 }
 
 func TestBadAddInstance(t *testing.T) {
 	ms := NewMockStorage()
-	p := NewPlacementService(ms, testServiceID())
+	p := NewPlacementService(ms, testServiceID(), placement.NewOptions())
 
 	_, err := p.BuildInitialPlacement(
 		[]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)},
-		10, 1, placement.NewOptions())
+		10, 1)
 	assert.NoError(t, err)
 
 	// adding instance already exist
-	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)}, placement.NewOptions())
+	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)})
 	assert.Error(t, err)
 
 	// too many zones
-	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z2", 1)}, placement.NewOptions())
+	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z2", 1)})
 	assert.Error(t, err)
 	assert.Equal(t, errNoValidInstance, err)
 
-	p = NewPlacementService(ms, testServiceID())
-	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)}, placement.NewOptions())
+	p = NewPlacementService(ms, testServiceID(), placement.NewOptions())
+	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)})
 	assert.Error(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testServiceID())
-	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z1", 1)}, placement.NewOptions())
+	p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
+	_, err = p.AddInstance([]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z1", 1)})
 	assert.Error(t, err)
 }
 
 func TestBadRemoveInstance(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testServiceID())
+	p := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
 
 	_, err := p.BuildInitialPlacement(
 		[]services.PlacementInstance{placement.NewEmptyInstance("r1h1", "r1", "z1", 1)},
-		10, 1, placement.NewOptions())
+		10, 1)
 	assert.NoError(t, err)
 
 	// leaving instance not exist
-	_, err = p.RemoveInstance(placement.NewEmptyInstance("r2h2", "r2", "z1", 1), placement.NewOptions())
+	_, err = p.RemoveInstance(placement.NewEmptyInstance("r2h2", "r2", "z1", 1))
 	assert.Error(t, err)
 
 	// not enough racks/instances after removal
-	_, err = p.RemoveInstance(placement.NewEmptyInstance("r1h1", "r1", "z1", 1), placement.NewOptions())
+	_, err = p.RemoveInstance(placement.NewEmptyInstance("r1h1", "r1", "z1", 1))
 	assert.Error(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testServiceID())
-	_, err = p.RemoveInstance(placement.NewEmptyInstance("r1h1", "r1", "z1", 1), placement.NewOptions())
+	p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
+	_, err = p.RemoveInstance(placement.NewEmptyInstance("r1h1", "r1", "z1", 1))
 	assert.Error(t, err)
 }
 
 func TestBadReplaceInstance(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testServiceID())
+	p := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
 
 	_, err := p.BuildInitialPlacement([]services.PlacementInstance{
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		placement.NewEmptyInstance("r4h4", "r4", "z1", 1),
-	}, 10, 1, placement.NewOptions())
+	}, 10, 1)
 	assert.NoError(t, err)
 
 	// leaving instance not exist
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r1h2", "r1", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z1", 1)},
-		placement.NewOptions(),
 	)
 	assert.Error(t, err)
 
@@ -227,45 +225,41 @@ func TestBadReplaceInstance(t *testing.T) {
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r4h4", "r4", "z1", 1)},
-		placement.NewOptions(),
 	)
 	assert.Error(t, err)
 
 	// not enough rack after replace
-	_, err = p.AddReplica(placement.NewOptions())
+	_, err = p.AddReplica()
 	assert.NoError(t, err)
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r4h4", "r4", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r1h2", "r1", "z1", 1)},
-		placement.NewOptions(),
 	)
 	assert.Error(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testServiceID())
+	p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z1", 1)},
-		placement.NewOptions(),
 	)
 	assert.Error(t, err)
 }
 
 func TestReplaceInstanceWithLooseRackCheck(t *testing.T) {
-	p := NewPlacementService(NewMockStorage(), testServiceID())
+	p := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions().SetLooseRackCheck(true))
 
 	_, err := p.BuildInitialPlacement(
 		[]services.PlacementInstance{
 			placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 			placement.NewEmptyInstance("r4h4", "r4", "z1", 1),
-		}, 10, 1, placement.NewOptions().SetLooseRackCheck(true))
+		}, 10, 1)
 	assert.NoError(t, err)
 
 	// leaving instance not exist
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r1h2", "r1", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z1", 1)},
-		placement.NewOptions().SetLooseRackCheck(true),
 	)
 	assert.Error(t, err)
 
@@ -273,26 +267,23 @@ func TestReplaceInstanceWithLooseRackCheck(t *testing.T) {
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r4h4", "r4", "z1", 1)},
-		placement.NewOptions().SetLooseRackCheck(true),
 	)
 	assert.Error(t, err)
 
 	// NO ERROR when not enough rack after replace
-	_, err = p.AddReplica(placement.NewOptions().SetLooseRackCheck(true))
+	_, err = p.AddReplica()
 	assert.NoError(t, err)
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r4h4", "r4", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r1h2", "r1", "z1", 1)},
-		placement.NewOptions().SetLooseRackCheck(true),
 	)
 	assert.NoError(t, err)
 
 	// could not find placement for service
-	p = NewPlacementService(NewMockStorage(), testServiceID())
+	p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
 	_, err = p.ReplaceInstance(
 		placement.NewEmptyInstance("r1h1", "r1", "z1", 1),
 		[]services.PlacementInstance{placement.NewEmptyInstance("r2h2", "r2", "z1", 1)},
-		placement.NewOptions(),
 	)
 	assert.Error(t, err)
 }
@@ -336,8 +327,8 @@ func TestFindReplaceInstance(t *testing.T) {
 		placement.NewEmptyInstance("h22", "r22", "z2", 1), // bad zone
 	}
 
-	p := NewPlacementService(NewMockStorage(), testServiceID()).(placementService)
-	i, err := p.findReplaceInstance(s, candidates, h4, placement.NewOptions())
+	p := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions()).(placementService)
+	i, err := p.findReplaceInstance(s, candidates, h4)
 	assert.Error(t, err)
 	assert.Nil(t, i)
 
@@ -345,13 +336,13 @@ func TestFindReplaceInstance(t *testing.T) {
 		placement.NewEmptyInstance("h11", "r0", "z1", 1),
 		placement.NewEmptyInstance("h22", "r0", "z2", 1),
 	}
-	i, err = p.findReplaceInstance(s, noConflictCandidates, h3, placement.NewOptions())
+	i, err = p.findReplaceInstance(s, noConflictCandidates, h3)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "could not find enough instance to replace")
 	assert.Nil(t, i)
 
-	p = NewPlacementService(NewMockStorage(), testServiceID()).(placementService)
-	i, err = p.findReplaceInstance(s, candidates, h4, placement.NewOptions().SetLooseRackCheck(true))
+	p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions().SetLooseRackCheck(true)).(placementService)
+	i, err = p.findReplaceInstance(s, candidates, h4)
 	assert.NoError(t, err)
 	// gonna prefer r1 because r1 would only conflict shard 2, r2 would conflict 7,8,9
 	assert.Equal(t, 1, len(i))
@@ -571,7 +562,7 @@ func NewMockStorage() placement.Storage {
 
 func (ms *mockStorage) SetPlacement(service services.ServiceID, p services.ServicePlacement) error {
 	var err error
-	if err = p.Validate(); err != nil {
+	if err = placement.Validate(p); err != nil {
 		return err
 	}
 

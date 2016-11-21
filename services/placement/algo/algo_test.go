@@ -283,7 +283,7 @@ func TestRFGreaterThanRackLen(t *testing.T) {
 	p1, err := a.AddReplica(p)
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 }
 
 func TestRFGreaterThanRackLenAfterInstanceRemoval(t *testing.T) {
@@ -310,7 +310,7 @@ func TestRFGreaterThanRackLenAfterInstanceRemoval(t *testing.T) {
 	p1, err := a.RemoveInstance(p, r2h2)
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 }
 
 func TestRFGreaterThanRackLenAfterInstanceReplace(t *testing.T) {
@@ -338,7 +338,7 @@ func TestRFGreaterThanRackLenAfterInstanceReplace(t *testing.T) {
 	p1, err := a.ReplaceInstance(p, r2h2, []services.PlacementInstance{r1h3})
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 }
 
 func TestLooseRackCheckAlgorithm(t *testing.T) {
@@ -356,51 +356,51 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 	a := NewRackAwarePlacementAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids)
 	assert.NoError(t, err)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 
 	p, err = a.AddReplica(p)
 	assert.NoError(t, err)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 
 	p1, err := a.AddReplica(p)
 	assert.Equal(t, errNotEnoughRacks, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 
 	r2h4 := placement.NewEmptyInstance("r2h4", "r2", "z1", 1)
 	p, err = a.AddInstance(p, r2h4)
 	assert.NoError(t, err)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 
 	p1, err = a.AddReplica(p)
 	assert.Equal(t, errNotEnoughRacks, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 
 	b := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(true))
 	// different with normal algo, which would return error here
 	r1h3 := placement.NewEmptyInstance("r1h3", "r1", "z1", 1)
 	p, err = b.ReplaceInstance(p, r2h2, []services.PlacementInstance{r1h3})
 	assert.NoError(t, err)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 
 	p1, err = b.ReplaceInstance(p, r2h4, []services.PlacementInstance{r1h3})
 	assert.Equal(t, errAddingInstanceAlreadyExist, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 
 	p, err = b.RemoveInstance(p, r1h3)
 	assert.NoError(t, err)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 
 	r3h5 := placement.NewEmptyInstance("r3h5", "r3", "z1", 1)
 	p, err = b.AddInstance(p, r3h5)
 	assert.NoError(t, err)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 
 	p, err = b.AddReplica(p)
 	assert.NoError(t, err)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 }
 
 func TestAddInstancesCouldNotReachTargetLoad(t *testing.T) {
@@ -442,7 +442,7 @@ func TestAddExistInstance(t *testing.T) {
 	p1, err := a.AddInstance(p, r2h2)
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 }
 
 func TestRemoveAbsentInstance(t *testing.T) {
@@ -467,7 +467,7 @@ func TestRemoveAbsentInstance(t *testing.T) {
 	p1, err := a.RemoveInstance(p, r3h3)
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 }
 
 func TestReplaceAbsentInstance(t *testing.T) {
@@ -493,7 +493,7 @@ func TestReplaceAbsentInstance(t *testing.T) {
 	p1, err := a.ReplaceInstance(p, r3h3, []services.PlacementInstance{r4h4})
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, p.Validate())
+	assert.NoError(t, placement.Validate(p))
 }
 
 func TestCanAssignInstance(t *testing.T) {
@@ -541,10 +541,37 @@ func TestCanAssignInstance(t *testing.T) {
 	assert.True(t, ph.canAssignInstance(2, h6, h3))
 }
 
-func validateDistribution(t *testing.T, mp services.ServicePlacement, expectPeakOverAvg float64, testCase string) {
-	ph := NewPlacementHelper(mp, placement.NewOptions()).(*placementHelper)
+func TestCopy(t *testing.T) {
+	h1 := placement.NewEmptyInstance("r1h1", "r1", "z1", 1)
+	h1.Shards().AddShard(1)
+	h1.Shards().AddShard(2)
+	h1.Shards().AddShard(3)
+
+	h2 := placement.NewEmptyInstance("r2h2", "r2", "z1", 1)
+	h2.Shards().AddShard(4)
+	h2.Shards().AddShard(5)
+	h2.Shards().AddShard(6)
+
+	instances := []services.PlacementInstance{h1, h2}
+
+	ids := []uint32{1, 2, 3, 4, 5, 6}
+	s := placement.NewPlacement(instances, ids, 1)
+	copy := copyPlacement(s)
+	assert.Equal(t, s.NumInstances(), copy.NumInstances())
+	assert.Equal(t, s.Shards(), copy.Shards())
+	assert.Equal(t, s.ReplicaFactor(), copy.ReplicaFactor())
+	for _, i := range s.Instances() {
+		assert.Equal(t, copy.Instance(i.ID()), i)
+		// make sure they are different objects, updating one won't update the other
+		i.Shards().AddShard(100)
+		assert.NotEqual(t, copy.Instance(i.ID()), i)
+	}
+}
+
+func validateDistribution(t *testing.T, p services.ServicePlacement, expectPeakOverAvg float64, testCase string) {
+	ph := NewPlacementHelper(p, placement.NewOptions()).(*placementHelper)
 	total := 0
-	for _, i := range mp.Instances() {
+	for _, i := range p.Instances() {
 		load := i.Shards().NumShards()
 		total += load
 		avgLoad := getWeightedLoad(ph, i.Weight())
@@ -561,8 +588,8 @@ func validateDistribution(t *testing.T, mp services.ServicePlacement, expectPeak
 				testCase, i.ID(), instanceOverTarget, load, targetLoad))
 		}
 	}
-	assert.Equal(t, total, mp.ReplicaFactor()*mp.NumShards(), fmt.Sprintf("Wrong total partition: expecting %v, but got %v", mp.ReplicaFactor()*mp.NumShards(), total))
-	assert.NoError(t, mp.Validate(), "placement validation failed")
+	assert.Equal(t, total, p.ReplicaFactor()*p.NumShards(), fmt.Sprintf("Wrong total partition: expecting %v, but got %v", p.ReplicaFactor()*p.NumShards(), total))
+	assert.NoError(t, placement.Validate(p), "placement validation failed")
 }
 
 func getWeightedLoad(ph *placementHelper, weight uint32) int {

@@ -40,7 +40,7 @@ type Services interface {
 	Watch(service ServiceID, opts QueryOptions) (xwatch.Watch, error)
 
 	// PlacementService returns a client of Placement Service
-	PlacementService(service ServiceID) (PlacementService, error)
+	PlacementService(service ServiceID, popts PlacementOptions) (PlacementService, error)
 
 	// MetadataService returns a client of Metadata Service
 	MetadataService(service ServiceID) (MetadataService, error)
@@ -90,26 +90,26 @@ type ServiceSharding interface {
 
 // ServiceInstance is a single instance of a service
 type ServiceInstance interface {
-	Service() ServiceID                           // the service implemented by the instance
-	SetService(service ServiceID) ServiceInstance // sets the service implemented by the instance
-	ID() string                                   // ID of the instance
-	SetID(id string) ServiceInstance              // sets the ID of the instance
-	Endpoint() string                             // Endpoint address for contacting the instance
-	SetEndpoint(e string) ServiceInstance         // sets the endpoint address for the instance
-	Shards() shard.Shards                         // Shards owned by the instance
-	SetShards(s shard.Shards) ServiceInstance     // sets the Shards assigned to the instance
+	ServiceID() ServiceID                           // the service implemented by the instance
+	SetServiceID(service ServiceID) ServiceInstance // sets the service implemented by the instance
+	InstanceID() string                             // ID of the instance
+	SetInstanceID(id string) ServiceInstance        // sets the ID of the instance
+	Endpoint() string                               // Endpoint address for contacting the instance
+	SetEndpoint(e string) ServiceInstance           // sets the endpoint address for the instance
+	Shards() shard.Shards                           // Shards owned by the instance
+	SetShards(s shard.Shards) ServiceInstance       // sets the Shards assigned to the instance
 }
 
 // Advertisement advertises the availability of a given instance of a service
 type Advertisement interface {
-	ID() string                                  // the ID of the instance being advertised
-	SetID(id string) Advertisement               // sets the ID being advertised
-	Service() ServiceID                          // the service being advertised
-	SetService(service ServiceID) Advertisement  // sets the service being advertised
-	Health() func() error                        // optional health function.  return an error to indicate unhealthy
-	SetHealth(health func() error) Advertisement // sets the health function for the advertised instance
-	Endpoint() string                            // endpoint exposed by the service
-	SetEndpoint(e string) Advertisement          // sets the endpoint exposed by the service
+	InstanceID() string                           // the ID of the instance being advertised
+	SetInstanceID(id string) Advertisement        // sets the ID of the instance being advertised
+	ServiceID() ServiceID                         // the service being advertised
+	SetServiceID(service ServiceID) Advertisement // sets the service being advertised
+	Health() func() error                         // optional health function.  return an error to indicate unhealthy
+	SetHealth(health func() error) Advertisement  // sets the health function for the advertised instance
+	Endpoint() string                             // endpoint exposed by the service
+	SetEndpoint(e string) Advertisement           // sets the endpoint exposed by the service
 }
 
 // ServiceID contains the fields required to id a service
@@ -148,19 +148,19 @@ type MetadataService interface {
 // all write or update operations will persist the generated placement before returning success
 type PlacementService interface {
 	// BuildInitialPlacement initialize a placement
-	BuildInitialPlacement(instances []PlacementInstance, numShards int, rf int, popts PlacementOptions) (ServicePlacement, error)
+	BuildInitialPlacement(instances []PlacementInstance, numShards int, rf int) (ServicePlacement, error)
 
 	// AddReplica up the replica factor by 1 in the placement
-	AddReplica(popts PlacementOptions) (ServicePlacement, error)
+	AddReplica() (ServicePlacement, error)
 
 	// AddInstance picks an instance from the candidate list to the placement
-	AddInstance(candidates []PlacementInstance, popts PlacementOptions) (ServicePlacement, error)
+	AddInstance(candidates []PlacementInstance) (ServicePlacement, error)
 
 	// RemoveInstance removes an instance from the placement
-	RemoveInstance(i PlacementInstance, popts PlacementOptions) (ServicePlacement, error)
+	RemoveInstance(i PlacementInstance) (ServicePlacement, error)
 
 	// ReplaceInstance picks instances from the candidate list to replace an instance in current placement
-	ReplaceInstance(leavingInstance PlacementInstance, candidates []PlacementInstance, popts PlacementOptions) (ServicePlacement, error)
+	ReplaceInstance(leavingInstance PlacementInstance, candidates []PlacementInstance) (ServicePlacement, error)
 
 	// Placement gets the persisted placement for service
 	Placement() (ServicePlacement, error)
@@ -198,12 +198,6 @@ type ServicePlacement interface {
 
 	// ShardsLen returns the number of shards in a replica
 	NumShards() int
-
-	// Validate checks if the ServicePlacement is valid
-	Validate() error
-
-	// Copy returns a copy of the ServicePlacement
-	Copy() ServicePlacement
 }
 
 // PlacementInstance represents an instance in a service placement
@@ -217,10 +211,8 @@ type PlacementInstance interface {
 	SetZone(z string) PlacementInstance         // SetZone sets the zone of the instance
 	Weight() uint32                             // Weight is the weight of the instance
 	SetWeight(w uint32) PlacementInstance       // SetWeight sets the weight of the instance
-	IP() string                                 // IP is the ip of the instance
-	SetIP(ip string) PlacementInstance          // SetIP sets the ip of the instance
-	Port() string                               // Port is the port of the service process the instance
-	SetPort(p string) PlacementInstance         // SetPort sets the port of the instance
+	Endpoint() string                           // Endpoint is the endpoint of the instance
+	SetEndpoint(ip string) PlacementInstance    // SetEndpoint sets the endpoint of the instance
 	Shards() shard.Shards                       // Shards returns the shards owned by the instance
-	SetShards(s shard.Shards) PlacementInstance // Shards returns the shards owned by the instance
+	SetShards(s shard.Shards) PlacementInstance // SetShards sets the shards owned by the instance
 }

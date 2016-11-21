@@ -81,15 +81,16 @@ func (p placement) NumShards() int {
 	return len(p.shards)
 }
 
-func (p placement) Validate() error {
-	shardCountMap := ConvertShardSliceToMap(p.shards)
-	if len(shardCountMap) != len(p.shards) {
+// Validate validates a placement
+func Validate(p services.ServicePlacement) error {
+	shardCountMap := ConvertShardSliceToMap(p.Shards())
+	if len(shardCountMap) != len(p.Shards()) {
 		return errDuplicatedShards
 	}
 
-	expectedTotal := len(p.shards) * p.rf
+	expectedTotal := len(p.Shards()) * p.ReplicaFactor()
 	actualTotal := 0
-	for _, instance := range p.instances {
+	for _, instance := range p.Instances() {
 		for _, id := range instance.Shards().ShardIDs() {
 			if count, exist := shardCountMap[id]; exist {
 				shardCountMap[id] = count + 1
@@ -106,30 +107,11 @@ func (p placement) Validate() error {
 	}
 
 	for shard, c := range shardCountMap {
-		if p.rf != c {
-			return fmt.Errorf("invalid shard count for shard %d: expected %d, actual %d", shard, p.rf, c)
+		if p.ReplicaFactor() != c {
+			return fmt.Errorf("invalid shard count for shard %d: expected %d, actual %d", shard, p.ReplicaFactor(), c)
 		}
 	}
 	return nil
-}
-
-func (p placement) Copy() services.ServicePlacement {
-	return placement{instances: copyInstances(p.Instances()), rf: p.ReplicaFactor(), shards: p.Shards()}
-}
-
-func copyInstances(instances []services.PlacementInstance) []services.PlacementInstance {
-	copied := make([]services.PlacementInstance, len(instances))
-	for i, instance := range instances {
-		copied[i] = NewInstance().
-			SetID(instance.ID()).
-			SetIP(instance.IP()).
-			SetPort(instance.Port()).
-			SetRack(instance.Rack()).
-			SetZone(instance.Zone()).
-			SetWeight(instance.Weight()).
-			SetShards(shard.NewShardsWithIDs(instance.Shards().ShardIDs()))
-	}
-	return copied
 }
 
 // NewInstance returns a new PlacementInstance
@@ -149,13 +131,12 @@ func NewEmptyInstance(id, rack, zone string, weight uint32) services.PlacementIn
 }
 
 type instance struct {
-	id     string
-	rack   string
-	zone   string
-	weight uint32
-	ip     string
-	port   string
-	shards shard.Shards
+	id       string
+	rack     string
+	zone     string
+	weight   uint32
+	endpoint string
+	shards   shard.Shards
 }
 
 func (i *instance) String() string {
@@ -198,21 +179,12 @@ func (i *instance) SetWeight(w uint32) services.PlacementInstance {
 	return i
 }
 
-func (i *instance) IP() string {
-	return i.ip
+func (i *instance) Endpoint() string {
+	return i.endpoint
 }
 
-func (i *instance) SetIP(ip string) services.PlacementInstance {
-	i.ip = ip
-	return i
-}
-
-func (i *instance) Port() string {
-	return i.port
-}
-
-func (i *instance) SetPort(p string) services.PlacementInstance {
-	i.port = p
+func (i *instance) SetEndpoint(ip string) services.PlacementInstance {
+	i.endpoint = ip
 	return i
 }
 

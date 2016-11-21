@@ -26,6 +26,7 @@ import (
 
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement"
+	"github.com/m3db/m3cluster/shard"
 )
 
 // PlacementHelper helps the algorithm to place shards
@@ -406,4 +407,22 @@ func removeInstanceFromPlacement(p services.ServicePlacement, leavingInstance se
 		}
 	}
 	return placement.NewPlacement(instances, p.Shards(), p.ReplicaFactor()), leavingInstance, nil
+}
+
+func copyPlacement(p services.ServicePlacement) services.ServicePlacement {
+	return placement.NewPlacement(copyInstances(p.Instances()), p.Shards(), p.ReplicaFactor())
+}
+
+func copyInstances(instances []services.PlacementInstance) []services.PlacementInstance {
+	copied := make([]services.PlacementInstance, len(instances))
+	for i, instance := range instances {
+		copied[i] = placement.NewInstance().
+			SetID(instance.ID()).
+			SetRack(instance.Rack()).
+			SetZone(instance.Zone()).
+			SetWeight(instance.Weight()).
+			SetEndpoint(instance.Endpoint()).
+			SetShards(shard.NewShardsWithIDs(instance.Shards().ShardIDs()))
+	}
+	return copied
 }
