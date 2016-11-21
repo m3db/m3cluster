@@ -41,9 +41,6 @@ type Services interface {
 
 	// PlacementService returns a client of Placement Service
 	PlacementService(service ServiceID, popts PlacementOptions) (PlacementService, error)
-
-	// MetadataService returns a client of Metadata Service
-	MetadataService(service ServiceID) (MetadataService, error)
 }
 
 // Service describes the metadata and instances of a service
@@ -126,22 +123,6 @@ type ServiceID interface {
 type QueryOptions interface {
 	IncludeUnhealthy() bool                  // if true, will return unhealthy instances
 	SetIncludeUnhealthy(h bool) QueryOptions // sets whether to include unhealthy instances
-}
-
-// ServiceMetadata contains the metadata for a service
-type ServiceMetadata interface {
-	Ports() []uint64           // Ports returns the ports to be used to contact the service
-	LivenessInterval() uint64  // LivenessInterval is the ttl interval for an instance to be considered as healthy in milliseconds
-	HeartbeatInterval() uint64 // HeartbeatInterval is the interval for heatbeats in milliseconds
-}
-
-// MetadataService handles the placement related operations for registered services
-type MetadataService interface {
-	// Metadata returns the metadata for a given service
-	Metadata() (ServiceMetadata, error)
-
-	// SetMetadata sets the metadata for a given service
-	SetMetadata(m ServiceMetadata) error
 }
 
 // PlacementService handles the placement related operations for registered services
