@@ -219,10 +219,10 @@ func newAddInstanceHelper(p services.ServicePlacement, i services.PlacementInsta
 
 func newRemoveInstanceHelper(
 	p services.ServicePlacement,
-	i services.PlacementInstance,
+	instanceID string,
 	opts services.PlacementOptions,
 ) (PlacementHelper, services.PlacementInstance, error) {
-	p, leavingInstance, err := removeInstanceFromPlacement(p, i.ID())
+	p, leavingInstance, err := removeInstanceFromPlacement(p, instanceID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -231,11 +231,11 @@ func newRemoveInstanceHelper(
 
 func newReplaceInstanceHelper(
 	p services.ServicePlacement,
-	leavingInstance services.PlacementInstance,
+	instanceID string,
 	addingInstances []services.PlacementInstance,
 	opts services.PlacementOptions,
 ) (PlacementHelper, services.PlacementInstance, []services.PlacementInstance, error) {
-	p, leavingInstance, err := removeInstanceFromPlacement(p, leavingInstance.ID())
+	p, leavingInstance, err := removeInstanceFromPlacement(p, instanceID)
 	if err != nil {
 		return nil, nil, nil, err
 	}

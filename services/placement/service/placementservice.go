@@ -54,15 +54,7 @@ func (ps placementService) BuildInitialPlacement(
 	shardLen int,
 	rf int,
 ) (services.ServicePlacement, error) {
-	_, _, err := ps.ss.Placement(ps.service)
-	if err == nil {
-		return nil, errPlacementAlreadyExist
-	}
-
-	if err != nil && err != placement.ErrPlacementNotExist {
-		return nil, err
-	}
-
+	var err error
 	if err = ps.validateInitInstances(instances); err != nil {
 		return nil, err
 	}
@@ -131,19 +123,17 @@ func (ps placementService) AddInstance(
 	return p, ps.ss.CheckAndSet(ps.service, p, v)
 }
 
-func (ps placementService) RemoveInstance(
-	instance services.PlacementInstance,
-) (services.ServicePlacement, error) {
+func (ps placementService) RemoveInstance(instanceID string) (services.ServicePlacement, error) {
 	p, v, err := ps.ss.Placement(ps.service)
 	if err != nil {
 		return nil, err
 	}
 
-	if p.Instance(instance.ID()) == nil {
+	if p.Instance(instanceID) == nil {
 		return nil, errInstanceAbsent
 	}
 
-	if p, err = ps.algo.RemoveInstance(p, instance); err != nil {
+	if p, err = ps.algo.RemoveInstance(p, instanceID); err != nil {
 		return nil, err
 	}
 
@@ -155,7 +145,7 @@ func (ps placementService) RemoveInstance(
 }
 
 func (ps placementService) ReplaceInstance(
-	leavingInstance services.PlacementInstance,
+	leavingInstanceID string,
 	candidates []services.PlacementInstance,
 ) (services.ServicePlacement, error) {
 	p, v, err := ps.ss.Placement(ps.service)
@@ -163,7 +153,7 @@ func (ps placementService) ReplaceInstance(
 		return nil, err
 	}
 
-	leavingInstance = p.Instance(leavingInstance.ID())
+	leavingInstance := p.Instance(leavingInstanceID)
 	if leavingInstance == nil {
 		return nil, errInstanceAbsent
 	}
@@ -173,7 +163,7 @@ func (ps placementService) ReplaceInstance(
 		return nil, err
 	}
 
-	if p, err = ps.algo.ReplaceInstance(p, leavingInstance, addingInstances); err != nil {
+	if p, err = ps.algo.ReplaceInstance(p, leavingInstanceID, addingInstances); err != nil {
 		return nil, err
 	}
 

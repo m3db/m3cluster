@@ -61,21 +61,21 @@ func TestGoodCase(t *testing.T) {
 	p = markAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "good case1 add 1")
 
-	p, err = a.RemoveInstance(p, h1)
+	p, err = a.RemoveInstance(p, h1.ID())
 	assert.NoError(t, err)
 	p = markAllShardsAsAvailable(t, p)
 	assert.Nil(t, p.Instance(h1.ID()))
 	validateDistribution(t, p, 1.01, "good case1 remove 1")
 
 	h12 := placement.NewEmptyInstance("r3h12", "r3", "z1", 1)
-	p, err = a.ReplaceInstance(p, h5, []services.PlacementInstance{h12})
+	p, err = a.ReplaceInstance(p, h5.ID(), []services.PlacementInstance{h12})
 	assert.NoError(t, err)
 	assert.NotNil(t, p.Instance(h5.ID()))
 	p = markAllShardsAsAvailable(t, p)
 	assert.Nil(t, p.Instance(h5.ID()))
 	validateDistribution(t, p, 1.01, "good case1 add 1")
 
-	p, err = a.RemoveInstance(p, h2)
+	p, err = a.RemoveInstance(p, h2.ID())
 	assert.NoError(t, err)
 	p = markAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "good case1 remove 1")
@@ -103,12 +103,12 @@ func TestGoodCase(t *testing.T) {
 	validateDistribution(t, p, 1.01, "good case1 add 2")
 
 	h13 := placement.NewEmptyInstance("r5h13", "r5", "z1", 1)
-	p, err = a.ReplaceInstance(p, h3, []services.PlacementInstance{h13})
+	p, err = a.ReplaceInstance(p, h3.ID(), []services.PlacementInstance{h13})
 	assert.NoError(t, err)
 	p = markAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "good case1 replace 1")
 
-	p, err = a.RemoveInstance(p, h4)
+	p, err = a.RemoveInstance(p, h4.ID())
 	assert.NoError(t, err)
 	p = markAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.02, "good case1 remove 2")
@@ -143,12 +143,12 @@ func TestGoodCaseWithWeight(t *testing.T) {
 	p = markAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight add 1")
 
-	p, err = a.RemoveInstance(p, h1)
+	p, err = a.RemoveInstance(p, h1.ID())
 	assert.NoError(t, err)
 	p = markAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight remove 1")
 
-	p, err = a.ReplaceInstance(p, h3,
+	p, err = a.ReplaceInstance(p, h3.ID(),
 		[]services.PlacementInstance{
 			placement.NewEmptyInstance("h31", "r1", "z1", 10),
 			placement.NewEmptyInstance("h32", "r1", "z1", 10),
@@ -181,7 +181,7 @@ func TestGoodCaseWithWeight(t *testing.T) {
 
 	h13 := placement.NewEmptyInstance("h13", "r5", "z1", 10)
 
-	p, err = a.ReplaceInstance(p, h11, []services.PlacementInstance{h13})
+	p, err = a.ReplaceInstance(p, h11.ID(), []services.PlacementInstance{h13})
 	assert.NoError(t, err)
 	p = markAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replace 1")
@@ -230,16 +230,16 @@ func TestPlacementChangeWithoutStateUpdate(t *testing.T) {
 	}
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate add 1")
 
-	p, err = a.RemoveInstance(p, h1)
+	p, err = a.RemoveInstance(p, h1.ID())
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate remove 1")
 
 	h12 := placement.NewEmptyInstance("r3h12", "r3", "z1", 1)
-	p, err = a.ReplaceInstance(p, h5, []services.PlacementInstance{h12})
+	p, err = a.ReplaceInstance(p, h5.ID(), []services.PlacementInstance{h12})
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate add 1")
 
-	p, err = a.RemoveInstance(p, h2)
+	p, err = a.RemoveInstance(p, h2.ID())
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate remove 1")
 
@@ -262,11 +262,11 @@ func TestPlacementChangeWithoutStateUpdate(t *testing.T) {
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate add 2")
 
 	h13 := placement.NewEmptyInstance("r5h13", "r5", "z1", 1)
-	p, err = a.ReplaceInstance(p, h3, []services.PlacementInstance{h13})
+	p, err = a.ReplaceInstance(p, h3.ID(), []services.PlacementInstance{h13})
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate replace 1")
 
-	p, err = a.RemoveInstance(p, h4)
+	p, err = a.RemoveInstance(p, h4.ID())
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.02, "TestPlacementChangeWithoutStateUpdate remove 2")
 }
@@ -307,18 +307,18 @@ func TestOverSizedRack(t *testing.T) {
 	validateDistribution(t, p, 1.01, "TestOverSizedRack replica 3")
 
 	r4h10 := placement.NewEmptyInstance("r4h10", "r4", "z1", 1)
-	_, err = a.ReplaceInstance(p, r3h8, []services.PlacementInstance{r4h10})
+	_, err = a.ReplaceInstance(p, r3h8.ID(), []services.PlacementInstance{r4h10})
 	assert.Error(t, err)
 
 	a = NewRackAwarePlacementAlgorithm(placement.NewOptions().SetAllowPartialReplace(true))
-	p, err = a.ReplaceInstance(p, r3h8, []services.PlacementInstance{r4h10})
+	p, err = a.ReplaceInstance(p, r3h8.ID(), []services.PlacementInstance{r4h10})
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOverSizedRack replace 1")
 
 	// At this point, r1 has 4 instances to share a copy of 1024 partitions
 	r1h11 := placement.NewEmptyInstance("r1h11", "r1", "z1", 1)
 
-	p, err = a.ReplaceInstance(p, r2h2, []services.PlacementInstance{r1h11})
+	p, err = a.ReplaceInstance(p, r2h2.ID(), []services.PlacementInstance{r1h11})
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.22, "TestOverSizedRack replace 2")
 
@@ -416,7 +416,7 @@ func TestRFGreaterThanRackLenAfterInstanceRemoval(t *testing.T) {
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterInstanceRemoval replica 2")
 
-	p1, err := a.RemoveInstance(p, r2h2)
+	p1, err := a.RemoveInstance(p, r2h2.ID())
 	assert.Error(t, err)
 	assert.Nil(t, p1)
 	assert.NoError(t, placement.Validate(p))
@@ -444,7 +444,7 @@ func TestRFGreaterThanRackLenAfterInstanceReplace(t *testing.T) {
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterInstanceReplace replica 2")
 
 	r1h3 := placement.NewEmptyInstance("r1h3", "r1", "z1", 1)
-	p1, err := a.ReplaceInstance(p, r2h2, []services.PlacementInstance{r1h3})
+	p1, err := a.ReplaceInstance(p, r2h2.ID(), []services.PlacementInstance{r1h3})
 	assert.Error(t, err)
 	assert.Nil(t, p1)
 	assert.NoError(t, placement.Validate(p))
@@ -494,17 +494,17 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 	b := NewRackAwarePlacementAlgorithm(placement.NewOptions().SetLooseRackCheck(true))
 	// different with normal algo, which would return error here
 	r1h3 := placement.NewEmptyInstance("r1h3", "r1", "z1", 1)
-	p, err = b.ReplaceInstance(p, r2h2, []services.PlacementInstance{r1h3})
+	p, err = b.ReplaceInstance(p, r2h2.ID(), []services.PlacementInstance{r1h3})
 	assert.NoError(t, err)
 	assert.NoError(t, placement.Validate(p))
 
-	p1, err = b.ReplaceInstance(p, r2h4, []services.PlacementInstance{r1h3})
+	p1, err = b.ReplaceInstance(p, r2h4.ID(), []services.PlacementInstance{r1h3})
 	assert.Equal(t, errAddingInstanceAlreadyExist, err)
 	assert.Nil(t, p1)
 	assert.NoError(t, placement.Validate(p))
 
 	markAllShardsAsAvailable(t, p)
-	p, err = b.RemoveInstance(p, r1h3)
+	p, err = b.RemoveInstance(p, r1h3.ID())
 	assert.NoError(t, err)
 	assert.NoError(t, placement.Validate(p))
 
@@ -581,7 +581,7 @@ func TestRemoveAbsentInstance(t *testing.T) {
 
 	r3h3 := placement.NewEmptyInstance("r3h3", "r3", "z1", 1)
 
-	p1, err := a.RemoveInstance(p, r3h3)
+	p1, err := a.RemoveInstance(p, r3h3.ID())
 	assert.Error(t, err)
 	assert.Nil(t, p1)
 	assert.NoError(t, placement.Validate(p))
@@ -607,7 +607,7 @@ func TestReplaceAbsentInstance(t *testing.T) {
 	r3h3 := placement.NewEmptyInstance("r3h3", "r3", "z1", 1)
 	r4h4 := placement.NewEmptyInstance("r4h4", "r4", "z1", 1)
 
-	p1, err := a.ReplaceInstance(p, r3h3, []services.PlacementInstance{r4h4})
+	p1, err := a.ReplaceInstance(p, r3h3.ID(), []services.PlacementInstance{r4h4})
 	assert.Error(t, err)
 	assert.Nil(t, p1)
 	assert.NoError(t, placement.Validate(p))
@@ -740,7 +740,7 @@ func TestRemoveInstance(t *testing.T) {
 	p := placement.NewPlacement(instances, ids, 1)
 
 	a := NewRackAwarePlacementAlgorithm(placement.NewOptions())
-	p, err := a.RemoveInstance(p, i2)
+	p, err := a.RemoveInstance(p, i2.ID())
 	assert.NoError(t, err)
 	assert.Equal(t, 1, p.ReplicaFactor())
 	assert.Equal(t, numShards, p.NumShards())
@@ -788,7 +788,7 @@ func TestReplaceInstance(t *testing.T) {
 
 	a := NewRackAwarePlacementAlgorithm(placement.NewOptions())
 	i3 := placement.NewEmptyInstance("i3", "r3", "", 1)
-	p, err := a.ReplaceInstance(p, i2, []services.PlacementInstance{i3})
+	p, err := a.ReplaceInstance(p, i2.ID(), []services.PlacementInstance{i3})
 	assert.NoError(t, err)
 	i1 = p.Instance("i1")
 	i2 = p.Instance("i2")

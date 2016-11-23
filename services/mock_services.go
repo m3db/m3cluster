@@ -655,8 +655,8 @@ func (_mr *_MockPlacementServiceRecorder) AddInstance(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddInstance", arg0)
 }
 
-func (_m *MockPlacementService) RemoveInstance(i PlacementInstance) (ServicePlacement, error) {
-	ret := _m.ctrl.Call(_m, "RemoveInstance", i)
+func (_m *MockPlacementService) RemoveInstance(leavingInstanceID string) (ServicePlacement, error) {
+	ret := _m.ctrl.Call(_m, "RemoveInstance", leavingInstanceID)
 	ret0, _ := ret[0].(ServicePlacement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -666,8 +666,8 @@ func (_mr *_MockPlacementServiceRecorder) RemoveInstance(arg0 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveInstance", arg0)
 }
 
-func (_m *MockPlacementService) ReplaceInstance(leavingInstance PlacementInstance, candidates []PlacementInstance) (ServicePlacement, error) {
-	ret := _m.ctrl.Call(_m, "ReplaceInstance", leavingInstance, candidates)
+func (_m *MockPlacementService) ReplaceInstance(leavingInstanceID string, candidates []PlacementInstance) (ServicePlacement, error) {
+	ret := _m.ctrl.Call(_m, "ReplaceInstance", leavingInstanceID, candidates)
 	ret0, _ := ret[0].(ServicePlacement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
