@@ -677,6 +677,26 @@ func (_mr *_MockPlacementServiceRecorder) ReplaceInstance(arg0, arg1 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReplaceInstance", arg0, arg1)
 }
 
+func (_m *MockPlacementService) MarkShardAvailable(instanceID string, shardID uint32) error {
+	ret := _m.ctrl.Call(_m, "MarkShardAvailable", instanceID, shardID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockPlacementServiceRecorder) MarkShardAvailable(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MarkShardAvailable", arg0, arg1)
+}
+
+func (_m *MockPlacementService) MarkInstanceAvailable(instanceID string) error {
+	ret := _m.ctrl.Call(_m, "MarkInstanceAvailable", instanceID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockPlacementServiceRecorder) MarkInstanceAvailable(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MarkInstanceAvailable", arg0)
+}
+
 func (_m *MockPlacementService) Placement() (ServicePlacement, error) {
 	ret := _m.ctrl.Call(_m, "Placement")
 	ret0, _ := ret[0].(ServicePlacement)

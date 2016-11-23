@@ -57,11 +57,14 @@ type DeploymentPlanner interface {
 
 // Storage provides read and write access to service placement
 type Storage interface {
-	// SetPlacement writes a placement for a service
-	SetPlacement(service services.ServiceID, p services.ServicePlacement) error
+	// CheckAndSet writes a placement for a service
+	CheckAndSet(service services.ServiceID, p services.ServicePlacement, version int) error
 
-	// Placement reads a placement for a service
-	Placement(service services.ServiceID) (services.ServicePlacement, error)
+	// SetIfNotExist writes a placement for a service
+	SetIfNotExist(service services.ServiceID, p services.ServicePlacement) error
+
+	// Placement reads placement and version for a service
+	Placement(service services.ServiceID) (services.ServicePlacement, int, error)
 }
 
 // DeploymentOptions provides options for DeploymentPlanner
