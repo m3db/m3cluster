@@ -81,7 +81,7 @@ func (ps placementService) BuildInitialPlacement(
 		return nil, err
 	}
 
-	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	// TODO(chaowang) this will be removed once the m3db nodes start to mark shards as available
 	p, err = markAllShardsAsAvailable(p)
 	if err != nil {
 		return nil, err
@@ -104,7 +104,7 @@ func (ps placementService) AddReplica() (services.ServicePlacement, error) {
 		return nil, err
 	}
 
-	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	// TODO(chaowang) this will be removed once the m3db nodes start to mark shards as available
 	p, err = markAllShardsAsAvailable(p)
 	if err != nil {
 		return nil, err
@@ -133,7 +133,7 @@ func (ps placementService) AddInstance(
 		return nil, err
 	}
 
-	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	// TODO(chaowang) this will be removed once the m3db nodes start to mark shards as available
 	p, err = markAllShardsAsAvailable(p)
 	if err != nil {
 		return nil, err
@@ -160,7 +160,7 @@ func (ps placementService) RemoveInstance(instanceID string) (services.ServicePl
 		return nil, err
 	}
 
-	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	// TODO(chaowang) this will be removed once the m3db nodes start to mark shards as available
 	p, err = markAllShardsAsAvailable(p)
 	if err != nil {
 		return nil, err
@@ -196,7 +196,7 @@ func (ps placementService) ReplaceInstance(
 		return nil, err
 	}
 
-	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	// TODO(chaowang) this will be removed once the m3db nodes start to mark shards as available
 	p, err = markAllShardsAsAvailable(p)
 	if err != nil {
 		return nil, err

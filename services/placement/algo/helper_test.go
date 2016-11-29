@@ -174,7 +174,7 @@ func TestCopy(t *testing.T) {
 
 	ids := []uint32{1, 2, 3, 4, 5, 6}
 	s := placement.NewPlacement(instances, ids, 1)
-	copy := copyPlacement(s)
+	copy := clonePlacement(s)
 	assert.Equal(t, s.NumInstances(), copy.NumInstances())
 	assert.Equal(t, s.Shards(), copy.Shards())
 	assert.Equal(t, s.ReplicaFactor(), copy.ReplicaFactor())

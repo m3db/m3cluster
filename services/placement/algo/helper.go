@@ -366,14 +366,14 @@ func newHeap(
 	targetLoad map[string]int,
 	rackToWeightMap map[string]uint32,
 ) *instanceHeap {
-	hHeap := &instanceHeap{
+	h := &instanceHeap{
 		capacityAscending: capacityAscending,
 		instances:         instances,
 		targetLoad:        targetLoad,
 		rackToWeightMap:   rackToWeightMap,
 	}
-	heap.Init(hHeap)
-	return hHeap
+	heap.Init(h)
+	return h
 }
 
 func (h *instanceHeap) targetLoadForInstance(id string) int {
@@ -420,7 +420,7 @@ func (h *instanceHeap) Pop() interface{} {
 
 // MarkShardAvailable marks the state of a shard to available
 func MarkShardAvailable(p services.ServicePlacement, instanceID string, shardID uint32) (services.ServicePlacement, error) {
-	p = copyPlacement(p)
+	p = clonePlacement(p)
 	instance := p.Instance(instanceID)
 	if instance == nil {
 		return nil, fmt.Errorf("instance %s does not exist in placement", instanceID)
@@ -481,7 +481,7 @@ func addInstanceToPlacement(p services.ServicePlacement, i services.PlacementIns
 	if p.Instance(i.ID()) != nil {
 		return nil, nil, errAddingInstanceAlreadyExist
 	}
-	instance := copyInstance(i)
+	instance := cloneInstance(i)
 
 	if allowEmpty || instance.Shards().NumShards() > 0 {
 		p = placement.NewPlacement(append(p.Instances(), instance), p.Shards(), p.ReplicaFactor())
@@ -505,29 +505,29 @@ func removeInstanceFromPlacement(p services.ServicePlacement, id string) (servic
 	return placement.NewPlacement(instances, p.Shards(), p.ReplicaFactor()), leavingInstance, nil
 }
 
-func copyPlacement(p services.ServicePlacement) services.ServicePlacement {
-	return placement.NewPlacement(copyInstances(p.Instances()), p.Shards(), p.ReplicaFactor())
+func clonePlacement(p services.ServicePlacement) services.ServicePlacement {
+	return placement.NewPlacement(cloneInstances(p.Instances()), p.Shards(), p.ReplicaFactor())
 }
 
-func copyInstances(instances []services.PlacementInstance) []services.PlacementInstance {
+func cloneInstances(instances []services.PlacementInstance) []services.PlacementInstance {
 	copied := make([]services.PlacementInstance, len(instances))
 	for i, instance := range instances {
-		copied[i] = copyInstance(instance)
+		copied[i] = cloneInstance(instance)
 	}
 	return copied
 }
 
-func copyInstance(instance services.PlacementInstance) services.PlacementInstance {
+func cloneInstance(instance services.PlacementInstance) services.PlacementInstance {
 	return placement.NewInstance().
 		SetID(instance.ID()).
 		SetRack(instance.Rack()).
 		SetZone(instance.Zone()).
 		SetWeight(instance.Weight()).
 		SetEndpoint(instance.Endpoint()).
-		SetShards(copyShards(instance.Shards()))
+		SetShards(cloneShards(instance.Shards()))
 }
 
-func copyShards(shards shard.Shards) shard.Shards {
+func cloneShards(shards shard.Shards) shard.Shards {
 	newShards := make([]shard.Shard, shards.NumShards())
 	for i, s := range shards.All() {
 		newShards[i] = shard.NewShard(s.ID()).SetState(s.State()).SetSourceID(s.SourceID())
@@ -546,7 +546,7 @@ func getShardMap(shards []shard.Shard) map[uint32]shard.Shard {
 }
 
 func loadOnInstance(instance services.PlacementInstance) int {
-	return instance.Shards().NumShards() - instance.Shards().NumShardsInState(shard.Leaving)
+	return instance.Shards().NumShards() - instance.Shards().NumShardsForState(shard.Leaving)
 }
 
 func nonLeavingInstances(instances []services.PlacementInstance) []services.PlacementInstance {

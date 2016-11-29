@@ -24,14 +24,14 @@ const (
 	// Initializing represents a shard newly assigned to an instance
 	Initializing State = iota
 
-	// Available represends a shard bootstraped and ready to serve
+	// Available represents a shard bootstraped and ready to serve
 	Available
 
-	// Leaving is laeving
+	// Leaving represents a shard that is intending to be removed
 	Leaving
 )
 
-// State represends the state of a shard
+// State represents the state of a shard
 type State int
 
 // A Shard represents a piece of data owned by the service
@@ -75,11 +75,11 @@ type Shards interface {
 	// NumShards returns the number of the shards
 	NumShards() int
 
-	// ShardsInState returns the shards in a certain state
-	ShardsInState(state State) []Shard
+	// ShardsForState returns the shards in a certain state
+	ShardsForState(state State) []Shard
 
-	// NumShardsInState returns the number of shards in a certain state
-	NumShardsInState(state State) int
+	// NumShardsForState returns the number of shards in a certain state
+	NumShardsForState(state State) int
 
 	// Add adds a shard
 	Add(shard Shard)
@@ -137,7 +137,7 @@ func (s shards) Contains(shard uint32) bool {
 	return ok
 }
 
-func (s shards) NumShardsInState(state State) int {
+func (s shards) NumShardsForState(state State) int {
 	count := 0
 	for _, s := range s.shardsMap {
 		if s.State() == state {
@@ -147,7 +147,7 @@ func (s shards) NumShardsInState(state State) int {
 	return count
 }
 
-func (s shards) ShardsInState(state State) []Shard {
+func (s shards) ShardsForState(state State) []Shard {
 	var r []Shard
 	for _, s := range s.shardsMap {
 		if s.State() == state {
