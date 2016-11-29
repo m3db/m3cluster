@@ -28,6 +28,7 @@ import (
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement"
 	"github.com/m3db/m3cluster/services/placement/algo"
+	"github.com/m3db/m3cluster/shard"
 )
 
 var (
@@ -80,6 +81,12 @@ func (ps placementService) BuildInitialPlacement(
 		return nil, err
 	}
 
+	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	p, err = markAllShardsAsAvailable(p)
+	if err != nil {
+		return nil, err
+	}
+
 	return p, ps.ss.SetIfNotExist(ps.service, p)
 }
 
@@ -94,6 +101,12 @@ func (ps placementService) AddReplica() (services.ServicePlacement, error) {
 	}
 
 	if err := placement.Validate(p); err != nil {
+		return nil, err
+	}
+
+	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	p, err = markAllShardsAsAvailable(p)
+	if err != nil {
 		return nil, err
 	}
 
@@ -120,6 +133,12 @@ func (ps placementService) AddInstance(
 		return nil, err
 	}
 
+	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	p, err = markAllShardsAsAvailable(p)
+	if err != nil {
+		return nil, err
+	}
+
 	return p, ps.ss.CheckAndSet(ps.service, p, v)
 }
 
@@ -138,6 +157,12 @@ func (ps placementService) RemoveInstance(instanceID string) (services.ServicePl
 	}
 
 	if err := placement.Validate(p); err != nil {
+		return nil, err
+	}
+
+	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	p, err = markAllShardsAsAvailable(p)
+	if err != nil {
 		return nil, err
 	}
 
@@ -168,6 +193,12 @@ func (ps placementService) ReplaceInstance(
 	}
 
 	if err := placement.Validate(p); err != nil {
+		return nil, err
+	}
+
+	// TODO(chaowant) this will be removed once the m3db nodes start to mark shards as available
+	p, err = markAllShardsAsAvailable(p)
+	if err != nil {
 		return nil, err
 	}
 
@@ -464,4 +495,19 @@ func (things sortableThings) Less(i, j int) bool {
 
 func (things sortableThings) Swap(i, j int) {
 	things[i], things[j] = things[j], things[i]
+}
+
+func markAllShardsAsAvailable(p services.ServicePlacement) (services.ServicePlacement, error) {
+	var err error
+	for _, instance := range p.Instances() {
+		for _, s := range instance.Shards().All() {
+			if s.State() == shard.Initializing {
+				p, err = algo.MarkShardAvailable(p, instance.ID(), s.ID())
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return p, nil
 }
