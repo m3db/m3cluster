@@ -41,10 +41,10 @@ type PlacementHelper interface {
 	// TargetLoadForInstance returns the targe load for a instance
 	TargetLoadForInstance(id string) int
 
-	// MoveOneShard moves one shard between 2 instances
+	// MoveOneShard moves one shard between 2 instances, returns true if any shard is moved
 	MoveOneShard(from, to services.PlacementInstance) bool
 
-	// MoveShard moves a particular shard between 2 instances
+	// MoveShard moves a particular shard between 2 instances, returns true if the shard is moved
 	MoveShard(s shard.Shard, from, to services.PlacementInstance) bool
 
 	// HasNoRackConflict checks if the rack constraint is violated if the given shard is moved to the target rack
@@ -87,12 +87,27 @@ func (ph *placementHelper) MoveShard(s shard.Shard, from, to services.PlacementI
 		return false
 	}
 
+	if s.State() == shard.Leaving {
+		// should not move a Leaving shard,
+		// Leaving shard will be removed when the Initializing shard is marked as Available
+		return false
+	}
+
+	if from != nil {
+		if s.State() == shard.Initializing {
+			from.Shards().Remove(s.ID())
+		} else if s.State() == shard.Available {
+			s.SetState(shard.Leaving)
+		}
+
+		delete(ph.shardToInstanceMap[s.ID()], from)
+	}
+
 	newShard := shard.NewShard(s.ID()).SetState(shard.Initializing)
 	if from != nil && s.State() != shard.Initializing {
 		newShard = newShard.SetSourceID(from.ID())
 	}
 	ph.assignShardToInstance(newShard, to)
-	ph.removeShardFromInstance(s, from)
 	return true
 }
 
@@ -334,23 +349,6 @@ func (ph placementHelper) assignShardToInstance(s shard.Shard, to services.Place
 		ph.shardToInstanceMap[s.ID()] = make(map[services.PlacementInstance]struct{})
 	}
 	ph.shardToInstanceMap[s.ID()][to] = struct{}{}
-}
-
-func (ph placementHelper) removeShardFromInstance(s shard.Shard, from services.PlacementInstance) error {
-	if from == nil {
-		return nil
-	}
-
-	if s.State() == shard.Initializing {
-		from.Shards().Remove(s.ID())
-	} else if s.State() == shard.Available {
-		s.SetState(shard.Leaving)
-	} else if s.State() == shard.Leaving {
-		return fmt.Errorf("should not remove a leaving shard, id: %d", s.ID())
-	}
-
-	delete(ph.shardToInstanceMap[s.ID()], from)
-	return nil
 }
 
 // instanceHeap provides an easy way to get best candidate instance to assign/steal a shard
