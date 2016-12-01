@@ -336,9 +336,9 @@ func (ph placementHelper) assignShardToInstance(s shard.Shard, to services.Place
 	ph.shardToInstanceMap[s.ID()][to] = struct{}{}
 }
 
-func (ph placementHelper) removeShardFromInstance(s shard.Shard, from services.PlacementInstance) {
+func (ph placementHelper) removeShardFromInstance(s shard.Shard, from services.PlacementInstance) error {
 	if from == nil {
-		return
+		return nil
 	}
 
 	if s.State() == shard.Initializing {
@@ -346,10 +346,11 @@ func (ph placementHelper) removeShardFromInstance(s shard.Shard, from services.P
 	} else if s.State() == shard.Available {
 		s.SetState(shard.Leaving)
 	} else if s.State() == shard.Leaving {
-		panic("should never move a leaving shard")
+		return fmt.Errorf("should not remove a leaving shard, id: %d", s.ID())
 	}
 
 	delete(ph.shardToInstanceMap[s.ID()], from)
+	return nil
 }
 
 // instanceHeap provides an easy way to get best candidate instance to assign/steal a shard
