@@ -42,8 +42,8 @@ func TestGoodWorkflow(t *testing.T) {
 	p := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
 	testGoodWorkflow(t, p)
 
-	// p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions().SetLooseRackCheck(true))
-	// testGoodWorkflow(t, p)
+	p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions().SetLooseRackCheck(true))
+	testGoodWorkflow(t, p)
 }
 
 func testGoodWorkflow(t *testing.T, p services.PlacementService) {
