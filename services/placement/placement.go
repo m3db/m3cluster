@@ -163,7 +163,9 @@ type instance struct {
 }
 
 func (i *instance) String() string {
-	return fmt.Sprintf("[id:%s, rack:%s, zone:%s, weight:%v]", i.id, i.rack, i.zone, i.weight)
+	return fmt.Sprintf(
+		"Instance<ID=%s, Rack=%s, Zone=%s, Weight=%d, Shards=%s>",
+		i.id, i.rack, i.zone, i.weight, i.shards.String())
 }
 
 func (i *instance) ID() string {
