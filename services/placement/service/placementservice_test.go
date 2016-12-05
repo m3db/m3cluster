@@ -733,12 +733,3 @@ func markAllInstancesAvailable(
 		require.NoError(t, err)
 	}
 }
-
-func placementToString(
-	t *testing.T,
-	ps services.PlacementService,
-) string {
-	p, err := ps.Placement()
-	require.NoError(t, err)
-	return services.PlacementInstances(p.Instances()).String()
-}

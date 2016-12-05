@@ -80,6 +80,10 @@ func (p placement) NumShards() int {
 	return len(p.shards)
 }
 
+func (p placement) String() string {
+	return services.PlacementInstances(p.instances).String()
+}
+
 // Validate validates a placement
 func Validate(p services.ServicePlacement) error {
 	shardCountMap := convertShardSliceToMap(p.Shards())
