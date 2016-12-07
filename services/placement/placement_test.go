@@ -203,17 +203,18 @@ func TestValidate(t *testing.T) {
 
 	h1 = NewEmptyInstance("r1h1", "r1", "z1", 1)
 	h1.Shards().Add(shard.NewShard(1).SetState(shard.Leaving))
-	h1.Shards().Add(shard.NewShard(2).SetState(shard.Available))
+	h1.Shards().Add(shard.NewShard(2).SetState(shard.Leaving))
 	h1.Shards().Add(shard.NewShard(3).SetState(shard.Available))
 
 	h2 = NewEmptyInstance("r2h2", "r2", "z1", 1)
 	h2.Shards().Add(shard.NewShard(1).SetState(shard.Initializing))
+	h2.Shards().Add(shard.NewShard(2).SetState(shard.Initializing).SetSourceID("h1"))
 
 	instances = []services.PlacementInstance{h1, h2}
 	p = NewPlacement(instances, ids, 1)
 	err = Validate(p)
 	assert.Error(t, err)
-	assert.Equal(t, err.Error(), "invalid placement, 1 shards in Leaving state, not equal 0 in Initializing state with source id")
+	assert.Equal(t, err.Error(), "invalid placement, 2 shards in Leaving state, not equal 1 in Initializing state with source id")
 }
 
 func TestInstance(t *testing.T) {
