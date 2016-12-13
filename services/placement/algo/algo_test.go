@@ -614,8 +614,8 @@ func TestReplaceAbsentInstance(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	i1 := placement.NewEmptyInstance("i1", "r1", "", "endpoint", 1)
-	i2 := placement.NewEmptyInstance("i2", "r2", "", "endpoint", 1)
+	i1 := placement.NewEmptyInstance("i1", "r1", "", "e1", 1)
+	i2 := placement.NewEmptyInstance("i2", "r2", "", "e2", 1)
 	instances := []services.PlacementInstance{i1, i2}
 
 	numShards := 4
@@ -633,8 +633,10 @@ func TestInit(t *testing.T) {
 	i2 = p.Instance("i2")
 	assert.Equal(t, 2, loadOnInstance(i1))
 	assert.Equal(t, 2, i1.Shards().NumShards())
+	assert.Equal(t, "e1", i1.Endpoint())
 	assert.Equal(t, 2, loadOnInstance(i2))
 	assert.Equal(t, 2, i2.Shards().NumShards())
+	assert.Equal(t, "e2", i2.Endpoint())
 	for _, instance := range p.Instances() {
 		for _, s := range instance.Shards().All() {
 			assert.Equal(t, shard.Initializing, s.State())
@@ -644,11 +646,11 @@ func TestInit(t *testing.T) {
 }
 
 func TestAddReplica(t *testing.T) {
-	i1 := placement.NewEmptyInstance("i1", "r1", "", "endpoint", 1)
+	i1 := placement.NewEmptyInstance("i1", "r1", "", "e1", 1)
 	i1.Shards().Add(shard.NewShard(0).SetState(shard.Available))
 	i1.Shards().Add(shard.NewShard(1).SetState(shard.Available))
 
-	i2 := placement.NewEmptyInstance("i2", "r2", "", "endpoint", 1)
+	i2 := placement.NewEmptyInstance("i2", "r2", "", "e2", 1)
 	i2.Shards().Add(shard.NewShard(2).SetState(shard.Available))
 	i2.Shards().Add(shard.NewShard(3).SetState(shard.Available))
 
@@ -670,8 +672,10 @@ func TestAddReplica(t *testing.T) {
 	i2 = p.Instance("i2")
 	assert.Equal(t, 4, loadOnInstance(i1))
 	assert.Equal(t, 4, i1.Shards().NumShards())
+	assert.Equal(t, "e1", i1.Endpoint())
 	assert.Equal(t, 4, loadOnInstance(i2))
 	assert.Equal(t, 4, i2.Shards().NumShards())
+	assert.Equal(t, "e2", i2.Endpoint())
 	for _, instance := range p.Instances() {
 		availableTotal := 0
 		initTotal := 0
@@ -691,7 +695,7 @@ func TestAddReplica(t *testing.T) {
 }
 
 func TestAddInstance(t *testing.T) {
-	i1 := placement.NewEmptyInstance("i1", "r1", "", "endpoint", 1)
+	i1 := placement.NewEmptyInstance("i1", "r1", "", "e1", 1)
 	i1.Shards().Add(shard.NewShard(0).SetState(shard.Available))
 	i1.Shards().Add(shard.NewShard(1).SetState(shard.Available))
 
@@ -705,7 +709,7 @@ func TestAddInstance(t *testing.T) {
 	p := placement.NewPlacement(instances, ids, 1)
 
 	a := NewRackAwarePlacementAlgorithm(placement.NewOptions())
-	i2 := placement.NewEmptyInstance("i2", "r2", "", "endpoint", 1)
+	i2 := placement.NewEmptyInstance("i2", "r2", "", "e2", 1)
 	p, err := a.AddInstance(p, i2)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, p.ReplicaFactor())
@@ -713,8 +717,10 @@ func TestAddInstance(t *testing.T) {
 	i2 = p.Instance("i2")
 	assert.Equal(t, 1, loadOnInstance(i1))
 	assert.Equal(t, 2, i1.Shards().NumShards())
+	assert.Equal(t, "e1", i1.Endpoint())
 	assert.Equal(t, 1, loadOnInstance(i2))
 	assert.Equal(t, 1, i2.Shards().NumShards())
+	assert.Equal(t, "e2", i2.Endpoint())
 	for _, s := range i2.Shards().All() {
 		assert.Equal(t, shard.Initializing, s.State())
 		assert.Equal(t, "i1", s.SourceID())
@@ -722,11 +728,11 @@ func TestAddInstance(t *testing.T) {
 }
 
 func TestRemoveInstance(t *testing.T) {
-	i1 := placement.NewEmptyInstance("i1", "r1", "", "endpoint", 1)
+	i1 := placement.NewEmptyInstance("i1", "r1", "", "e1", 1)
 	i1.Shards().Add(shard.NewShard(0).SetState(shard.Available))
 	i1.Shards().Add(shard.NewShard(1).SetState(shard.Available))
 
-	i2 := placement.NewEmptyInstance("i2", "r2", "", "endpoint", 1)
+	i2 := placement.NewEmptyInstance("i2", "r2", "", "e2", 1)
 	i2.Shards().Add(shard.NewShard(2).SetState(shard.Available))
 	i2.Shards().Add(shard.NewShard(3).SetState(shard.Available))
 
@@ -748,8 +754,10 @@ func TestRemoveInstance(t *testing.T) {
 	i2 = p.Instance("i2")
 	assert.Equal(t, 4, loadOnInstance(i1))
 	assert.Equal(t, 4, i1.Shards().NumShards())
+	assert.Equal(t, "e1", i1.Endpoint())
 	assert.Equal(t, 0, loadOnInstance(i2))
 	assert.Equal(t, 2, i2.Shards().NumShards())
+	assert.Equal(t, "e2", i2.Endpoint())
 	for _, s := range i2.Shards().All() {
 		assert.Equal(t, shard.Leaving, s.State())
 		assert.Equal(t, "", s.SourceID())
@@ -769,11 +777,11 @@ func TestRemoveInstance(t *testing.T) {
 }
 
 func TestReplaceInstance(t *testing.T) {
-	i1 := placement.NewEmptyInstance("i1", "r1", "", "endpoint", 1)
+	i1 := placement.NewEmptyInstance("i1", "r1", "", "e1", 1)
 	i1.Shards().Add(shard.NewShard(0).SetState(shard.Available))
 	i1.Shards().Add(shard.NewShard(1).SetState(shard.Available))
 
-	i2 := placement.NewEmptyInstance("i2", "r2", "", "endpoint", 1)
+	i2 := placement.NewEmptyInstance("i2", "r2", "", "e2", 1)
 	i2.Shards().Add(shard.NewShard(2).SetState(shard.Available))
 	i2.Shards().Add(shard.NewShard(3).SetState(shard.Available))
 
@@ -787,7 +795,7 @@ func TestReplaceInstance(t *testing.T) {
 	p := placement.NewPlacement(instances, ids, 1)
 
 	a := NewRackAwarePlacementAlgorithm(placement.NewOptions())
-	i3 := placement.NewEmptyInstance("i3", "r3", "", "endpoint", 1)
+	i3 := placement.NewEmptyInstance("i3", "r3", "", "e3", 1)
 	p, err := a.ReplaceInstance(p, i2.ID(), []services.PlacementInstance{i3})
 	assert.NoError(t, err)
 	i1 = p.Instance("i1")
@@ -795,10 +803,13 @@ func TestReplaceInstance(t *testing.T) {
 	i3 = p.Instance("i3")
 	assert.Equal(t, 2, loadOnInstance(i1))
 	assert.Equal(t, 2, i1.Shards().NumShards())
+	assert.Equal(t, "e1", i1.Endpoint())
 	assert.Equal(t, 0, loadOnInstance(i2))
 	assert.Equal(t, 2, i2.Shards().NumShards())
+	assert.Equal(t, "e2", i2.Endpoint())
 	assert.Equal(t, 2, loadOnInstance(i3))
 	assert.Equal(t, 2, i3.Shards().NumShards())
+	assert.Equal(t, "e3", i3.Endpoint())
 	for _, s := range i1.Shards().All() {
 		assert.Equal(t, shard.Available, s.State())
 		assert.Equal(t, "", s.SourceID())
