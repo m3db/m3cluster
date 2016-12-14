@@ -142,8 +142,9 @@ func (a rackAwarePlacementAlgorithm) ReplaceInstance(
 }
 
 func (a rackAwarePlacementAlgorithm) addInstance(p services.ServicePlacement, addingInstance services.PlacementInstance) (services.ServicePlacement, error) {
-	if p.Instance(addingInstance.ID()) != nil {
+	if _, exist := p.Instance(addingInstance.ID()); exist {
 		return nil, errAddingInstanceAlreadyExist
+
 	}
 	ph := newAddInstanceHelper(p, addingInstance, a.opts)
 	targetLoad := ph.TargetLoadForInstance(addingInstance.ID())

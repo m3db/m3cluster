@@ -59,13 +59,13 @@ func (p placement) NumInstances() int {
 	return len(p.instances)
 }
 
-func (p placement) Instance(id string) services.PlacementInstance {
+func (p placement) Instance(id string) (services.PlacementInstance, bool) {
 	for _, instance := range p.Instances() {
 		if instance.ID() == id {
-			return instance
+			return instance, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 func (p placement) ReplicaFactor() int {
