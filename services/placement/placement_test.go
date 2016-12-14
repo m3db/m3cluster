@@ -77,7 +77,9 @@ func TestPlacement(t *testing.T) {
 	assert.Equal(t, 3, p.ReplicaFactor())
 	assert.Equal(t, ids, p.Shards())
 	assert.Equal(t, 6, p.NumShards())
-	assert.Equal(t, instances, p.Instances())
+	is := p.Instances()
+	sort.Sort(ByIDAscending(is))
+	assert.Equal(t, instances, is)
 }
 
 func TestValidateGood(t *testing.T) {

@@ -492,17 +492,14 @@ func addInstanceToPlacement(p services.ServicePlacement, i services.PlacementIns
 func removeInstanceFromPlacement(p services.ServicePlacement, id string) (services.ServicePlacement, services.PlacementInstance, error) {
 	leavingInstance, exist := p.Instance(id)
 	if !exist {
-		return nil, nil, errInstanceAbsent
+		return nil, nil, fmt.Errorf("instance %s does not exist in placement", id)
 	}
 
-	var instances []services.PlacementInstance
-	for i, instance := range p.Instances() {
-		if instance.ID() == leavingInstance.ID() {
-			instances = append(p.Instances()[:i], p.Instances()[i+1:]...)
-			break
-		}
-	}
-	return placement.NewPlacement(instances, p.Shards(), p.ReplicaFactor()), leavingInstance, nil
+	return placement.NewPlacement(
+		removeInstance(p.Instances(), id),
+		p.Shards(),
+		p.ReplicaFactor(),
+	), leavingInstance, nil
 }
 
 func clonePlacement(p services.ServicePlacement) services.ServicePlacement {
