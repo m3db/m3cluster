@@ -21,9 +21,8 @@
 package client
 
 import (
-	"sort"
-
 	"fmt"
+	"sort"
 
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/services"
