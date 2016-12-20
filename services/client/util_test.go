@@ -57,7 +57,8 @@ func TestConvertBetweenProtoAndService(t *testing.T) {
 		NumShards:     3,
 	}
 
-	s := serviceFromProto(p, sid)
+	s, err := serviceFromProto(p, sid)
+	assert.NoError(t, err)
 	assert.Equal(t, 2, s.Replication().Replicas())
 	assert.Equal(t, 3, s.Sharding().NumShards())
 
@@ -114,7 +115,8 @@ func TestConvertBetweenProtoAndPlacement(t *testing.T) {
 	assert.Equal(t, 2, s.ReplicaFactor())
 	assert.Equal(t, []uint32{0, 1, 2}, s.Shards())
 
-	p1 := PlacementToProto(s)
+	p1, err := PlacementToProto(s)
+	assert.NoError(t, err)
 	assert.Equal(t, p.ReplicaFactor, p1.ReplicaFactor)
 	assert.Equal(t, p.NumShards, p1.NumShards)
 	for id, h := range p.Instances {

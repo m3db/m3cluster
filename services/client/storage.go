@@ -27,12 +27,15 @@ import (
 )
 
 // NewPlacementStorage returns a client of placement.Storage
-func NewPlacementStorage(opts Options) placement.Storage {
-	s := &client{
+func NewPlacementStorage(opts Options) (placement.Storage, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+
+	return &client{
 		pManagers: map[string]*placementManager{},
 		opts:      opts,
-	}
-	return s
+	}, nil
 }
 
 func (s *client) CheckAndSet(sid services.ServiceID, p services.ServicePlacement, version int) error {
@@ -40,7 +43,10 @@ func (s *client) CheckAndSet(sid services.ServiceID, p services.ServicePlacement
 		return err
 	}
 
-	placementProto := PlacementToProto(p)
+	placementProto, err := PlacementToProto(p)
+	if err != nil {
+		return err
+	}
 
 	pMgr, err := s.getPlacementManager(sid.Zone())
 	if err != nil {
@@ -60,7 +66,10 @@ func (s *client) SetIfNotExist(sid services.ServiceID, p services.ServicePlaceme
 		return err
 	}
 
-	placementProto := PlacementToProto(p)
+	placementProto, err := PlacementToProto(p)
+	if err != nil {
+		return err
+	}
 
 	pMgr, err := s.getPlacementManager(sid.Zone())
 	if err != nil {

@@ -21,11 +21,14 @@
 package client
 
 import (
+	"errors"
 	"time"
 
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3x/instrument"
 )
+
+var errNoKVGen = errors.New("no KVGen function set")
 
 // KVGen generates a kv store for a given zone
 type KVGen func(zone string) (kv.Store, error)
@@ -50,6 +53,9 @@ type Options interface {
 
 	// SetInstrumentsOptions sets the InstrumentsOptions
 	SetInstrumentsOptions(iopts instrument.Options) Options
+
+	// Validate validates the Options
+	Validate() error
 }
 
 type options struct {
@@ -61,6 +67,14 @@ type options struct {
 // NewOptions creates an Option
 func NewOptions() Options {
 	return options{}
+}
+
+func (o options) Validate() error {
+	if o.kvGen == nil {
+		return errNoKVGen
+	}
+
+	return nil
 }
 
 func (o options) InitTimeout() time.Duration {

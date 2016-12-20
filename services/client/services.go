@@ -48,12 +48,15 @@ var (
 )
 
 // NewServices returns a client of Services
-func NewServices(opts Options) services.Services {
-	s := &client{
+func NewServices(opts Options) (services.Services, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+
+	return &client{
 		pManagers: map[string]*placementManager{},
 		opts:      opts,
-	}
-	return s
+	}, nil
 }
 
 type client struct {
@@ -230,7 +233,7 @@ func getServiceFromValue(value kv.Value, sid services.ServiceID) (services.Servi
 		return nil, err
 	}
 
-	return serviceFromProto(placement, sid), nil
+	return serviceFromProto(placement, sid)
 }
 
 func initValueWatch(kv kv.Store, key string, sid services.ServiceID, timeoutDur time.Duration) (services.Service, kv.ValueWatch, error) {
@@ -267,7 +270,6 @@ func newServiceDiscoveryMetrics(m tally.Scope) serviceDiscoveryMetrics {
 }
 
 func placementKey(env, service string) string {
-	// e.g [production]m3db
 	return fmt.Sprintf("[%s]%s", env, service)
 }
 
