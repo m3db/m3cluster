@@ -30,6 +30,7 @@ import (
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
+	"github.com/uber-go/tally"
 	"golang.org/x/net/context"
 )
 
@@ -37,6 +38,7 @@ var noopCancel func()
 
 // NewStore creates a kv store based on etcd
 func NewStore(etcd *clientv3.Client, opts Options) kv.Store {
+	scope := opts.InstrumentsOptions().MetricsScope()
 	return &client{
 		opts:       opts,
 		kv:         etcd.KV,
@@ -44,6 +46,14 @@ func NewStore(etcd *clientv3.Client, opts Options) kv.Store {
 		watchables: map[string]kv.ValueWatchable{},
 		retrier:    xretry.NewRetrier(opts.RetryOptions()),
 		logger:     opts.InstrumentsOptions().Logger(),
+		m: clientMetrics{
+			etcdGetError:    scope.Counter("etcd-get-error"),
+			etcdPutError:    scope.Counter("etcd-put-error"),
+			etcdTnxError:    scope.Counter("etcd-tnx-error"),
+			etcdWatchCreate: scope.Counter("etcd-watch-create"),
+			etcdWatchError:  scope.Counter("etcd-watch-error"),
+			etcdWatchReset:  scope.Counter("etcd-watch-reset"),
+		},
 	}
 }
 
@@ -56,6 +66,16 @@ type client struct {
 	watchables map[string]kv.ValueWatchable
 	retrier    xretry.Retrier
 	logger     xlog.Logger
+	m          clientMetrics
+}
+
+type clientMetrics struct {
+	etcdGetError    tally.Counter
+	etcdPutError    tally.Counter
+	etcdTnxError    tally.Counter
+	etcdWatchCreate tally.Counter
+	etcdWatchError  tally.Counter
+	etcdWatchReset  tally.Counter
 }
 
 func (c *client) Get(key string) (kv.Value, error) {
@@ -64,6 +84,7 @@ func (c *client) Get(key string) (kv.Value, error) {
 
 	r, err := c.kv.Get(ctx, c.opts.KeyFn()(key))
 	if err != nil {
+		c.m.etcdGetError.Inc(1)
 		return nil, err
 	}
 
@@ -89,6 +110,7 @@ func (c *client) Watch(key string) (kv.ValueWatch, error) {
 			// Receive initial notification once the watch channel is created
 			clientv3.WithCreatedNotify(),
 		)
+		c.m.etcdWatchCreate.Inc(1)
 
 		watchable = kv.NewValueWatchable()
 		c.watchables[key] = watchable
@@ -98,8 +120,19 @@ func (c *client) Watch(key string) (kv.ValueWatch, error) {
 
 			for {
 				select {
-				case r := <-watchChan:
-					c.processNotification(r, watchable, key)
+				case r, ok := <-watchChan:
+					if ok {
+						c.processNotification(r, watchable, key)
+					} else {
+						c.logger.Warnf("etcd watch channel closed on key %s, recreating a watch channel", key)
+						watchChan = c.watcher.Watch(
+							context.Background(),
+							c.opts.KeyFn()(key),
+							clientv3.WithProgressNotify(),
+							clientv3.WithCreatedNotify(),
+						)
+						c.m.etcdWatchReset.Inc(1)
+					}
 				case <-ticker:
 					c.RLock()
 					numWatches := watchable.NumWatches()
@@ -146,15 +179,14 @@ func (c *client) processNotification(r clientv3.WatchResponse, w kv.ValueWatchab
 	err := r.Err()
 	if err != nil {
 		c.logger.Errorf("received error on watch channel: %v", err)
+		c.m.etcdWatchError.Inc(1)
 	}
 
 	// we need retry here because if Get() failed on an watch update,
 	// it has to wait 10 mins to be notified to try again
-	err = c.retrier.Attempt(func() error {
+	if err = c.retrier.Attempt(func() error {
 		return c.update(w, key)
-	})
-
-	if err != nil {
+	}); err != nil {
 		c.logger.Errorf("received notification for key %s, but failed to get value: %v", key, err)
 	}
 }
@@ -184,6 +216,7 @@ func (c *client) Set(key string, v proto.Message) (int, error) {
 
 	r, err := c.kv.Put(ctx, c.opts.KeyFn()(key), string(value), clientv3.WithPrevKV())
 	if err != nil {
+		c.m.etcdPutError.Inc(1)
 		return 0, err
 	}
 
@@ -210,6 +243,7 @@ func (c *client) SetIfNotExists(key string, v proto.Message) (int, error) {
 		Then(clientv3.OpPut(key, string(value))).
 		Commit()
 	if err != nil {
+		c.m.etcdTnxError.Inc(1)
 		return 0, err
 	}
 	if !r.Succeeded {
@@ -233,6 +267,7 @@ func (c *client) CheckAndSet(key string, version int, v proto.Message) (int, err
 		Then(clientv3.OpPut(key, string(value))).
 		Commit()
 	if err != nil {
+		c.m.etcdTnxError.Inc(1)
 		return 0, err
 	}
 	if !r.Succeeded {
