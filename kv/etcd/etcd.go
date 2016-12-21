@@ -125,6 +125,10 @@ func (c *client) Watch(key string) (kv.ValueWatch, error) {
 						c.processNotification(r, watchable, key)
 					} else {
 						c.logger.Warnf("etcd watch channel closed on key %s, recreating a watch channel", key)
+
+						// avoid recreating watch channel too frequently
+						time.Sleep(c.opts.WatchChanResetInterval())
+
 						watchChan = c.watcher.Watch(
 							context.Background(),
 							c.opts.KeyFn()(key),

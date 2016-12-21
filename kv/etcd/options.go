@@ -32,6 +32,7 @@ var (
 	defaultRequestTimeout         = 10 * time.Second
 	defaultDialTimeout            = 10 * time.Second
 	defaultWatchChanCheckInterval = 10 * time.Second
+	defaultWatchChanResetInterval = 10 * time.Second
 	defaultKeyFn                  = KeyFn(
 		func(key string) string {
 			return key
@@ -64,15 +65,20 @@ type Options interface {
 
 	SetWatchChanCheckInterval(t time.Duration) Options
 
+	WatchChanResetInterval() time.Duration
+
+	SetWatchChanResetInterval(t time.Duration) Options
+
 	Validate() error
 }
 
 type options struct {
-	requestTimeout time.Duration
-	keyFn          KeyFn
-	iopts          instrument.Options
-	ropts          xretry.Options
-	checkInterval  time.Duration
+	requestTimeout         time.Duration
+	keyFn                  KeyFn
+	iopts                  instrument.Options
+	ropts                  xretry.Options
+	watchChanCheckInterval time.Duration
+	watchChanResetInterval time.Duration
 }
 
 // NewOptions creates a sane default Option
@@ -82,6 +88,7 @@ func NewOptions() Options {
 		SetInstrumentsOptions(instrument.NewOptions()).
 		SetRetryOptions(xretry.NewOptions()).
 		SetWatchChanCheckInterval(defaultWatchChanCheckInterval).
+		SetWatchChanResetInterval(defaultWatchChanResetInterval).
 		SetKeyFn(defaultKeyFn)
 }
 
@@ -94,7 +101,7 @@ func (o options) Validate() error {
 		return errors.New("no retry options")
 	}
 
-	if o.checkInterval <= 0 {
+	if o.watchChanCheckInterval <= 0 {
 		return errors.New("invalid watch channel check interval")
 	}
 
@@ -142,10 +149,19 @@ func (o options) SetRetryOptions(ropts xretry.Options) Options {
 }
 
 func (o options) WatchChanCheckInterval() time.Duration {
-	return o.checkInterval
+	return o.watchChanCheckInterval
 }
 
 func (o options) SetWatchChanCheckInterval(t time.Duration) Options {
-	o.checkInterval = t
+	o.watchChanCheckInterval = t
+	return o
+}
+
+func (o options) WatchChanResetInterval() time.Duration {
+	return o.watchChanResetInterval
+}
+
+func (o options) SetWatchChanResetInterval(t time.Duration) Options {
+	o.watchChanResetInterval = t
 	return o
 }
