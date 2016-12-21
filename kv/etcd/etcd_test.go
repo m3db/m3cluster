@@ -141,6 +141,8 @@ func TestWatchClose(t *testing.T) {
 	verifyValue(t, w2.Get(), "bar2", 2)
 	verifyValue(t, w1.Get(), "bar1", 1)
 
+	w1.Close()
+	w2.Close()
 }
 
 func TestWatchFromExist(t *testing.T) {
@@ -174,6 +176,8 @@ func TestWatchFromExist(t *testing.T) {
 	<-w.C()
 	assert.Equal(t, 0, len(w.C()))
 	verifyValue(t, w.Get(), "bar3", 3)
+
+	w.Close()
 }
 
 func TestWatchFromNotExist(t *testing.T) {
@@ -198,6 +202,8 @@ func TestWatchFromNotExist(t *testing.T) {
 	<-w.C()
 	assert.Equal(t, 0, len(w.C()))
 	verifyValue(t, w.Get(), "bar2", 2)
+
+	w.Close()
 }
 
 func TestMultipleWatchesFromExist(t *testing.T) {
@@ -242,6 +248,9 @@ func TestMultipleWatchesFromExist(t *testing.T) {
 	<-w2.C()
 	assert.Equal(t, 0, len(w2.C()))
 	verifyValue(t, w2.Get(), "bar3", 3)
+
+	w1.Close()
+	w2.Close()
 }
 
 func TestMultipleWatchesFromNotExist(t *testing.T) {
@@ -279,6 +288,9 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	<-w2.C()
 	assert.Equal(t, 0, len(w2.C()))
 	verifyValue(t, w2.Get(), "bar2", 2)
+
+	w1.Close()
+	w2.Close()
 }
 
 func verifyValue(t *testing.T, v kv.Value, value string, version int) {
