@@ -10,7 +10,7 @@ import:
   subpackages:
   - proto
 - package: github.com/m3db/m3x
-  version: d39b3685ef8430f7fbeedc666f7da781d7f55ba9
+  version: 0af28a3a08c0db328e3ebcc1db7eb9d79be2d602
   subpackages:
   - instrument
   - log
@@ -20,3 +20,8 @@ import:
   subpackages:
   - assert
   - require
+- package: github.com/coreos/etcd
+  version: be740dc4362bf90d63650ddb809daf8f5abd16a6
+  subpackages:
+  - clientv3
+  - integration
