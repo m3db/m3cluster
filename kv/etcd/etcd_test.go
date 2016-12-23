@@ -21,6 +21,7 @@
 package etcd
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -143,6 +144,34 @@ func TestWatchClose(t *testing.T) {
 
 	w1.Close()
 	w2.Close()
+}
+
+func TestWatchLastVersion(t *testing.T) {
+	store, closeFn := testStore(t)
+	defer closeFn()
+
+	w, err := store.Watch("foo")
+	assert.NoError(t, err)
+	assert.Nil(t, w.Get())
+
+	lastVersion := 100
+	go func() {
+		for i := 1; i <= lastVersion; i++ {
+			_, err := store.Set("foo", genProto(fmt.Sprintf("bar%d", i)))
+			assert.NoError(t, err)
+		}
+	}()
+
+	for {
+		<-w.C()
+		value := w.Get()
+		if value.Version() == lastVersion {
+			break
+		}
+	}
+	verifyValue(t, w.Get(), fmt.Sprintf("bar%d", lastVersion), lastVersion)
+
+	w.Close()
 }
 
 func TestWatchFromExist(t *testing.T) {

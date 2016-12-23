@@ -34,6 +34,8 @@ import (
 	"golang.org/x/net/context"
 )
 
+const etcdVersionZero = 0
+
 var noopCancel func()
 
 // NewStore creates a kv store based on etcd
@@ -226,34 +228,18 @@ func (c *client) Set(key string, v proto.Message) (int, error) {
 
 	// if there is no prev kv, means this is the first version of the key
 	if r.PrevKv == nil {
-		return 1, nil
+		return etcdVersionZero + 1, nil
 	}
 
 	return int(r.PrevKv.Version + 1), nil
 }
 
 func (c *client) SetIfNotExists(key string, v proto.Message) (int, error) {
-	ctx, cancel := c.context()
-	defer cancel()
-
-	value, err := proto.Marshal(v)
-	if err != nil {
-		return 0, err
+	version, err := c.CheckAndSet(key, etcdVersionZero, v)
+	if err == kv.ErrVersionMismatch {
+		err = kv.ErrAlreadyExists
 	}
-
-	key = c.opts.KeyFn()(key)
-	r, err := c.kv.Txn(ctx).
-		If(clientv3.Compare(clientv3.Version(key), "=", 0)).
-		Then(clientv3.OpPut(key, string(value))).
-		Commit()
-	if err != nil {
-		c.m.etcdTnxError.Inc(1)
-		return 0, err
-	}
-	if !r.Succeeded {
-		return 0, kv.ErrAlreadyExists
-	}
-	return 1, nil
+	return version, err
 }
 
 func (c *client) CheckAndSet(key string, version int, v proto.Message) (int, error) {
