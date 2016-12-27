@@ -33,6 +33,7 @@ var (
 	defaultDialTimeout            = 10 * time.Second
 	defaultWatchChanCheckInterval = 10 * time.Second
 	defaultWatchChanResetInterval = 10 * time.Second
+	defaultRetryOptions           = xretry.NewOptions().SetMaxRetries(5)
 	defaultKeyFn                  = KeyFn(
 		func(key string) string {
 			return key
@@ -86,7 +87,7 @@ func NewOptions() Options {
 	o := options{}
 	return o.SetRequestTimeout(defaultRequestTimeout).
 		SetInstrumentsOptions(instrument.NewOptions()).
-		SetRetryOptions(xretry.NewOptions()).
+		SetRetryOptions(defaultRetryOptions).
 		SetWatchChanCheckInterval(defaultWatchChanCheckInterval).
 		SetWatchChanResetInterval(defaultWatchChanResetInterval).
 		SetKeyFn(defaultKeyFn)

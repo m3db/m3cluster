@@ -1,5 +1,5 @@
-hash: d130217ef1b38589701b7ef1f48f722696348b17c89f2fbc6f4cd55440d60da1
-updated: 2016-12-21T10:39:49.853572896-05:00
+hash: ffda1577c61167fffdd74876c6863637aeb26c1096bef3d917465d204db73897
+updated: 2016-12-27T12:18:49.08248771-05:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -114,7 +114,7 @@ imports:
 - name: github.com/jonboulle/clockwork
   version: 2eee05ed794112d45db504eb05aa693efd2b8b09
 - name: github.com/m3db/m3x
-  version: 0af28a3a08c0db328e3ebcc1db7eb9d79be2d602
+  version: 71d99ef2d83e52ded21c79eb1e5959195f29d7cf
   subpackages:
   - close
   - errors

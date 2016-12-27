@@ -39,12 +39,12 @@ const etcdVersionZero = 0
 var noopCancel func()
 
 // NewStore creates a kv store based on etcd
-func NewStore(etcd *clientv3.Client, opts Options) kv.Store {
+func NewStore(c *clientv3.Client, opts Options) kv.Store {
 	scope := opts.InstrumentsOptions().MetricsScope()
 	return &client{
 		opts:       opts,
-		kv:         etcd.KV,
-		watcher:    etcd.Watcher,
+		kv:         c.KV,
+		watcher:    c.Watcher,
 		watchables: map[string]kv.ValueWatchable{},
 		retrier:    xretry.NewRetrier(opts.RetryOptions()),
 		logger:     opts.InstrumentsOptions().Logger(),
@@ -108,8 +108,10 @@ func (c *client) Watch(key string) (kv.ValueWatch, error) {
 		watchChan := c.watcher.Watch(
 			context.Background(),
 			c.opts.KeyFn()(key),
+			// periodically (appx every 10 mins) checks for the latest data
+			// with or without any update notification
 			clientv3.WithProgressNotify(),
-			// Receive initial notification once the watch channel is created
+			// receive initial notification once the watch channel is created
 			clientv3.WithCreatedNotify(),
 		)
 		c.m.etcdWatchCreate.Inc(1)
