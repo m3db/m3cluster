@@ -45,14 +45,15 @@ func NewStore(c *clientv3.Client, opts Options) kv.Store {
 	scope := opts.InstrumentsOptions().MetricsScope()
 
 	store := &client{
-		opts:       opts,
-		kv:         c.KV,
-		watcher:    c.Watcher,
-		watchables: map[string]kv.ValueWatchable{},
-		retrier:    xretry.NewRetrier(opts.RetryOptions()),
-		logger:     opts.InstrumentsOptions().Logger(),
-		cacheFile:  opts.CacheFilePath(),
-		cache:      newCache(),
+		opts:           opts,
+		kv:             c.KV,
+		watcher:        c.Watcher,
+		watchables:     map[string]kv.ValueWatchable{},
+		retrier:        xretry.NewRetrier(opts.RetryOptions()),
+		logger:         opts.InstrumentsOptions().Logger(),
+		cacheFile:      opts.CacheFilePath(),
+		cache:          newCache(),
+		cacheUpdatedCh: make(chan struct{}, 1),
 		m: clientMetrics{
 			etcdGetError:    scope.Counter("etcd-get-error"),
 			etcdPutError:    scope.Counter("etcd-put-error"),
@@ -64,8 +65,16 @@ func NewStore(c *clientv3.Client, opts Options) kv.Store {
 			diskReadError:   scope.Counter("disk-read-error"),
 		},
 	}
-	if err := store.initCache(); err != nil {
-		store.logger.Warnf("could not load cache from file %s: %v", opts.CacheFilePath(), err)
+
+	if store.cacheFile != "" {
+		if err := store.initCache(); err != nil {
+			store.logger.Warnf("could not load cache from file %s: %v", opts.CacheFilePath(), err)
+		}
+		go func() {
+			for range store.cacheUpdatedCh {
+				store.writeCacheToFile()
+			}
+		}()
 	}
 	return store
 }
@@ -73,15 +82,16 @@ func NewStore(c *clientv3.Client, opts Options) kv.Store {
 type client struct {
 	sync.RWMutex
 
-	opts       Options
-	kv         clientv3.KV
-	watcher    clientv3.Watcher
-	watchables map[string]kv.ValueWatchable
-	retrier    xretry.Retrier
-	logger     xlog.Logger
-	m          clientMetrics
-	cache      *valueCache
-	cacheFile  string
+	opts           Options
+	kv             clientv3.KV
+	watcher        clientv3.Watcher
+	watchables     map[string]kv.ValueWatchable
+	retrier        xretry.Retrier
+	logger         xlog.Logger
+	m              clientMetrics
+	cache          *valueCache
+	cacheFile      string
+	cacheUpdatedCh chan struct{}
 }
 
 type clientMetrics struct {
@@ -316,15 +326,16 @@ func (c *client) mergeCache(key string, v *value) {
 	cur, ok := c.cache.Values[key]
 	if !ok || v.isNewer(cur) {
 		c.cache.Values[key] = v
-		go c.syncFS()
+
+		// notify that cached data is updated
+		select {
+		case c.cacheUpdatedCh <- struct{}{}:
+		default:
+		}
 	}
 }
 
-func (c *client) syncFS() error {
-	if c.cacheFile == "" {
-		return nil
-	}
-
+func (c *client) writeCacheToFile() error {
 	file, err := os.Create(c.cacheFile)
 	if err != nil {
 		c.m.diskWriteError.Inc(1)
@@ -352,10 +363,6 @@ func (c *client) syncFS() error {
 }
 
 func (c *client) initCache() error {
-	if c.cacheFile == "" {
-		return nil
-	}
-
 	file, err := os.Open(c.opts.CacheFilePath())
 	if err != nil {
 		c.m.diskReadError.Inc(1)

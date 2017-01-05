@@ -67,6 +67,7 @@ func TestNoCache(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 
 	store := NewStore(ec, opts)
+	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 
 	version, err := store.Set("foo", genProto("bar1"))
 	assert.NoError(t, err)
@@ -75,6 +76,9 @@ func TestNoCache(t *testing.T) {
 	value, err := store.Get("foo")
 	assert.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
+	// the will send a notification but won't trigger a sync
+	// because no cache file is set
+	assert.Equal(t, 1, len(store.(*client).cacheUpdatedCh))
 
 	closeFn()
 
@@ -91,6 +95,7 @@ func TestNoCache(t *testing.T) {
 
 	_, err = store.Get("foo")
 	assert.Error(t, err)
+	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 }
 
 func TestCache(t *testing.T) {
@@ -100,7 +105,9 @@ func TestCache(t *testing.T) {
 	assert.NoError(t, err)
 
 	opts = opts.SetCacheFilePath(f.Name())
+
 	store := NewStore(ec, opts)
+	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 
 	version, err := store.Set("foo", genProto("bar1"))
 	assert.NoError(t, err)
@@ -109,13 +116,19 @@ func TestCache(t *testing.T) {
 	value, err := store.Get("foo")
 	assert.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
-
+	for {
+		// the notification should be picked up and trigger a sync
+		if len(store.(*client).cacheUpdatedCh) == 0 {
+			break
+		}
+	}
 	closeFn()
 
 	// from cache
 	value, err = store.Get("foo")
 	assert.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
+	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 
 	// new store but with cache file
 	store = NewStore(ec, opts)
@@ -125,10 +138,12 @@ func TestCache(t *testing.T) {
 
 	_, err = store.Get("key")
 	assert.Error(t, err)
+	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 
 	value, err = store.Get("foo")
 	assert.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
+	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 }
 
 func TestSetIfNotExist(t *testing.T) {
