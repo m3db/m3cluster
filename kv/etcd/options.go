@@ -70,6 +70,10 @@ type Options interface {
 
 	SetWatchChanResetInterval(t time.Duration) Options
 
+	CacheFilePath() string
+
+	SetCacheFilePath(c string) Options
+
 	Validate() error
 }
 
@@ -80,6 +84,7 @@ type options struct {
 	ropts                  xretry.Options
 	watchChanCheckInterval time.Duration
 	watchChanResetInterval time.Duration
+	cacheFilePath          string
 }
 
 // NewOptions creates a sane default Option
@@ -164,5 +169,14 @@ func (o options) WatchChanResetInterval() time.Duration {
 
 func (o options) SetWatchChanResetInterval(t time.Duration) Options {
 	o.watchChanResetInterval = t
+	return o
+}
+
+func (o options) CacheFilePath() string {
+	return o.cacheFilePath
+}
+
+func (o options) SetCacheFilePath(c string) Options {
+	o.cacheFilePath = c
 	return o
 }
