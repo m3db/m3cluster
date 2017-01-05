@@ -44,8 +44,8 @@ var (
 // KVGen generates a kv store for a given zone
 type KVGen func(zone string) (kv.Store, error)
 
-// HBGen generates a heartbeat store for a given zone
-type HBGen func(zone string) (heartbeat.Store, error)
+// HeartbeatGen generates a heartbeat store for a given zone
+type HeartbeatGen func(zone string) (heartbeat.Store, error)
 
 // Options are options for the client of Services
 type Options interface {
@@ -69,11 +69,11 @@ type Options interface {
 	// SetKVGen sets the KVGen
 	SetKVGen(gen KVGen) Options
 
-	// HBGen is the function to generate a heartbeat store for a given zone
-	HBGen() HBGen
+	// HeartbeatGen is the function to generate a heartbeat store for a given zone
+	HeartbeatGen() HeartbeatGen
 
 	// SetHBGen sets the HBGen
-	SetHBGen(gen HBGen) Options
+	SetHBGen(gen HeartbeatGen) Options
 
 	// InstrumentsOptions is the instrument options
 	InstrumentsOptions() instrument.Options
@@ -89,7 +89,7 @@ type options struct {
 	initTimeout time.Duration
 	hbInterval  time.Duration
 	kvGen       KVGen
-	hbGen       HBGen
+	hbGen       HeartbeatGen
 	iopts       instrument.Options
 }
 
@@ -111,11 +111,11 @@ func (o options) Validate() error {
 		return errNoKVGen
 	}
 
-	if o.hbInterval == 0 {
+	if o.hbInterval <= 0 {
 		return errInvalidHeartbeatInterval
 	}
 
-	if o.initTimeout == 0 {
+	if o.initTimeout <= 0 {
 		return errInvalidHInitTimeout
 	}
 
@@ -149,11 +149,11 @@ func (o options) SetKVGen(gen KVGen) Options {
 	return o
 }
 
-func (o options) HBGen() HBGen {
+func (o options) HeartbeatGen() HeartbeatGen {
 	return o.hbGen
 }
 
-func (o options) SetHBGen(gen HBGen) Options {
+func (o options) SetHBGen(gen HeartbeatGen) Options {
 	o.hbGen = gen
 	return o
 }

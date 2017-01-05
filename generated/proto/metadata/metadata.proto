@@ -23,6 +23,6 @@ package metadata;
 
 message metadata {
   uint32 port = 1;
-  sfixed64 liveness_interval = 2;
-  sfixed64 heartbeat_interval = 3;
+  int64 liveness_interval = 2;
+  int64 heartbeat_interval = 3;
 }

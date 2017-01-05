@@ -211,3 +211,22 @@ func (su shardByIDAscending) Less(i, j int) bool {
 func (su shardByIDAscending) Swap(i, j int) {
 	su[i], su[j] = su[j], su[i]
 }
+
+func adKey(sid services.ServiceID, id string) string {
+	return fmt.Sprintf("[%s][%s]", serviceKey(sid), id)
+}
+
+func placementKey(s services.ServiceID) string {
+	return fmt.Sprintf("%s/%s", placementPrefix, serviceKey(s))
+}
+
+func metadataKey(s services.ServiceID) string {
+	return fmt.Sprintf("%s/%s", metadataPrefix, serviceKey(s))
+}
+
+func serviceKey(s services.ServiceID) string {
+	if s.Environment() == "" {
+		return s.Name()
+	}
+	return fmt.Sprintf("[%s]%s", s.Environment(), s.Name())
+}

@@ -272,7 +272,7 @@ func TestQueryNotIncludeUnhealthy(t *testing.T) {
 	require.Equal(t, 1, s.Sharding().NumShards())
 	require.Equal(t, 2, s.Replication().Replicas())
 
-	hb, err := opts.HBGen()("zone1")
+	hb, err := opts.HeartbeatGen()("zone1")
 	require.NoError(t, err)
 
 	err = hb.Heartbeat("m3db", "i1", time.Second)

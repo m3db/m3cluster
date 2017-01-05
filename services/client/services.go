@@ -33,6 +33,7 @@ import (
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/heartbeat"
 	"github.com/m3db/m3cluster/services/placement/service"
+	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/watch"
 	"github.com/uber-go/tally"
 )
@@ -61,6 +62,7 @@ func NewServices(opts Options) (services.Services, error) {
 		hbStores:   make(map[string]heartbeat.Store),
 		adDoneChs:  make(map[string]chan struct{}),
 		opts:       opts,
+		logger:     opts.InstrumentsOptions().Logger(),
 	}, nil
 }
 
@@ -71,6 +73,7 @@ type client struct {
 	kvManagers map[string]*kvManager
 	hbStores   map[string]heartbeat.Store
 	adDoneChs  map[string]chan struct{}
+	logger     xlog.Logger
 }
 
 func (c *client) Metadata(sid services.ServiceID) (services.Metadata, error) {
@@ -216,7 +219,7 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 		return nil, err
 	}
 
-	c.opts.InstrumentsOptions().Logger().Infof(
+	c.logger.Infof(
 		"adding a watch for service: %s env: %s zone: %s includeUnhealthy: %v",
 		sid.Name(),
 		sid.Environment(),
@@ -317,7 +320,7 @@ func (c *client) getHeartbeatStore(zone string) (heartbeat.Store, error) {
 		return hb, nil
 	}
 
-	hb, err := c.opts.HBGen()(zone)
+	hb, err := c.opts.HeartbeatGen()(zone)
 	if err != nil {
 		return nil, err
 	}
@@ -367,24 +370,25 @@ func (c *client) run(
 	var err error
 
 	for {
+
 		select {
 		case <-vw.C():
 			value := vw.Get()
-			c.opts.InstrumentsOptions().Logger().Infof("received topology update notification on version %d", value.Version())
+			c.logger.Infof("received topology update notification on version %d", value.Version())
 
 			service, err = getServiceFromValue(value, sid)
 			if err != nil {
-				c.opts.InstrumentsOptions().Logger().Errorf("could not unmarshal update from kv store for cluster, %v", err)
+				c.logger.Errorf("could not unmarshal update from kv store for cluster, %v", err)
 				errCounter.Inc(1)
 				continue
 			}
-			c.opts.InstrumentsOptions().Logger().Infof("successfully parsed placement on version %d", value.Version())
+			c.logger.Infof("successfully parsed placement on version %d", value.Version())
 
 			w.Update(filterHealthyInstances(service, ids, qopts.IncludeUnhealthy()))
 		case <-ticker.C:
 			newIDs, err := hbStore.Get(serviceKey(sid))
 			if err != nil {
-				c.opts.InstrumentsOptions().Logger().Errorf("could not get healthy instances from heartbeat store, %v", err)
+				c.logger.Errorf("could not get healthy instances from heartbeat store, %v", err)
 				continue
 			}
 
@@ -399,15 +403,8 @@ func (c *client) run(
 }
 
 func isHealthy(ad services.Advertisement) bool {
-	if ad.Health() == nil {
-		return true
-	}
-
-	if err := ad.Health()(); err == nil {
-		return true
-	}
-
-	return false
+	healthFn := ad.Health()
+	return healthFn == nil || healthFn() == nil
 }
 
 func filterHealthyInstances(s services.Service, ids []string, includeUnhealthy bool) services.Service {
@@ -494,25 +491,6 @@ func newServiceDiscoveryMetrics(m tally.Scope) serviceDiscoveryMetrics {
 		versionGauge:        m.Gauge("placement.verison"),
 		serviceUnmalshalErr: m.Counter("placement.unmarshal.error"),
 	}
-}
-
-func adKey(sid services.ServiceID, id string) string {
-	return fmt.Sprintf("[%s][%s]", serviceKey(sid), id)
-}
-
-func placementKey(s services.ServiceID) string {
-	return fmt.Sprintf("%s/%s", placementPrefix, serviceKey(s))
-}
-
-func metadataKey(s services.ServiceID) string {
-	return fmt.Sprintf("%s/%s", metadataPrefix, serviceKey(s))
-}
-
-func serviceKey(s services.ServiceID) string {
-	if s.Environment() == "" {
-		return s.Name()
-	}
-	return fmt.Sprintf("[%s]%s", s.Environment(), s.Name())
 }
 
 func validateServiceID(sid services.ServiceID) error {
