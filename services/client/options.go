@@ -36,8 +36,8 @@ const (
 
 var (
 	errNoKVGen                  = errors.New("no KVGen function set")
-	errNoHBGen                  = errors.New("no HBGen function set")
-	errInvalidHeartbeatInterval = errors.New("non-positive heartbeat interval for heartbeat check")
+	errNoHeartbeatGen           = errors.New("no HeartbeatGen function set")
+	errInvalidHeartbeatInterval = errors.New("non-positive interval for heartbeat check")
 	errInvalidHInitTimeout      = errors.New("non-positive init timeout for service watch")
 )
 
@@ -72,8 +72,8 @@ type Options interface {
 	// HeartbeatGen is the function to generate a heartbeat store for a given zone
 	HeartbeatGen() HeartbeatGen
 
-	// SetHBGen sets the HBGen
-	SetHBGen(gen HeartbeatGen) Options
+	// SetHeartbeatGen sets the HeartbeatGen
+	SetHeartbeatGen(gen HeartbeatGen) Options
 
 	// InstrumentsOptions is the instrument options
 	InstrumentsOptions() instrument.Options
@@ -153,7 +153,7 @@ func (o options) HeartbeatGen() HeartbeatGen {
 	return o.hbGen
 }
 
-func (o options) SetHBGen(gen HeartbeatGen) Options {
+func (o options) SetHeartbeatGen(gen HeartbeatGen) Options {
 	o.hbGen = gen
 	return o
 }

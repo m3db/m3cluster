@@ -499,7 +499,7 @@ func testSetup(t *testing.T) (Options, func(), *mockHBGen) {
 
 	return NewOptions().
 		SetKVGen(kvGen).
-		SetHBGen(hbGen).
+		SetHeartbeatGen(hbGen).
 		SetInitTimeout(100 * time.Millisecond).
 		SetHeartbeatCheckInterval(100 * time.Millisecond).
 		SetInstrumentsOptions(instrument.NewOptions()), closer, m
