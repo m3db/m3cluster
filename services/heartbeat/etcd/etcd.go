@@ -30,7 +30,11 @@ import (
 	"golang.org/x/net/context"
 )
 
-const heartbeatKeyPrefix = "_hb"
+const (
+	heartbeatKeyPrefix = "_hb"
+	keySperator        = "/"
+	keyFormat          = "%s/%s"
+)
 
 // NewStore creates a heartbeat store based on etcd
 func NewStore(c *clientv3.Client) heartbeat.Store {
@@ -66,13 +70,16 @@ func (c *client) Get(service string) ([]string, error) {
 }
 
 func heartbeatKey(service, id string) string {
-	return fmt.Sprintf("%s%s", servicePrefix(service), id)
+	return fmt.Sprintf(keyFormat, servicePrefix(service), id)
 }
 
 func instanceID(key, service string) string {
-	return strings.TrimPrefix(key, servicePrefix(service))
+	return strings.TrimPrefix(
+		strings.TrimPrefix(key, servicePrefix(service)),
+		keySperator,
+	)
 }
 
 func servicePrefix(service string) string {
-	return fmt.Sprintf("%s/%s/", heartbeatKeyPrefix, service)
+	return fmt.Sprintf(keyFormat, heartbeatKeyPrefix, service)
 }

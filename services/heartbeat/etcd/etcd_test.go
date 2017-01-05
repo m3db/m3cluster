@@ -35,7 +35,7 @@ func TestKeys(t *testing.T) {
 	id := "instance"
 
 	require.Equal(t, "_hb/service/instance", heartbeatKey(s, id))
-	require.Equal(t, "_hb/service/", servicePrefix(s))
+	require.Equal(t, "_hb/service", servicePrefix(s))
 	require.Equal(t, "instance", instanceID(heartbeatKey(s, id), s))
 }
 

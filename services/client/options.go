@@ -32,6 +32,7 @@ import (
 const (
 	defaultHeartbeatCheckInterval = 10 * time.Second
 	defaultInitTimeout            = 5 * time.Second
+	defaultGaugeInterval          = 10 * time.Second
 )
 
 var (

@@ -38,12 +38,6 @@ import (
 	"github.com/uber-go/tally"
 )
 
-const (
-	defaultGaugeInterval = 10 * time.Second
-	placementPrefix      = "_sd.placement"
-	metadataPrefix       = "_sd.metadata"
-)
-
 var (
 	errWatchInitTimeout = errors.New("service watch init time out")
 	errNoServiceName    = errors.New("no service specified")

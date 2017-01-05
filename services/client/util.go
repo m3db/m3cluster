@@ -32,6 +32,13 @@ import (
 	"github.com/m3db/m3cluster/shard"
 )
 
+const (
+	placementPrefix = "_sd.placement"
+	metadataPrefix  = "_sd.metadata"
+	keySperator     = "/"
+	keyFormat       = "%s/%s"
+)
+
 func metadataFromProto(m metadataproto.Metadata) services.Metadata {
 	return services.NewMetadata().
 		SetPort(m.Port).
@@ -213,20 +220,20 @@ func (su shardByIDAscending) Swap(i, j int) {
 }
 
 func adKey(sid services.ServiceID, id string) string {
-	return fmt.Sprintf("[%s][%s]", serviceKey(sid), id)
+	return fmt.Sprintf(keyFormat, serviceKey(sid), id)
 }
 
 func placementKey(s services.ServiceID) string {
-	return fmt.Sprintf("%s/%s", placementPrefix, serviceKey(s))
+	return fmt.Sprintf(keyFormat, placementPrefix, serviceKey(s))
 }
 
 func metadataKey(s services.ServiceID) string {
-	return fmt.Sprintf("%s/%s", metadataPrefix, serviceKey(s))
+	return fmt.Sprintf(keyFormat, metadataPrefix, serviceKey(s))
 }
 
 func serviceKey(s services.ServiceID) string {
 	if s.Environment() == "" {
 		return s.Name()
 	}
-	return fmt.Sprintf("[%s]%s", s.Environment(), s.Name())
+	return fmt.Sprintf(keyFormat, s.Environment(), s.Name())
 }
