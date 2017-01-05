@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	defaultHBCheckInterval = 10 * time.Second
-	defaultInitTimeout     = 5 * time.Second
+	defaultHeartbeatCheckInterval = 10 * time.Second
+	defaultInitTimeout            = 5 * time.Second
 )
 
 var (
@@ -97,7 +97,7 @@ type options struct {
 func NewOptions() Options {
 	return options{
 		iopts:       instrument.NewOptions(),
-		hbInterval:  defaultHBCheckInterval,
+		hbInterval:  defaultHeartbeatCheckInterval,
 		initTimeout: defaultInitTimeout,
 	}
 }
