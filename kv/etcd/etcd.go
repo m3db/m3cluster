@@ -105,6 +105,8 @@ type clientMetrics struct {
 	diskReadError   tally.Counter
 }
 
+// Get returns the latest value from etcd store and only fall back to
+// in-memory cache if the remote store is unavailable
 func (c *client) Get(key string) (kv.Value, error) {
 	ctx, cancel := c.context()
 	defer cancel()
