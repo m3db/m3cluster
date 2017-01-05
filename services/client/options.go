@@ -25,13 +25,27 @@ import (
 	"time"
 
 	"github.com/m3db/m3cluster/kv"
+	"github.com/m3db/m3cluster/services/heartbeat"
 	"github.com/m3db/m3x/instrument"
 )
 
-var errNoKVGen = errors.New("no KVGen function set")
+const (
+	defaultHBCheckInterval = 10 * time.Second
+	defaultInitTimeout     = 5 * time.Second
+)
+
+var (
+	errNoKVGen                  = errors.New("no KVGen function set")
+	errNoHBGen                  = errors.New("no HBGen function set")
+	errInvalidHeartbeatInterval = errors.New("non-positive heartbeat interval for heartbeat check")
+	errInvalidHInitTimeout      = errors.New("non-positive init timeout for service watch")
+)
 
 // KVGen generates a kv store for a given zone
 type KVGen func(zone string) (kv.Store, error)
+
+// HBGen generates a heartbeat store for a given zone
+type HBGen func(zone string) (heartbeat.Store, error)
 
 // Options are options for the client of Services
 type Options interface {
@@ -42,11 +56,24 @@ type Options interface {
 	// SetInitTimeout sets the InitTimeout
 	SetInitTimeout(t time.Duration) Options
 
+	// HeartbeatCheckInterval is the interval for heartbeat check
+	// for watches on healthy instances only
+	HeartbeatCheckInterval() time.Duration
+
+	// SetHeartbeatCheckInterval sets the HeartbeatCheckInterval
+	SetHeartbeatCheckInterval(t time.Duration) Options
+
 	// KVGen is the function to generate a kv store for a given zone
 	KVGen() KVGen
 
 	// SetKVGen sets the KVGen
 	SetKVGen(gen KVGen) Options
+
+	// HBGen is the function to generate a heartbeat store for a given zone
+	HBGen() HBGen
+
+	// SetHBGen sets the HBGen
+	SetHBGen(gen HBGen) Options
 
 	// InstrumentsOptions is the instrument options
 	InstrumentsOptions() instrument.Options
@@ -60,18 +87,36 @@ type Options interface {
 
 type options struct {
 	initTimeout time.Duration
+	hbInterval  time.Duration
 	kvGen       KVGen
+	hbGen       HBGen
 	iopts       instrument.Options
 }
 
 // NewOptions creates an Option
 func NewOptions() Options {
-	return options{}
+	return options{
+		iopts:       instrument.NewOptions(),
+		hbInterval:  defaultHBCheckInterval,
+		initTimeout: defaultInitTimeout,
+	}
 }
 
 func (o options) Validate() error {
 	if o.kvGen == nil {
 		return errNoKVGen
+	}
+
+	if o.hbGen == nil {
+		return errNoKVGen
+	}
+
+	if o.hbInterval == 0 {
+		return errInvalidHeartbeatInterval
+	}
+
+	if o.initTimeout == 0 {
+		return errInvalidHInitTimeout
 	}
 
 	return nil
@@ -86,12 +131,30 @@ func (o options) SetInitTimeout(t time.Duration) Options {
 	return o
 }
 
+func (o options) HeartbeatCheckInterval() time.Duration {
+	return o.hbInterval
+}
+
+func (o options) SetHeartbeatCheckInterval(t time.Duration) Options {
+	o.hbInterval = t
+	return o
+}
+
 func (o options) KVGen() KVGen {
 	return o.kvGen
 }
 
 func (o options) SetKVGen(gen KVGen) Options {
 	o.kvGen = gen
+	return o
+}
+
+func (o options) HBGen() HBGen {
+	return o.hbGen
+}
+
+func (o options) SetHBGen(gen HBGen) Options {
+	o.hbGen = gen
 	return o
 }
 
