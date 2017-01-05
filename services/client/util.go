@@ -35,7 +35,6 @@ import (
 const (
 	placementPrefix = "_sd.placement"
 	metadataPrefix  = "_sd.metadata"
-	keySperator     = "/"
 	keyFormat       = "%s/%s"
 )
 

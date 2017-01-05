@@ -32,7 +32,7 @@ import (
 
 const (
 	heartbeatKeyPrefix = "_hb"
-	keySperator        = "/"
+	keySeparator       = "/"
 	keyFormat          = "%s/%s"
 )
 
@@ -76,7 +76,7 @@ func heartbeatKey(service, id string) string {
 func instanceID(key, service string) string {
 	return strings.TrimPrefix(
 		strings.TrimPrefix(key, servicePrefix(service)),
-		keySperator,
+		keySeparator,
 	)
 }
 
