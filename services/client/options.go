@@ -109,7 +109,7 @@ func (o options) Validate() error {
 	}
 
 	if o.hbGen == nil {
-		return errNoKVGen
+		return errNoHeartbeatGen
 	}
 
 	if o.hbInterval <= 0 {
