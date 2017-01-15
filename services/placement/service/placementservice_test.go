@@ -87,7 +87,7 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService) {
 		assert.NoError(t, err)
 	}
 
-	s, err := p.Placement()
+	s, _, err := p.Placement()
 	assert.NoError(t, err)
 	assert.Equal(t, 3, s.NumInstances())
 	_, exist := s.Instance("i21")
@@ -116,7 +116,7 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService) {
 	}
 	_, err = p.AddInstance(instances)
 	assert.NoError(t, err)
-	s, err = p.Placement()
+	s, _, err = p.Placement()
 	assert.NoError(t, err)
 	_, exist = s.Instance("i41") // instance added from least weighted rack
 	assert.True(t, exist)
@@ -177,9 +177,20 @@ func TestDryrun(t *testing.T) {
 	_, err = ps.ReplaceInstance("i2", []services.PlacementInstance{i3})
 	assert.NoError(t, err)
 
+	p, v, _ := m.Placement(sid)
+	assert.Equal(t, 4, v)
+
+	err = dryrunPS.SetPlacement(p)
+	assert.NoError(t, err)
+
 	_, v, _ = m.Placement(sid)
 	assert.Equal(t, 4, v)
 
+	err = ps.SetPlacement(p)
+	assert.NoError(t, err)
+
+	_, v, _ = m.Placement(sid)
+	assert.Equal(t, 5, v)
 }
 
 func TestBadInitialPlacement(t *testing.T) {
@@ -792,7 +803,7 @@ func markAllInstancesAvailable(
 	t *testing.T,
 	ps services.PlacementService,
 ) {
-	p, err := ps.Placement()
+	p, _, err := ps.Placement()
 	require.NoError(t, err)
 	for _, i := range p.Instances() {
 		if len(i.Shards().ShardsForState(shard.Initializing)) == 0 {
