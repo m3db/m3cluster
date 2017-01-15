@@ -263,7 +263,7 @@ func (ps placementService) SetPlacement(p services.ServicePlacement) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("could not get current placement for service: %s, %v", ps.service.String(), err)
+		return err
 	}
 
 	if ps.opts.Dryrun() {
