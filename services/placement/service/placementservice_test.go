@@ -27,6 +27,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement"
 	"github.com/m3db/m3cluster/shard"
@@ -548,6 +549,38 @@ func TestFindReplaceInstance(t *testing.T) {
 	assert.Equal(t, "r11", i[0].Rack())
 }
 
+func TestSetPlacement(t *testing.T) {
+	i1 := placement.NewEmptyInstance("i1", "r1", "z1", "endpoint", 1)
+	i1.Shards().Add(shard.NewShard(1).SetState(shard.Available))
+	i2 := placement.NewEmptyInstance("i2", "r2", "z1", "endpoint", 1)
+	i2.Shards().Add(shard.NewShard(2).SetState(shard.Available))
+	p := placement.NewPlacement().
+		SetInstances([]services.PlacementInstance{i1, i2}).
+		SetShards([]uint32{1, 2}).
+		SetReplicaFactor(1)
+
+	ps := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
+	err := ps.SetPlacement(p)
+	assert.NoError(t, err)
+	_, v, err := ps.Placement()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, v)
+
+	// validation error
+	err = ps.SetPlacement(placement.NewPlacement().
+		SetInstances([]services.PlacementInstance{i1, i2}).
+		SetShards([]uint32{1, 2}).
+		SetReplicaFactor(2),
+	)
+	assert.Error(t, err)
+
+	err = ps.SetPlacement(p)
+	assert.NoError(t, err)
+
+	_, v, err = ps.Placement()
+	assert.Equal(t, 2, v)
+}
+
 func TestGroupInstancesByConflict(t *testing.T) {
 	i1 := placement.NewEmptyInstance("i1", "", "", "endpoint", 1)
 	i2 := placement.NewEmptyInstance("i2", "", "", "endpoint", 1)
@@ -796,7 +829,7 @@ func (ms *mockStorage) Placement(service services.ServiceID) (services.ServicePl
 		return p, ms.version, nil
 	}
 
-	return nil, 0, errors.New("placement not exist")
+	return nil, 0, kv.ErrNotFound
 }
 
 func markAllInstancesAvailable(
