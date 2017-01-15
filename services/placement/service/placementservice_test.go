@@ -559,8 +559,12 @@ func TestSetPlacement(t *testing.T) {
 		SetShards([]uint32{1, 2}).
 		SetReplicaFactor(1)
 
-	ps := NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
-	err := ps.SetPlacement(p)
+	m := NewMockStorage()
+	err := NewPlacementService(m, testServiceID(), placement.NewOptions().SetDryrun(true)).SetPlacement(p)
+	assert.NoError(t, err)
+
+	ps := NewPlacementService(m, testServiceID(), placement.NewOptions())
+	err = ps.SetPlacement(p)
 	assert.NoError(t, err)
 	_, v, err := ps.Placement()
 	assert.NoError(t, err)

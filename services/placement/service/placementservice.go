@@ -257,6 +257,10 @@ func (ps placementService) SetPlacement(p services.ServicePlacement) error {
 		return err
 	}
 
+	if ps.opts.Dryrun() {
+		return nil
+	}
+
 	_, v, err := ps.ss.Placement(ps.service)
 	if err == kv.ErrNotFound {
 		return ps.ss.SetIfNotExist(ps.service, p)
@@ -264,10 +268,6 @@ func (ps placementService) SetPlacement(p services.ServicePlacement) error {
 
 	if err != nil {
 		return err
-	}
-
-	if ps.opts.Dryrun() {
-		return nil
 	}
 
 	return ps.ss.CheckAndSet(ps.service, p, v)
