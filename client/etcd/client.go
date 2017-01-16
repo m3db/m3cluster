@@ -43,17 +43,18 @@ const (
 	kvPrefix        = "_kv"
 )
 
-type newETCDClientFn func(endpoints []string) (*clientv3.Client, error)
+type newClientFn func(endpoints []string) (*clientv3.Client, error)
 
 // NewConfigServiceClient returns a ConfigServiceClient
 func NewConfigServiceClient(opts Options) client.Client {
+	scope := opts.InstrumentOptions().MetricsScope()
 	return &csclient{
 		opts:    opts,
-		kvScope: opts.InstrumentOptions().MetricsScope().Tagged(map[string]string{"config_service": "kv"}),
-		sdScope: opts.InstrumentOptions().MetricsScope().Tagged(map[string]string{"config_service": "sd"}),
+		kvScope: scope.Tagged(map[string]string{"config_service": "kv"}),
+		sdScope: scope.Tagged(map[string]string{"config_service": "sd"}),
 		clis:    make(map[string]*clientv3.Client),
 		logger:  opts.InstrumentOptions().Logger(),
-		newFn:   defaultNewETCDClientFn,
+		newFn:   newClient,
 	}
 
 }
@@ -66,7 +67,7 @@ type csclient struct {
 	kvScope tally.Scope
 	sdScope tally.Scope
 	logger  xlog.Logger
-	newFn   newETCDClientFn
+	newFn   newClientFn
 
 	sdOnce sync.Once
 	sd     services.Services
@@ -179,18 +180,12 @@ func (c *csclient) etcdClientGen(zone string) (*clientv3.Client, error) {
 	return cli, nil
 }
 
-func defaultNewETCDClientFn(endpoints []string) (*clientv3.Client, error) {
+func newClient(endpoints []string) (*clientv3.Client, error) {
 	return clientv3.New(clientv3.Config{Endpoints: endpoints})
 }
 
 func cacheFileForZone(cacheDir, appID, zone string) string {
-	if cacheDir == "" {
-		return ""
-	}
-	if appID == "" {
-		return ""
-	}
-	if zone == "" {
+	if cacheDir == "" || appID == "" || zone == "" {
 		return ""
 	}
 	cacheFileName := fmt.Sprintf(cacheFileFormat, appID, zone)

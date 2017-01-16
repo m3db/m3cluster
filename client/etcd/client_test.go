@@ -142,7 +142,7 @@ func testOptions() Options {
 	}).SetServiceInitTimeout(time.Second)
 }
 
-func testNewETCDFn(t *testing.T) (newETCDClientFn, func()) {
+func testNewETCDFn(t *testing.T) (newClientFn, func()) {
 	ecluster := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 3})
 	ec := ecluster.Client(rand.Intn(3))
 
