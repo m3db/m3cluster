@@ -54,10 +54,8 @@ func TestOptions(t *testing.T) {
 	assert.False(t, ok)
 	assert.Equal(t, instrument.NewOptions(), opts.InstrumentOptions())
 
-	c := []Cluster{
-		NewCluster().SetZone("z1"),
-		NewCluster().SetZone("z2"),
-	}
+	c1 := NewCluster().SetZone("z1")
+	c2 := NewCluster().SetZone("z2")
 	iopts := instrument.NewOptions().SetReportInterval(time.Minute)
 
 	opts = opts.SetEnv("env").
@@ -65,13 +63,19 @@ func TestOptions(t *testing.T) {
 		SetServiceInitTimeout(time.Second).
 		SetCacheDir("/dir").
 		SetAppID("app").
-		SetClusters(c).
+		SetClusters([]Cluster{c1, c2}).
 		SetInstrumentOptions(iopts)
 	assert.Equal(t, "env", opts.Env())
 	assert.Equal(t, "zone", opts.Zone())
 	assert.Equal(t, time.Second, opts.ServiceInitTimeout())
 	assert.Equal(t, "/dir", opts.CacheDir())
 	assert.Equal(t, "app", opts.AppID())
-	assert.Equal(t, c, opts.Clusters())
+	assert.Equal(t, 2, len(opts.Clusters()))
+	c, ok := opts.ClusterForZone("z1")
+	assert.True(t, ok)
+	assert.Equal(t, c, c1)
+	c, ok = opts.ClusterForZone("z2")
+	assert.True(t, ok)
+	assert.Equal(t, c, c2)
 	assert.Equal(t, iopts, opts.InstrumentOptions())
 }
