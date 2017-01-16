@@ -22,6 +22,8 @@ package etcd
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/coreos/etcd/clientv3"
@@ -194,6 +196,12 @@ func cacheFileForZone(cacheDir, appID, zone string) string {
 	if cacheDir == "" || appID == "" || zone == "" {
 		return ""
 	}
+
+	return fmt.Sprintf(keyFormat, cacheDir, fileName(appID, zone))
+}
+
+func fileName(appID, zone string) string {
 	cacheFileName := fmt.Sprintf(cacheFileFormat, appID, zone)
-	return fmt.Sprintf(keyFormat, cacheDir, cacheFileName)
+
+	return strings.Replace(cacheFileName, string(os.PathSeparator), "_", -1)
 }

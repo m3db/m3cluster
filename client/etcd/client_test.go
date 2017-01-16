@@ -145,6 +145,7 @@ func TestCacheFileForZone(t *testing.T) {
 	assert.Equal(t, "", cacheFileForZone("/dir", "", "zone"))
 	assert.Equal(t, "", cacheFileForZone("/dir", "app", ""))
 	assert.Equal(t, "/dir/app-zone.json", cacheFileForZone("/dir", "app", "zone"))
+	assert.Equal(t, "/dir/a_b-c_d.json", cacheFileForZone("/dir", "a/b", "c/d"))
 }
 
 func testOptions() Options {
