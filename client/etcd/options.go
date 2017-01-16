@@ -1,7 +1,30 @@
+// Copyright (c) 2016 Uber Technologies, Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 package etcd
 
-import "time"
-import "github.com/m3db/m3x/instrument"
+import (
+	"time"
+
+	"github.com/m3db/m3x/instrument"
+)
 
 // Options is the Options to create a config service client
 type Options interface {
@@ -55,6 +78,7 @@ type options struct {
 func (o options) Env() string {
 	return o.env
 }
+
 func (o options) SetEnv(e string) Options {
 	o.env = e
 	return o
@@ -63,6 +87,7 @@ func (o options) SetEnv(e string) Options {
 func (o options) Zone() string {
 	return o.zone
 }
+
 func (o options) SetZone(z string) Options {
 	o.zone = z
 	return o
@@ -71,6 +96,7 @@ func (o options) SetZone(z string) Options {
 func (o options) ServiceInitTimeout() time.Duration {
 	return o.serviceInitTimeout
 }
+
 func (o options) SetServiceInitTimeout(timeout time.Duration) Options {
 	o.serviceInitTimeout = timeout
 	return o
@@ -88,6 +114,7 @@ func (o options) SetCacheDir(dir string) Options {
 func (o options) AppID() string {
 	return o.appID
 }
+
 func (o options) SetAppID(id string) Options {
 	o.appID = id
 	return o
