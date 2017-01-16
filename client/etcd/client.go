@@ -138,7 +138,7 @@ func (c *csclient) kvGen(kvOpts etcdKV.Options) sdClient.KVGen {
 
 			return etcdKV.NewStore(
 				cli,
-				kvOpts.SetCacheFilePath(cacheFileForZone(c.opts.CacheDir(), c.opts.AppID(), zone)),
+				kvOpts.SetCacheFilePath(cacheFileForZone(c.opts.CacheDir(), kvOpts.KeyFn()(c.opts.AppID()), zone)),
 			), nil
 		},
 	)
