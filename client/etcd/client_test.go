@@ -80,6 +80,9 @@ func TestKVAndHeartbeatStoreSharingETCDClient(t *testing.T) {
 }
 
 func TestClient(t *testing.T) {
+	_, err := NewConfigServiceClient(NewOptions())
+	assert.Error(t, err)
+
 	cs, err := NewConfigServiceClient(testOptions())
 	assert.NoError(t, err)
 	_, err = cs.KV()
