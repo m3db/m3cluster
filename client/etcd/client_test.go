@@ -32,9 +32,12 @@ import (
 )
 
 func TestETCDClientGen(t *testing.T) {
-	c := NewConfigServiceClient(testOptions()).(*csclient)
+	cs, err := NewConfigServiceClient(testOptions())
+	assert.NoError(t, err)
+
+	c := cs.(*csclient)
 	// zone3 does not exist
-	_, err := c.etcdClientGen("zone3")
+	_, err = c.etcdClientGen("zone3")
 	assert.Error(t, err)
 	assert.Equal(t, 0, len(c.clis))
 
@@ -54,9 +57,12 @@ func TestETCDClientGen(t *testing.T) {
 }
 
 func TestKVAndHeartbeatStoreSharingETCDClient(t *testing.T) {
-	c := NewConfigServiceClient(testOptions().SetZone("zone1")).(*csclient)
+	cs, err := NewConfigServiceClient(testOptions().SetZone("zone1"))
+	assert.NoError(t, err)
 
-	_, err := c.KV()
+	c := cs.(*csclient)
+
+	_, err = c.KV()
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(c.clis))
 
@@ -74,10 +80,13 @@ func TestKVAndHeartbeatStoreSharingETCDClient(t *testing.T) {
 }
 
 func TestClient(t *testing.T) {
-	_, err := NewConfigServiceClient(testOptions()).KV()
+	cs, err := NewConfigServiceClient(testOptions())
+	assert.NoError(t, err)
+	_, err = cs.KV()
 	assert.Error(t, err)
 
-	c := NewConfigServiceClient(testOptions().SetZone("zone1")).(*csclient)
+	cs, err = NewConfigServiceClient(testOptions().SetZone("zone1"))
+	c := cs.(*csclient)
 
 	fn, closer := testNewETCDFn(t)
 	defer closer()
@@ -139,7 +148,7 @@ func testOptions() Options {
 	return NewOptions().SetClusters([]Cluster{
 		NewCluster().SetZone("zone1").SetEndpoints([]string{"i1"}),
 		NewCluster().SetZone("zone2").SetEndpoints([]string{"i2"}),
-	}).SetServiceInitTimeout(time.Second)
+	}).SetServiceInitTimeout(time.Second).SetAppID("test_app")
 }
 
 func testNewETCDFn(t *testing.T) (newClientFn, func()) {

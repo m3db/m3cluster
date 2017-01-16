@@ -46,8 +46,15 @@ const (
 type newClientFn func(endpoints []string) (*clientv3.Client, error)
 
 // NewConfigServiceClient returns a ConfigServiceClient
-func NewConfigServiceClient(opts Options) client.Client {
-	scope := opts.InstrumentOptions().MetricsScope()
+func NewConfigServiceClient(opts Options) (client.Client, error) {
+	if err := opts.Validate(); err != nil {
+		return nil, err
+	}
+
+	scope := opts.InstrumentOptions().
+		MetricsScope().
+		Tagged(map[string]string{"config_service_app": opts.AppID()})
+
 	return &csclient{
 		opts:    opts,
 		kvScope: scope.Tagged(map[string]string{"config_service": "kv"}),
@@ -55,8 +62,7 @@ func NewConfigServiceClient(opts Options) client.Client {
 		clis:    make(map[string]*clientv3.Client),
 		logger:  opts.InstrumentOptions().Logger(),
 		newFn:   newClient,
-	}
-
+	}, nil
 }
 
 type csclient struct {
