@@ -55,7 +55,7 @@ func NewConfigServiceClient(opts Options) (client.Client, error) {
 
 	scope := opts.InstrumentOptions().
 		MetricsScope().
-		Tagged(map[string]string{"config_service_app": opts.AppID()})
+		Tagged(map[string]string{"app_id": opts.AppID()})
 
 	return &csclient{
 		opts:    opts,
