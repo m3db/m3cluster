@@ -23,6 +23,7 @@ package etcd
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
@@ -38,22 +39,53 @@ const (
 
 // NewStore creates a heartbeat store based on etcd
 func NewStore(c *clientv3.Client) heartbeat.Store {
-	return &client{l: c.Lease, kv: c.KV}
+	return &client{l: c.Lease, kv: c.KV, leases: make(map[string]clientv3.LeaseID)}
 }
 
 type client struct {
+	sync.RWMutex
+	leases map[string]clientv3.LeaseID
+
 	l  clientv3.Lease
 	kv clientv3.KV
 }
 
-func (c *client) Heartbeat(service, id string, ttl time.Duration) error {
+func (c *client) Heartbeat(service, instance string, ttl time.Duration) error {
+	key := leaseKey(service, instance, ttl)
+
+	c.RLock()
+	leaseID, ok := c.leases[key]
+	c.RUnlock()
+
+	if ok {
+		_, err := c.l.KeepAliveOnce(context.Background(), leaseID)
+		// if err != nil, it could because the old lease has already timedout
+		// on the server side, we need to try a new lease.
+		if err == nil {
+			return nil
+		}
+	}
+
 	resp, err := c.l.Grant(context.Background(), int64(ttl/time.Second))
 	if err != nil {
 		return err
 	}
 
-	_, err = c.kv.Put(context.Background(), heartbeatKey(service, id), "", clientv3.WithLease(resp.ID))
-	return err
+	_, err = c.kv.Put(
+		context.Background(),
+		heartbeatKey(service, instance),
+		"",
+		clientv3.WithLease(resp.ID),
+	)
+	if err != nil {
+		return err
+	}
+
+	c.Lock()
+	c.leases[key] = resp.ID
+	c.Unlock()
+
+	return nil
 }
 
 func (c *client) Get(service string) ([]string, error) {
@@ -82,4 +114,9 @@ func instanceID(key, service string) string {
 
 func servicePrefix(service string) string {
 	return fmt.Sprintf(keyFormat, heartbeatKeyPrefix, service)
+}
+
+func leaseKey(service, instance string, ttl time.Duration) string {
+	serviceInstance := fmt.Sprintf(keyFormat, service, instance)
+	return fmt.Sprintf(keyFormat, serviceInstance, ttl.String())
 }
