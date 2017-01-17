@@ -154,7 +154,7 @@ func (c *client) Advertise(ad services.Advertisement) error {
 			case <-ticker:
 				if isHealthy(ad) {
 					if err := hb.Heartbeat(serviceKey(sid), ad.InstanceID(), m.LivenessInterval()); err != nil {
-						c.logger.Infof("could not heartbeat service %s, %v", sid.String(), err)
+						c.logger.Errorf("could not heartbeat service %s, %v", sid.String(), err)
 						errCounter.Inc(1)
 					}
 				}
