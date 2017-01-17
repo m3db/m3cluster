@@ -96,16 +96,16 @@ func (c *client) Get(service string) ([]string, error) {
 
 	r := make([]string, len(gr.Kvs))
 	for i, kv := range gr.Kvs {
-		r[i] = instanceID(string(kv.Key), service)
+		r[i] = instanceFromKey(string(kv.Key), service)
 	}
 	return r, nil
 }
 
-func heartbeatKey(service, id string) string {
-	return fmt.Sprintf(keyFormat, servicePrefix(service), id)
+func heartbeatKey(service, instance string) string {
+	return fmt.Sprintf(keyFormat, servicePrefix(service), instance)
 }
 
-func instanceID(key, service string) string {
+func instanceFromKey(key, service string) string {
 	return strings.TrimPrefix(
 		strings.TrimPrefix(key, servicePrefix(service)),
 		keySeparator,
@@ -117,6 +117,5 @@ func servicePrefix(service string) string {
 }
 
 func leaseKey(service, instance string, ttl time.Duration) string {
-	serviceInstance := fmt.Sprintf(keyFormat, service, instance)
-	return fmt.Sprintf(keyFormat, serviceInstance, ttl.String())
+	return fmt.Sprintf(keyFormat, heartbeatKey(service, instance), ttl.String())
 }

@@ -37,8 +37,8 @@ func TestKeys(t *testing.T) {
 
 	require.Equal(t, "_hb/service/instance", heartbeatKey(s, id))
 	require.Equal(t, "_hb/service", servicePrefix(s))
-	require.Equal(t, "instance", instanceID(heartbeatKey(s, id), s))
-	require.Equal(t, "service/instance/1m0s", leaseKey(s, id, time.Minute))
+	require.Equal(t, "instance", instanceFromKey(heartbeatKey(s, id), s))
+	require.Equal(t, "_hb/service/instance/1m0s", leaseKey(s, id, time.Minute))
 }
 
 func TestReuseLeaseID(t *testing.T) {
