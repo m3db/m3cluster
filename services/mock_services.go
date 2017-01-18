@@ -299,6 +299,26 @@ func (_mr *_MockServiceShardingRecorder) SetNumShards(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetNumShards", arg0)
 }
 
+func (_m *MockServiceSharding) IsSharded() bool {
+	ret := _m.ctrl.Call(_m, "IsSharded")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockServiceShardingRecorder) IsSharded() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsSharded")
+}
+
+func (_m *MockServiceSharding) SetIsSharded(s bool) ServiceSharding {
+	ret := _m.ctrl.Call(_m, "SetIsSharded", s)
+	ret0, _ := ret[0].(ServiceSharding)
+	return ret0
+}
+
+func (_mr *_MockServiceShardingRecorder) SetIsSharded(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetIsSharded", arg0)
+}
+
 // Mock of ServiceInstance interface
 type MockServiceInstance struct {
 	ctrl     *gomock.Controller
@@ -654,6 +674,16 @@ func (_m *MockMetadata) EXPECT() *_MockMetadataRecorder {
 	return _m.recorder
 }
 
+func (_m *MockMetadata) String() string {
+	ret := _m.ctrl.Call(_m, "String")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockMetadataRecorder) String() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "String")
+}
+
 func (_m *MockMetadata) Port() uint32 {
 	ret := _m.ctrl.Call(_m, "Port")
 	ret0, _ := ret[0].(uint32)
@@ -882,6 +912,26 @@ func (_mr *_MockPlacementOptionsRecorder) SetAllowPartialReplace(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetAllowPartialReplace", arg0)
 }
 
+func (_m *MockPlacementOptions) IsSharded() bool {
+	ret := _m.ctrl.Call(_m, "IsSharded")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockPlacementOptionsRecorder) IsSharded() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsSharded")
+}
+
+func (_m *MockPlacementOptions) SetIsSharded(sharded bool) PlacementOptions {
+	ret := _m.ctrl.Call(_m, "SetIsSharded", sharded)
+	ret0, _ := ret[0].(PlacementOptions)
+	return ret0
+}
+
+func (_mr *_MockPlacementOptionsRecorder) SetIsSharded(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetIsSharded", arg0)
+}
+
 // Mock of ServicePlacement interface
 type MockServicePlacement struct {
 	ctrl     *gomock.Controller
@@ -911,6 +961,16 @@ func (_m *MockServicePlacement) Instances() []PlacementInstance {
 
 func (_mr *_MockServicePlacementRecorder) Instances() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Instances")
+}
+
+func (_m *MockServicePlacement) SetInstances(instances []PlacementInstance) ServicePlacement {
+	ret := _m.ctrl.Call(_m, "SetInstances", instances)
+	ret0, _ := ret[0].(ServicePlacement)
+	return ret0
+}
+
+func (_mr *_MockServicePlacementRecorder) SetInstances(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetInstances", arg0)
 }
 
 func (_m *MockServicePlacement) NumInstances() int {
@@ -944,6 +1004,16 @@ func (_mr *_MockServicePlacementRecorder) ReplicaFactor() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReplicaFactor")
 }
 
+func (_m *MockServicePlacement) SetReplicaFactor(rf int) ServicePlacement {
+	ret := _m.ctrl.Call(_m, "SetReplicaFactor", rf)
+	ret0, _ := ret[0].(ServicePlacement)
+	return ret0
+}
+
+func (_mr *_MockServicePlacementRecorder) SetReplicaFactor(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetReplicaFactor", arg0)
+}
+
 func (_m *MockServicePlacement) Shards() []uint32 {
 	ret := _m.ctrl.Call(_m, "Shards")
 	ret0, _ := ret[0].([]uint32)
@@ -954,6 +1024,16 @@ func (_mr *_MockServicePlacementRecorder) Shards() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Shards")
 }
 
+func (_m *MockServicePlacement) SetShards(s []uint32) ServicePlacement {
+	ret := _m.ctrl.Call(_m, "SetShards", s)
+	ret0, _ := ret[0].(ServicePlacement)
+	return ret0
+}
+
+func (_mr *_MockServicePlacementRecorder) SetShards(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetShards", arg0)
+}
+
 func (_m *MockServicePlacement) NumShards() int {
 	ret := _m.ctrl.Call(_m, "NumShards")
 	ret0, _ := ret[0].(int)
@@ -962,6 +1042,26 @@ func (_m *MockServicePlacement) NumShards() int {
 
 func (_mr *_MockServicePlacementRecorder) NumShards() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "NumShards")
+}
+
+func (_m *MockServicePlacement) IsSharded() bool {
+	ret := _m.ctrl.Call(_m, "IsSharded")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockServicePlacementRecorder) IsSharded() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsSharded")
+}
+
+func (_m *MockServicePlacement) SetIsSharded(v bool) ServicePlacement {
+	ret := _m.ctrl.Call(_m, "SetIsSharded", v)
+	ret0, _ := ret[0].(ServicePlacement)
+	return ret0
+}
+
+func (_mr *_MockServicePlacementRecorder) SetIsSharded(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetIsSharded", arg0)
 }
 
 func (_m *MockServicePlacement) String() string {
