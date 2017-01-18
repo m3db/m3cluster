@@ -840,15 +840,26 @@ func (_mr *_MockPlacementServiceRecorder) MarkInstanceAvailable(arg0 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MarkInstanceAvailable", arg0)
 }
 
-func (_m *MockPlacementService) Placement() (ServicePlacement, error) {
+func (_m *MockPlacementService) Placement() (ServicePlacement, int, error) {
 	ret := _m.ctrl.Call(_m, "Placement")
 	ret0, _ := ret[0].(ServicePlacement)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 func (_mr *_MockPlacementServiceRecorder) Placement() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Placement")
+}
+
+func (_m *MockPlacementService) SetPlacement(p ServicePlacement) error {
+	ret := _m.ctrl.Call(_m, "SetPlacement", p)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockPlacementServiceRecorder) SetPlacement(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetPlacement", arg0)
 }
 
 // Mock of PlacementOptions interface
@@ -930,6 +941,26 @@ func (_m *MockPlacementOptions) SetIsSharded(sharded bool) PlacementOptions {
 
 func (_mr *_MockPlacementOptionsRecorder) SetIsSharded(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetIsSharded", arg0)
+}
+
+func (_m *MockPlacementOptions) Dryrun() bool {
+	ret := _m.ctrl.Call(_m, "Dryrun")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockPlacementOptionsRecorder) Dryrun() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Dryrun")
+}
+
+func (_m *MockPlacementOptions) SetDryrun(d bool) PlacementOptions {
+	ret := _m.ctrl.Call(_m, "SetDryrun", d)
+	ret0, _ := ret[0].(PlacementOptions)
+	return ret0
+}
+
+func (_mr *_MockPlacementOptionsRecorder) SetDryrun(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetDryrun", arg0)
 }
 
 // Mock of ServicePlacement interface
