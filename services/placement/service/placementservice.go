@@ -90,6 +90,7 @@ func (ps placementService) BuildInitialPlacement(
 	}
 
 	if ps.opts.Dryrun() {
+		ps.opts.InstrumentOptions().Logger().Info("this is a dryrun, the operation is not persisted")
 		return p, err
 	}
 
@@ -130,6 +131,7 @@ func (ps placementService) AddReplica() (services.ServicePlacement, error) {
 	}
 
 	if ps.opts.Dryrun() {
+		ps.opts.InstrumentOptions().Logger().Info("this is a dryrun, the operation is not persisted")
 		return p, err
 	}
 
@@ -157,6 +159,7 @@ func (ps placementService) AddInstance(
 	}
 
 	if ps.opts.Dryrun() {
+		ps.opts.InstrumentOptions().Logger().Info("this is a dryrun, the operation is not persisted")
 		return p, err
 	}
 
@@ -182,6 +185,7 @@ func (ps placementService) RemoveInstance(instanceID string) (services.ServicePl
 	}
 
 	if ps.opts.Dryrun() {
+		ps.opts.InstrumentOptions().Logger().Info("this is a dryrun, the operation is not persisted")
 		return p, err
 	}
 
@@ -216,6 +220,7 @@ func (ps placementService) ReplaceInstance(
 	}
 
 	if ps.opts.Dryrun() {
+		ps.opts.InstrumentOptions().Logger().Info("this is a dryrun, the operation is not persisted")
 		return p, err
 	}
 
@@ -277,6 +282,7 @@ func (ps placementService) SetPlacement(p services.ServicePlacement) error {
 	}
 
 	if ps.opts.Dryrun() {
+		ps.opts.InstrumentOptions().Logger().Info("this is a dryrun, the operation is not persisted")
 		return nil
 	}
 
