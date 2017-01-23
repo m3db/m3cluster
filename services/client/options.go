@@ -30,16 +30,14 @@ import (
 )
 
 const (
-	defaultHeartbeatCheckInterval = 10 * time.Second
-	defaultInitTimeout            = 5 * time.Second
-	defaultGaugeInterval          = 10 * time.Second
+	defaultInitTimeout   = 15 * time.Second
+	defaultGaugeInterval = 10 * time.Second
 )
 
 var (
-	errNoKVGen                  = errors.New("no KVGen function set")
-	errNoHeartbeatGen           = errors.New("no HeartbeatGen function set")
-	errInvalidHeartbeatInterval = errors.New("non-positive interval for heartbeat check")
-	errInvalidInitTimeout       = errors.New("non-positive init timeout for service watch")
+	errNoKVGen            = errors.New("no KVGen function set")
+	errNoHeartbeatGen     = errors.New("no HeartbeatGen function set")
+	errInvalidInitTimeout = errors.New("non-positive init timeout for service watch")
 )
 
 // KVGen generates a kv store for a given zone
@@ -56,13 +54,6 @@ type Options interface {
 
 	// SetInitTimeout sets the InitTimeout
 	SetInitTimeout(t time.Duration) Options
-
-	// HeartbeatCheckInterval is the interval for heartbeat check
-	// for watches on healthy instances only
-	HeartbeatCheckInterval() time.Duration
-
-	// SetHeartbeatCheckInterval sets the HeartbeatCheckInterval
-	SetHeartbeatCheckInterval(t time.Duration) Options
 
 	// KVGen is the function to generate a kv store for a given zone
 	KVGen() KVGen
@@ -88,7 +79,6 @@ type Options interface {
 
 type options struct {
 	initTimeout time.Duration
-	hbInterval  time.Duration
 	kvGen       KVGen
 	hbGen       HeartbeatGen
 	iopts       instrument.Options
@@ -98,7 +88,6 @@ type options struct {
 func NewOptions() Options {
 	return options{
 		iopts:       instrument.NewOptions(),
-		hbInterval:  defaultHeartbeatCheckInterval,
 		initTimeout: defaultInitTimeout,
 	}
 }
@@ -110,10 +99,6 @@ func (o options) Validate() error {
 
 	if o.hbGen == nil {
 		return errNoHeartbeatGen
-	}
-
-	if o.hbInterval <= 0 {
-		return errInvalidHeartbeatInterval
 	}
 
 	if o.initTimeout <= 0 {
@@ -129,15 +114,6 @@ func (o options) InitTimeout() time.Duration {
 
 func (o options) SetInitTimeout(t time.Duration) Options {
 	o.initTimeout = t
-	return o
-}
-
-func (o options) HeartbeatCheckInterval() time.Duration {
-	return o.hbInterval
-}
-
-func (o options) SetHeartbeatCheckInterval(t time.Duration) Options {
-	o.hbInterval = t
 	return o
 }
 
