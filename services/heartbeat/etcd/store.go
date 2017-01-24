@@ -175,9 +175,7 @@ func (c *client) Watch(service string) (xwatch.Watch, error) {
 			for {
 				select {
 				case r, ok := <-watchChan:
-					if ok {
-						c.processNotification(r, watchable, service)
-					} else {
+					if !ok {
 						c.logger.Warnf("etcd watch channel closed on service %s, recreating a watch channel", service)
 
 						// avoid recreating watch channel too frequently
@@ -185,6 +183,23 @@ func (c *client) Watch(service string) (xwatch.Watch, error) {
 
 						watchChan = c.watchChan(service)
 						c.m.etcdWatchReset.Inc(1)
+
+						continue
+					}
+					// handle the update
+					if r.Err() != nil {
+						c.logger.Errorf("received error on watch channel: %v", r.Err())
+						c.m.etcdWatchError.Inc(1)
+						// do not continue here, even though the update contains an error
+						// we still take this chance to attemp a Get() for the latest value
+					}
+
+					// we retry because if Get() failed on an watch update,
+					// it has to wait 10 mins to be notified to try again
+					if err := c.retrier.Attempt(func() error {
+						return c.update(watchable, service)
+					}); err != nil {
+						c.logger.Errorf("received updates for service %s, but failed to get value: %v", service, err)
 					}
 				case <-ticker:
 					c.RLock()
@@ -241,21 +256,6 @@ func (c *client) tryCleanUp(service string) bool {
 	watchable.Close()
 	delete(c.watchables, service)
 	return true
-}
-
-func (c *client) processNotification(r clientv3.WatchResponse, w xwatch.Watchable, service string) {
-	err := r.Err()
-	if err != nil {
-		c.logger.Errorf("received error on watch channel: %v", err)
-		c.m.etcdWatchError.Inc(1)
-	}
-	// we need retry here because if Get() failed on an watch update,
-	// it has to wait 10 mins to be notified to try again
-	if err = c.retrier.Attempt(func() error {
-		return c.update(w, service)
-	}); err != nil {
-		c.logger.Errorf("received updates for service %s, but failed to get value: %v", service, err)
-	}
 }
 
 func (c *client) update(w xwatch.Watchable, service string) error {
