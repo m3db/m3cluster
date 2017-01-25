@@ -1,3 +1,6 @@
+SELF_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+include $(SELF_DIR)/.ci/common.mk
+
 SHELL=/bin/bash -o pipefail
 
 html_report := coverage.html
@@ -53,10 +56,6 @@ test-ci-unit: test-internal
 	@which goveralls > /dev/null || go get -u -f github.com/mattn/goveralls
 	goveralls -coverprofile=$(coverfile) -service=travis-ci || echo -e "\x1b[31mCoveralls failed\x1b[m"
 
-install-vendor: .gitmodules
-	@echo Updating submodules
-	git submodule update --init --recursive
-
 install-mockgen: install-vendor
 	@echo Installing mockgen
 	glide install
@@ -65,7 +64,7 @@ install-license-bin: install-vendor
 	@echo Installing node modules
 	[ -d $(license_node_modules) ] || (cd $(license_dir) && npm install)
 
-install-proto-bin: install-vendor 
+install-proto-bin: install-vendor
 	@echo Installing protobuf binaries
 	@echo Note: the protobuf compiler v3.0.0 can be downloaded from https://github.com/google/protobuf/releases or built from source at https://github.com/google/protobuf.
 	go install $(package_root)/$(vendor_prefix)/$(protoc_go_package)
