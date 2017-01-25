@@ -71,11 +71,11 @@ install-proto-bin: install-vendor
 
 mock-gen: install-mockgen install-license-bin
 	@echo Generating mocks
-	$(auto_gen) $(mocks_output_dir) $(mocks_rules_dir)
+	PACKAGE=$(package_root) $(auto_gen) $(mocks_output_dir) $(mocks_rules_dir)
 
 proto-gen: install-proto-bin install-license-bin
 	@echo Generating protobuf files
-	$(auto_gen) $(proto_output_dir) $(proto_rules_dir)
+	PACKAGE=$(package_root) $(auto_gen) $(proto_output_dir) $(proto_rules_dir)
 
 all-gen: proto-gen mock-gen
 
