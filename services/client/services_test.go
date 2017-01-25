@@ -426,6 +426,9 @@ func TestWatchNotIncludeUnhealthy(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, errWatchInitTimeout, err)
 
+	sd, err = NewServices(opts.SetInitTimeout(defaultInitTimeout))
+	require.NoError(t, err)
+
 	p := placement.NewPlacement().
 		SetInstances([]services.PlacementInstance{
 			placement.NewInstance().
