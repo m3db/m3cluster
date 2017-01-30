@@ -32,6 +32,7 @@ import (
 	"github.com/m3db/m3cluster/generated/proto/kvtest"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/context"
 )
 
 func TestGetAndSet(t *testing.T) {
@@ -423,6 +424,46 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	w2.Close()
 }
 
+func TestWatchNonBlocking(t *testing.T) {
+	ec, opts, closeFn := testStore(t)
+	defer closeFn()
+
+	opts = opts.SetWatchChanResetInterval(200 * time.Millisecond).SetWatchChanInitTimeout(200 * time.Millisecond)
+	store := NewStore(ec, opts)
+	c := store.(*client)
+	mw := &mockWatcher{
+		failTotal: 3,
+		c:         ec,
+	}
+	c.watcher = mw
+
+	_, err := store.Set("foo", genProto("bar1"))
+	assert.NoError(t, err)
+
+	before := time.Now()
+	w1, err := c.Watch("foo")
+	assert.WithinDuration(t, time.Now(), before, 200*time.Millisecond)
+	assert.NoError(t, err)
+
+	// watch channel will error out, but Get() will be tried
+	<-w1.C()
+	verifyValue(t, w1.Get(), "bar1", 1)
+
+	for mw.failed != mw.failTotal {
+		time.Sleep(100 * time.Millisecond)
+	}
+	assert.Equal(t, mw.failed, mw.failTotal)
+
+	_, err = store.Set("foo", genProto("bar2"))
+	assert.NoError(t, err)
+
+	// watch channel will get update from etcd
+	<-w1.C()
+	verifyValue(t, w1.Get(), "bar2", 2)
+
+	w1.Close()
+}
+
 func verifyValue(t *testing.T, v kv.Value, value string, version int) {
 	var testMsg kvtest.Foo
 	err := v.Unmarshal(&testMsg)
@@ -445,4 +486,24 @@ func testStore(t *testing.T) (*clientv3.Client, Options, func()) {
 	}
 
 	return ec, NewOptions().SetWatchChanCheckInterval(10 * time.Millisecond), closer
+}
+
+// mockWatcher mocks an etcd client that just blackholes a few watch requests
+type mockWatcher struct {
+	failed    int
+	failTotal int
+	c         *clientv3.Client
+}
+
+func (m *mockWatcher) Watch(ctx context.Context, key string, opts ...clientv3.OpOption) clientv3.WatchChan {
+	if m.failed <= m.failTotal {
+		m.failed++
+		time.Sleep(time.Minute)
+		return nil
+	}
+	return m.c.Watch(ctx, key, opts...)
+}
+
+func (m *mockWatcher) Close() error {
+	return m.c.Close()
 }
