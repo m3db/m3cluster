@@ -247,7 +247,7 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	assert.Equal(t, 0, len(w2.C()))
 	assert.Nil(t, w2.Get())
 
-	err = store.Heartbeat("foo", "i1", 2*time.Second)
+	err = store.Heartbeat("foo", "i1", 1*time.Second)
 	assert.NoError(t, err)
 
 	for {
@@ -271,30 +271,34 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	err = store.Heartbeat("foo", "i2", 2*time.Second)
 	assert.NoError(t, err)
 
-	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Equal(t, []string{"i1", "i2"}, w1.Get())
-
-	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
-	assert.Equal(t, []string{"i1", "i2"}, w2.Get())
-
 	for {
-		g := w1.Get()
-		if g == nil {
-			continue
-		}
-		if len(g.([]string)) == 0 {
+		if len(w1.Get().([]string)) == 2 {
 			break
 		}
 	}
-
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Equal(t, []string{}, w1.Get())
-
+	assert.Equal(t, []string{"i1", "i2"}, w1.Get())
 	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
+	assert.Equal(t, []string{"i1", "i2"}, w2.Get())
+
+	for {
+		if len(w1.Get().([]string)) == 1 {
+			break
+		}
+	}
+	<-w1.C()
+	assert.Equal(t, []string{"i2"}, w1.Get())
+	<-w2.C()
+	assert.Equal(t, []string{"i2"}, w2.Get())
+
+	for {
+		if len(w1.Get().([]string)) == 0 {
+			break
+		}
+	}
+	<-w1.C()
+	assert.Equal(t, []string{}, w1.Get())
+	<-w2.C()
 	assert.Equal(t, []string{}, w2.Get())
 
 	w1.Close()
