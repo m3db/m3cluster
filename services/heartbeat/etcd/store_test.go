@@ -225,6 +225,11 @@ func TestRenewLeaseDoNotTriggerWatch(t *testing.T) {
 	}
 	assert.Equal(t, []string{"i1"}, w1.Get())
 
+	// make sure C() is drained
+	if len(w1.C()) != 0 {
+		<-w1.C()
+	}
+
 	err = store.Heartbeat("foo", "i1", 200*time.Second)
 	assert.NoError(t, err)
 
