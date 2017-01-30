@@ -99,7 +99,7 @@ type options struct {
 	ropts                  xretry.Options
 	watchChanCheckInterval time.Duration
 	watchChanResetInterval time.Duration
-	watchChanInitTimtout   time.Duration
+	watchChanInitTimeout   time.Duration
 	cacheFilePath          string
 }
 
@@ -190,11 +190,11 @@ func (o options) SetWatchChanResetInterval(t time.Duration) Options {
 }
 
 func (o options) WatchChanInitTimeout() time.Duration {
-	return o.watchChanInitTimtout
+	return o.watchChanInitTimeout
 }
 
 func (o options) SetWatchChanInitTimeout(t time.Duration) Options {
-	o.watchChanInitTimtout = t
+	o.watchChanInitTimeout = t
 	return o
 }
 
