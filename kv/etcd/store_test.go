@@ -23,6 +23,7 @@ package etcd
 import (
 	"fmt"
 	"io/ioutil"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/generated/proto/kvtest"
 	"github.com/m3db/m3cluster/kv"
+	"github.com/m3db/m3cluster/testutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -421,6 +423,63 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 
 	w1.Close()
 	w2.Close()
+}
+
+func TestWatchNonBlocking(t *testing.T) {
+	ec, opts, closeFn := testStore(t)
+	defer closeFn()
+
+	opts = opts.SetWatchChanResetInterval(200 * time.Millisecond).SetWatchChanInitTimeout(200 * time.Millisecond)
+	store := NewStore(ec, opts)
+	c := store.(*client)
+
+	failTotal := 3
+	mw := testutil.NewBlackholeWatcher(failTotal, ec)
+	c.watcher = mw
+
+	var updateCalled int32
+	c.updateFn = func(w kv.ValueWatchable, key string) error {
+		atomic.AddInt32(&updateCalled, 1)
+		return c.updateWithRetry(w, key)
+	}
+
+	_, err := c.Set("foo", genProto("bar1"))
+	assert.NoError(t, err)
+
+	before := time.Now()
+	w1, err := c.Watch("foo")
+	assert.WithinDuration(t, time.Now(), before, 100*time.Millisecond)
+	assert.NoError(t, err)
+
+	// watch channel will error out, but Get() will be tried
+	<-w1.C()
+	verifyValue(t, w1.Get(), "bar1", 1)
+
+	for {
+		// update will be called from the timeouts of watch creation
+		// plus 1 notification from successfully creating the watch channel
+		if atomic.LoadInt32(&updateCalled) == int32(failTotal+1) {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// wait enough time > any sort of reset or retry interval to make sure
+	// no update is trigger by retries, only by watch updates
+	time.Sleep(300 * time.Millisecond)
+	assert.Equal(t, int32(failTotal+1), updateCalled)
+
+	// the get will not update the value because they are all on the same version
+	// thus no new notifications
+	assert.Equal(t, 0, len(w1.C()))
+	_, err = c.Set("foo", genProto("bar2"))
+	assert.NoError(t, err)
+
+	<-w1.C()
+	verifyValue(t, w1.Get(), "bar2", 2)
+
+	w1.Close()
 }
 
 func verifyValue(t *testing.T, v kv.Value, value string, version int) {

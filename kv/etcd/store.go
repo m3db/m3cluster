@@ -65,6 +65,7 @@ func NewStore(c *clientv3.Client, opts Options) kv.Store {
 			diskReadError:   scope.Counter("disk-read-error"),
 		},
 	}
+	store.updateFn = store.updateWithRetry
 
 	if store.cacheFile != "" {
 		if err := store.initCache(); err != nil {
@@ -95,6 +96,8 @@ type client struct {
 	cache          *valueCache
 	cacheFile      string
 	cacheUpdatedCh chan struct{}
+
+	updateFn func(w kv.ValueWatchable, key string) error
 }
 
 type clientMetrics struct {
@@ -143,28 +146,59 @@ func (c *client) Watch(key string) (kv.ValueWatch, error) {
 	c.Lock()
 	watchable, ok := c.watchables[key]
 	if !ok {
-		watchChan := c.watchChan(key)
-		c.m.etcdWatchCreate.Inc(1)
-
 		watchable = kv.NewValueWatchable()
 		c.watchables[key] = watchable
 
 		go func() {
 			ticker := time.Tick(c.opts.WatchChanCheckInterval())
 
+			var (
+				watchChan clientv3.WatchChan
+				err       error
+			)
 			for {
+				if watchChan == nil {
+					c.m.etcdWatchCreate.Inc(1)
+					watchChan, err = c.watchChanWithTimeout(key)
+					if err != nil {
+						c.logger.Errorf("could not create etcd watch, %v", err)
+
+						// NB(cw) when we failed to create a etcd watch channel
+						// we do a get for now and will try to recreate the watch chan later
+						if err = c.updateFn(watchable, key); err != nil {
+							c.logger.Errorf("failed to get value for key %s: %v", key, err)
+						}
+						// avoid recreating watch channel too frequently
+						time.Sleep(c.opts.WatchChanResetInterval())
+						continue
+					}
+				}
+
 				select {
 				case r, ok := <-watchChan:
-					if ok {
-						c.processNotification(r, watchable, key)
-					} else {
+					if !ok {
+						// the watch chan is closed, set it to nil so it will be recreated
+						// this is unlikely to happen but just to be defensive
+						watchChan = nil
 						c.logger.Warnf("etcd watch channel closed on key %s, recreating a watch channel", key)
 
 						// avoid recreating watch channel too frequently
 						time.Sleep(c.opts.WatchChanResetInterval())
-
-						watchChan = c.watchChan(key)
 						c.m.etcdWatchReset.Inc(1)
+
+						continue
+					}
+
+					// handle the update
+					if err = r.Err(); err != nil {
+						c.logger.Errorf("received error on watch channel: %v", err)
+						c.m.etcdWatchError.Inc(1)
+						// do not stop here, even though the update contains an error
+						// we still take this chance to attemp a Get() for the latest value
+					}
+
+					if err = c.updateFn(watchable, key); err != nil {
+						c.logger.Errorf("received notification for key %s, but failed to get value: %v", key, err)
 					}
 				case <-ticker:
 					c.RLock()
@@ -188,16 +222,29 @@ func (c *client) Watch(key string) (kv.ValueWatch, error) {
 	return w, err
 }
 
-func (c *client) watchChan(key string) clientv3.WatchChan {
-	return c.watcher.Watch(
-		context.Background(),
-		c.opts.KeyFn()(key),
-		// periodically (appx every 10 mins) checks for the latest data
-		// with or without any update notification
-		clientv3.WithProgressNotify(),
-		// receive initial notification once the watch channel is created
-		clientv3.WithCreatedNotify(),
-	)
+func (c *client) watchChanWithTimeout(key string) (clientv3.WatchChan, error) {
+	doneCh := make(chan struct{})
+
+	var watchChan clientv3.WatchChan
+	go func() {
+		watchChan = c.watcher.Watch(
+			context.Background(),
+			c.opts.KeyFn()(key),
+			// periodically (appx every 10 mins) checks for the latest data
+			// with or without any update notification
+			clientv3.WithProgressNotify(),
+			// receive initial notification once the watch channel is created
+			clientv3.WithCreatedNotify(),
+		)
+		close(doneCh)
+	}()
+
+	select {
+	case <-doneCh:
+		return watchChan, nil
+	case <-time.After(c.opts.WatchChanInitTimeout()):
+		return nil, fmt.Errorf("etcd watch chan creation timed-out on key: %s", key)
+	}
 }
 
 func (c *client) tryCleanUp(key string) bool {
@@ -220,29 +267,25 @@ func (c *client) tryCleanUp(key string) bool {
 	return true
 }
 
-func (c *client) processNotification(r clientv3.WatchResponse, w kv.ValueWatchable, key string) {
-	err := r.Err()
-	if err != nil {
-		c.logger.Errorf("received error on watch channel: %v", err)
-		c.m.etcdWatchError.Inc(1)
-	}
-
+func (c *client) updateWithRetry(w kv.ValueWatchable, key string) error {
+	var (
+		newValue kv.Value
+		err      error
+	)
 	// we need retry here because if Get() failed on an watch update,
 	// it has to wait 10 mins to be notified to try again
-	if err = c.retrier.Attempt(func() error {
-		return c.update(w, key)
-	}); err != nil {
-		c.logger.Errorf("received notification for key %s, but failed to get value: %v", key, err)
-	}
-}
-
-func (c *client) update(w kv.ValueWatchable, key string) error {
-	newValue, err := c.Get(key)
-	if err == kv.ErrNotFound {
-		// nothing to update
-		return nil
+	if execErr := c.retrier.Attempt(func() error {
+		newValue, err = c.Get(key)
+		if err == kv.ErrNotFound {
+			// do not retry on ErrNotFound
+			return nil
+		}
+		return err
+	}); execErr != nil {
+		return execErr
 	}
 
+	// for ErrNotFound case
 	if err != nil {
 		return err
 	}
@@ -370,8 +413,7 @@ func (c *client) initCache() error {
 	file, err := os.Open(c.opts.CacheFilePath())
 	if err != nil {
 		c.m.diskReadError.Inc(1)
-		c.logger.Errorf("error opening cache file %s: %v", c.cacheFile, err)
-		return err
+		return fmt.Errorf("error opening cache file %s: %v", c.cacheFile, err)
 	}
 
 	// Read bootstrap file
@@ -379,8 +421,7 @@ func (c *client) initCache() error {
 
 	if err := decoder.Decode(c.cache); err != nil {
 		c.m.diskReadError.Inc(1)
-		c.logger.Errorf("error reading cache file %s: %v", c.cacheFile, err)
-		return err
+		return fmt.Errorf("error reading cache file %s: %v", c.cacheFile, err)
 	}
 
 	return nil

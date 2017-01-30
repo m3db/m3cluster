@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
+	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services/heartbeat"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
@@ -47,7 +48,7 @@ var noopCancel func()
 func NewStore(c *clientv3.Client, opts Options) heartbeat.Store {
 	scope := opts.InstrumentsOptions().MetricsScope()
 
-	return &client{
+	store := &client{
 		leases:     make(map[string]clientv3.LeaseID),
 		watchables: make(map[string]xwatch.Watchable),
 		opts:       opts,
@@ -66,6 +67,9 @@ func NewStore(c *clientv3.Client, opts Options) heartbeat.Store {
 		kv:      c.KV,
 		watcher: c.Watcher,
 	}
+
+	store.updateFn = store.updateWithRetry
+	return store
 }
 
 type client struct {
@@ -81,6 +85,8 @@ type client struct {
 	l       clientv3.Lease
 	kv      clientv3.KV
 	watcher clientv3.Watcher
+
+	updateFn func(w xwatch.Watchable, service string) error
 }
 
 type clientMetrics struct {
@@ -163,42 +169,57 @@ func (c *client) Watch(service string) (xwatch.Watch, error) {
 	watchable, ok := c.watchables[service]
 
 	if !ok {
-		watchChan := c.watchChan(service)
-		c.m.etcdWatchCreate.Inc(1)
-
 		watchable = xwatch.NewWatchable()
 		c.watchables[service] = watchable
 
 		go func() {
 			ticker := time.Tick(c.opts.WatchChanCheckInterval())
 
+			var (
+				watchChan clientv3.WatchChan
+				err       error
+			)
 			for {
+				if watchChan == nil {
+					c.m.etcdWatchCreate.Inc(1)
+					watchChan, err = c.watchChanWithTimeout(service)
+					if err != nil {
+						c.logger.Errorf("could not create etcd watch, %v", err)
+						// NB(cw) when we failed to create a etcd watch channel
+						// we do a get for now and will try to recreate the watch chan later
+						if err = c.updateFn(watchable, service); err != nil {
+							c.logger.Errorf("failed to get value for service %s: %v", service, err)
+						}
+						// avoid recreating watch channel too frequently
+						time.Sleep(c.opts.WatchChanResetInterval())
+						continue
+					}
+				}
+
 				select {
 				case r, ok := <-watchChan:
 					if !ok {
+						// the watch chan is closed, set it to nil so it will be recreated
+						// this is unlikely to happen but just to be defensive
+						watchChan = nil
 						c.logger.Warnf("etcd watch channel closed on service %s, recreating a watch channel", service)
 
 						// avoid recreating watch channel too frequently
 						time.Sleep(c.opts.WatchChanResetInterval())
-
-						watchChan = c.watchChan(service)
 						c.m.etcdWatchReset.Inc(1)
 
 						continue
 					}
+
 					// handle the update
-					if r.Err() != nil {
-						c.logger.Errorf("received error on watch channel: %v", r.Err())
+					if err = r.Err(); err != nil {
+						c.logger.Errorf("received error on watch channel: %v", err)
 						c.m.etcdWatchError.Inc(1)
-						// do not continue here, even though the update contains an error
+						// do not stop here, even though the update contains an error
 						// we still take this chance to attemp a Get() for the latest value
 					}
 
-					// we retry because if Get() failed on an watch update,
-					// it has to wait 10 mins to be notified to try again
-					if err := c.retrier.Attempt(func() error {
-						return c.update(watchable, service)
-					}); err != nil {
+					if err := c.updateFn(watchable, service); err != nil {
 						c.logger.Errorf("received updates for service %s, but failed to get value: %v", service, err)
 					}
 				case <-ticker:
@@ -223,19 +244,32 @@ func (c *client) Watch(service string) (xwatch.Watch, error) {
 	return w, err
 }
 
-func (c *client) watchChan(service string) clientv3.WatchChan {
-	return c.watcher.Watch(
-		context.Background(),
-		servicePrefix(service),
-		// WithPrefix so that the watch will receive any changes
-		// from the instances under the service
-		clientv3.WithPrefix(),
-		// periodically (appx every 10 mins) checks for the latest data
-		// with or without any update notification
-		clientv3.WithProgressNotify(),
-		// receive initial notification once the watch channel is created
-		clientv3.WithCreatedNotify(),
-	)
+func (c *client) watchChanWithTimeout(service string) (clientv3.WatchChan, error) {
+	doneCh := make(chan struct{})
+
+	var watchChan clientv3.WatchChan
+	go func() {
+		watchChan = c.watcher.Watch(
+			context.Background(),
+			servicePrefix(service),
+			// WithPrefix so that the watch will receive any changes
+			// from the instances under the service
+			clientv3.WithPrefix(),
+			// periodically (appx every 10 mins) checks for the latest data
+			// with or without any update notification
+			clientv3.WithProgressNotify(),
+			// receive initial notification once the watch channel is created
+			clientv3.WithCreatedNotify(),
+		)
+		close(doneCh)
+	}()
+
+	select {
+	case <-doneCh:
+		return watchChan, nil
+	case <-time.After(c.opts.WatchChanInitTimeout()):
+		return nil, fmt.Errorf("etcd watch chan creation timed-out on service: %s", service)
+	}
 }
 
 func (c *client) tryCleanUp(service string) bool {
@@ -258,8 +292,25 @@ func (c *client) tryCleanUp(service string) bool {
 	return true
 }
 
-func (c *client) update(w xwatch.Watchable, service string) error {
-	newValue, err := c.Get(service)
+func (c *client) updateWithRetry(w xwatch.Watchable, service string) error {
+	var (
+		newValue []string
+		err      error
+	)
+	// we need retry here because if Get() failed on an watch update,
+	// it has to wait 10 mins to be notified to try again
+	if execErr := c.retrier.Attempt(func() error {
+		newValue, err = c.Get(service)
+		if err == kv.ErrNotFound {
+			// do not retry on ErrNotFound
+			return nil
+		}
+		return err
+	}); execErr != nil {
+		return execErr
+	}
+
+	// for ErrNotFound case
 	if err != nil {
 		return err
 	}

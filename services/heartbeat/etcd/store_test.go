@@ -21,11 +21,14 @@
 package etcd
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
+	"github.com/m3db/m3cluster/testutil"
+	"github.com/m3db/m3x/watch"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -247,7 +250,7 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	assert.Equal(t, 0, len(w2.C()))
 	assert.Nil(t, w2.Get())
 
-	err = store.Heartbeat("foo", "i1", 2*time.Second)
+	err = store.Heartbeat("foo", "i1", 1*time.Second)
 	assert.NoError(t, err)
 
 	for {
@@ -271,34 +274,95 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	err = store.Heartbeat("foo", "i2", 2*time.Second)
 	assert.NoError(t, err)
 
-	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Equal(t, []string{"i1", "i2"}, w1.Get())
-
-	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
-	assert.Equal(t, []string{"i1", "i2"}, w2.Get())
-
 	for {
-		g := w1.Get()
-		if g == nil {
-			continue
-		}
-		if len(g.([]string)) == 0 {
+		if len(w1.Get().([]string)) == 2 {
 			break
 		}
 	}
-
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Equal(t, []string{}, w1.Get())
-
+	assert.Equal(t, []string{"i1", "i2"}, w1.Get())
 	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
+	assert.Equal(t, []string{"i1", "i2"}, w2.Get())
+
+	for {
+		if len(w1.Get().([]string)) == 1 {
+			break
+		}
+	}
+	<-w1.C()
+	assert.Equal(t, []string{"i2"}, w1.Get())
+	<-w2.C()
+	assert.Equal(t, []string{"i2"}, w2.Get())
+
+	for {
+		if len(w1.Get().([]string)) == 0 {
+			break
+		}
+	}
+	<-w1.C()
+	assert.Equal(t, []string{}, w1.Get())
+	<-w2.C()
 	assert.Equal(t, []string{}, w2.Get())
 
 	w1.Close()
 	w2.Close()
+}
+
+func TestWatchNonBlocking(t *testing.T) {
+	ec, opts, closeFn := testStore(t)
+	defer closeFn()
+
+	opts = opts.SetWatchChanResetInterval(200 * time.Millisecond).SetWatchChanInitTimeout(200 * time.Millisecond)
+	store := NewStore(ec, opts)
+	c := store.(*client)
+
+	failTotal := 3
+	mw := testutil.NewBlackholeWatcher(failTotal, ec)
+	c.watcher = mw
+
+	var updateCalled int32
+	c.updateFn = func(w xwatch.Watchable, service string) error {
+		atomic.AddInt32(&updateCalled, 1)
+		return c.updateWithRetry(w, service)
+	}
+
+	before := time.Now()
+	w1, err := c.Watch("foo")
+	assert.WithinDuration(t, time.Now(), before, 100*time.Millisecond)
+	assert.NoError(t, err)
+
+	assert.Nil(t, nil, w1.Get())
+
+	err = store.Heartbeat("foo", "i1", 100*time.Second)
+	assert.NoError(t, err)
+	// watch channel will error out, but Get() will be tried
+	<-w1.C()
+	assert.Equal(t, []string{"i1"}, w1.Get())
+
+	for {
+		// update will be called from the timeouts of watch creation
+		// plus 1 notification from successfully creating the watch channel
+		if atomic.LoadInt32(&updateCalled) == int32(failTotal+1) {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// wait enough time > any sort of reset or retry interval to make sure
+	// no update is trigger by retries, only by watch updates
+	time.Sleep(500 * time.Millisecond)
+	assert.Equal(t, int32(failTotal+1), updateCalled)
+
+	// drain current notifications
+	<-w1.C()
+	err = store.Heartbeat("foo", "i2", 100*time.Second)
+	assert.NoError(t, err)
+
+	<-w1.C()
+	assert.Equal(t, []string{"i1", "i2"}, w1.Get())
+
+	w1.Close()
 }
 
 func testStore(t *testing.T) (*clientv3.Client, Options, func()) {
