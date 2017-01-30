@@ -32,7 +32,7 @@ var (
 	defaultRequestTimeout         = 10 * time.Second
 	defaultWatchChanCheckInterval = 10 * time.Second
 	defaultWatchChanResetInterval = 10 * time.Second
-	defaultWatchChanInitTimeout   = 5 * time.Second
+	defaultWatchChanInitTimeout   = 10 * time.Second
 	defaultRetryOptions           = xretry.NewOptions().SetMaxRetries(5)
 	defaultKeyFn                  = KeyFn(
 		func(key string) string {
