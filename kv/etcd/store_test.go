@@ -23,6 +23,7 @@ package etcd
 import (
 	"fmt"
 	"io/ioutil"
+	"sync"
 	"testing"
 	"time"
 
@@ -449,10 +450,18 @@ func TestWatchNonBlocking(t *testing.T) {
 	<-w1.C()
 	verifyValue(t, w1.Get(), "bar1", 1)
 
-	for mw.failed != mw.failTotal {
+	for {
+		mw.Lock()
+		failed := mw.failed
+		failTotal := mw.failTotal
+		mw.Unlock()
+
+		if failed == failTotal {
+			break
+		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Equal(t, mw.failed, mw.failTotal)
 
 	_, err = store.Set("foo", genProto("bar2"))
 	assert.NoError(t, err)
@@ -490,17 +499,25 @@ func testStore(t *testing.T) (*clientv3.Client, Options, func()) {
 
 // mockWatcher mocks an etcd client that just blackholes a few watch requests
 type mockWatcher struct {
+	sync.Mutex
+
 	failed    int
 	failTotal int
 	c         *clientv3.Client
 }
 
 func (m *mockWatcher) Watch(ctx context.Context, key string, opts ...clientv3.OpOption) clientv3.WatchChan {
+	m.Lock()
+
 	if m.failed <= m.failTotal {
 		m.failed++
+		m.Unlock()
+
 		time.Sleep(time.Minute)
 		return nil
 	}
+	m.Unlock()
+
 	return m.c.Watch(ctx, key, opts...)
 }
 
