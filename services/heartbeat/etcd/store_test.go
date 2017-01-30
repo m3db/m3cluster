@@ -132,8 +132,11 @@ func TestWatch(t *testing.T) {
 	err = store.Heartbeat("foo", "i2", 2*time.Second)
 	assert.NoError(t, err)
 
-	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
+	for range w1.C() {
+		if len(w1.Get().([]string)) == 2 {
+			break
+		}
+	}
 	assert.Equal(t, []string{"i1", "i2"}, w1.Get())
 
 	for range w1.C() {
@@ -141,7 +144,6 @@ func TestWatch(t *testing.T) {
 			break
 		}
 	}
-
 	<-w1.C()
 	assert.Equal(t, 0, len(w1.C()))
 	assert.Equal(t, []string{}, w1.Get())
@@ -213,7 +215,7 @@ func TestRenewLeaseDoNotTriggerWatch(t *testing.T) {
 	w1, err := store.Watch("foo")
 	assert.NoError(t, err)
 
-	err = store.Heartbeat("foo", "i1", 2*time.Second)
+	err = store.Heartbeat("foo", "i1", 200*time.Second)
 	assert.NoError(t, err)
 
 	for range w1.C() {
@@ -223,7 +225,7 @@ func TestRenewLeaseDoNotTriggerWatch(t *testing.T) {
 	}
 	assert.Equal(t, []string{"i1"}, w1.Get())
 
-	err = store.Heartbeat("foo", "i1", 2*time.Second)
+	err = store.Heartbeat("foo", "i1", 200*time.Second)
 	assert.NoError(t, err)
 
 	select {

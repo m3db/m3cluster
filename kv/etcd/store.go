@@ -278,16 +278,11 @@ func (c *client) updateWithRetry(w kv.ValueWatchable, key string) error {
 		newValue, err = c.Get(key)
 		if err == kv.ErrNotFound {
 			// do not retry on ErrNotFound
-			return nil
+			return xretry.NonRetryableError(err)
 		}
 		return err
 	}); execErr != nil {
 		return execErr
-	}
-
-	// for ErrNotFound case
-	if err != nil {
-		return err
 	}
 
 	curValue := w.Get()

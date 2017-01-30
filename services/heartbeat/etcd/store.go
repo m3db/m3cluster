@@ -261,6 +261,7 @@ func (c *client) watchChanWithTimeout(service string) (clientv3.WatchChan, error
 			// receive initial notification once the watch channel is created
 			clientv3.WithCreatedNotify(),
 		)
+
 		close(doneCh)
 	}()
 
@@ -303,16 +304,11 @@ func (c *client) updateWithRetry(w xwatch.Watchable, service string) error {
 		newValue, err = c.Get(service)
 		if err == kv.ErrNotFound {
 			// do not retry on ErrNotFound
-			return nil
+			return xretry.NonRetryableError(err)
 		}
 		return err
 	}); execErr != nil {
 		return execErr
-	}
-
-	// for ErrNotFound case
-	if err != nil {
-		return err
 	}
 
 	w.Update(newValue)
