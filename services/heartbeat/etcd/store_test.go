@@ -162,7 +162,7 @@ func TestWatchClose(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store := NewStore(ec, opts.SetWatchChanCheckInterval(10*time.Millisecond))
 
 	err := store.Heartbeat("foo", "i1", 100*time.Second)
 	assert.NoError(t, err)
@@ -380,5 +380,5 @@ func testStore(t *testing.T) (*clientv3.Client, Options, func()) {
 		ecluster.Terminate(t)
 		ec.Watcher.Close()
 	}
-	return ec, NewOptions().SetWatchChanCheckInterval(10 * time.Millisecond), closer
+	return ec, NewOptions(), closer
 }
