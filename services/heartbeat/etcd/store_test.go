@@ -29,7 +29,6 @@ import (
 	"github.com/coreos/etcd/integration"
 	"github.com/m3db/m3cluster/testutil"
 	"github.com/m3db/m3x/watch"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -115,29 +114,29 @@ func TestWatch(t *testing.T) {
 
 	store := NewStore(ec, opts)
 	w1, err := store.Watch("foo")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Nil(t, w1.Get())
+	require.NoError(t, err)
+	require.Equal(t, 0, len(w1.C()))
+	require.Nil(t, w1.Get())
 
 	err = store.Heartbeat("foo", "i1", 2*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for range w1.C() {
 		if len(w1.Get().([]string)) == 1 {
 			break
 		}
 	}
-	assert.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, []string{"i1"}, w1.Get())
 
 	err = store.Heartbeat("foo", "i2", 2*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for range w1.C() {
 		if len(w1.Get().([]string)) == 2 {
 			break
 		}
 	}
-	assert.Equal(t, []string{"i1", "i2"}, w1.Get())
+	require.Equal(t, []string{"i1", "i2"}, w1.Get())
 
 	for range w1.C() {
 		if len(w1.Get().([]string)) == 0 {
@@ -145,15 +144,15 @@ func TestWatch(t *testing.T) {
 		}
 	}
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Equal(t, []string{}, w1.Get())
+	require.Equal(t, 0, len(w1.C()))
+	require.Equal(t, []string{}, w1.Get())
 
 	err = store.Heartbeat("foo", "i2", time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Equal(t, []string{"i2"}, w1.Get())
+	require.Equal(t, 0, len(w1.C()))
+	require.Equal(t, []string{"i2"}, w1.Get())
 
 	w1.Close()
 }
@@ -165,16 +164,16 @@ func TestWatchClose(t *testing.T) {
 	store := NewStore(ec, opts.SetWatchChanCheckInterval(10*time.Millisecond))
 
 	err := store.Heartbeat("foo", "i1", 100*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	w1, err := store.Watch("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	<-w1.C()
-	assert.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, []string{"i1"}, w1.Get())
 
 	c := store.(*client)
 	_, ok := c.watchables["foo"]
-	assert.True(t, ok)
+	require.True(t, ok)
 
 	// closing w1 will close the go routine for the watch updates
 	w1.Close()
@@ -191,16 +190,16 @@ func TestWatchClose(t *testing.T) {
 
 	// getting a new watch will create a new watchale and thread to watch for updates
 	w2, err := store.Watch("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	<-w2.C()
-	assert.Equal(t, []string{"i1"}, w2.Get())
+	require.Equal(t, []string{"i1"}, w2.Get())
 
 	// verify that w1 will no longer be updated because the original watchable is closed
 	err = store.Heartbeat("foo", "i2", 100*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	<-w2.C()
-	assert.Equal(t, []string{"i1", "i2"}, w2.Get())
-	assert.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, []string{"i1", "i2"}, w2.Get())
+	require.Equal(t, []string{"i1"}, w1.Get())
 
 	w1.Close()
 	w2.Close()
@@ -210,36 +209,24 @@ func TestRenewLeaseDoNotTriggerWatch(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store := NewStore(ec, opts).(*client)
 
-	w1, err := store.Watch("foo")
-	assert.NoError(t, err)
-
-	err = store.Heartbeat("foo", "i1", 200*time.Second)
-	assert.NoError(t, err)
-
-	for range w1.C() {
-		if len(w1.Get().([]string)) == 1 {
-			break
-		}
-	}
-	assert.Equal(t, []string{"i1"}, w1.Get())
-
-	// make sure C() is drained
-	if len(w1.C()) != 0 {
-		<-w1.C()
-	}
+	w, err := store.watchChanWithTimeout("foo")
+	require.NoError(t, err)
+	<-w
 
 	err = store.Heartbeat("foo", "i1", 200*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	<-w
+
+	err = store.Heartbeat("foo", "i1", 200*time.Second)
+	require.NoError(t, err)
 
 	select {
-	case <-w1.C():
-		assert.FailNow(t, "unexpected notification")
+	case <-w:
+		require.Fail(t, "unexpected notification")
 	case <-time.After(200 * time.Millisecond):
 	}
-
-	w1.Close()
 }
 
 func TestMultipleWatchesFromNotExist(t *testing.T) {
@@ -248,17 +235,17 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 
 	store := NewStore(ec, opts)
 	w1, err := store.Watch("foo")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Nil(t, w1.Get())
+	require.NoError(t, err)
+	require.Equal(t, 0, len(w1.C()))
+	require.Nil(t, w1.Get())
 
 	w2, err := store.Watch("foo")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(w2.C()))
-	assert.Nil(t, w2.Get())
+	require.NoError(t, err)
+	require.Equal(t, 0, len(w2.C()))
+	require.Nil(t, w2.Get())
 
 	err = store.Heartbeat("foo", "i1", 1*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for {
 		g := w1.Get()
@@ -271,15 +258,15 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	}
 
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, 0, len(w1.C()))
+	require.Equal(t, []string{"i1"}, w1.Get())
 
 	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
-	assert.Equal(t, []string{"i1"}, w2.Get())
+	require.Equal(t, 0, len(w2.C()))
+	require.Equal(t, []string{"i1"}, w2.Get())
 
 	err = store.Heartbeat("foo", "i2", 2*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for {
 		if len(w1.Get().([]string)) == 2 {
@@ -287,9 +274,9 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 		}
 	}
 	<-w1.C()
-	assert.Equal(t, []string{"i1", "i2"}, w1.Get())
+	require.Equal(t, []string{"i1", "i2"}, w1.Get())
 	<-w2.C()
-	assert.Equal(t, []string{"i1", "i2"}, w2.Get())
+	require.Equal(t, []string{"i1", "i2"}, w2.Get())
 
 	for {
 		if len(w1.Get().([]string)) == 1 {
@@ -297,9 +284,9 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 		}
 	}
 	<-w1.C()
-	assert.Equal(t, []string{"i2"}, w1.Get())
+	require.Equal(t, []string{"i2"}, w1.Get())
 	<-w2.C()
-	assert.Equal(t, []string{"i2"}, w2.Get())
+	require.Equal(t, []string{"i2"}, w2.Get())
 
 	for {
 		if len(w1.Get().([]string)) == 0 {
@@ -307,9 +294,9 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 		}
 	}
 	<-w1.C()
-	assert.Equal(t, []string{}, w1.Get())
+	require.Equal(t, []string{}, w1.Get())
 	<-w2.C()
-	assert.Equal(t, []string{}, w2.Get())
+	require.Equal(t, []string{}, w2.Get())
 
 	w1.Close()
 	w2.Close()
@@ -335,16 +322,16 @@ func TestWatchNonBlocking(t *testing.T) {
 
 	before := time.Now()
 	w1, err := c.Watch("foo")
-	assert.WithinDuration(t, time.Now(), before, 100*time.Millisecond)
-	assert.NoError(t, err)
+	require.WithinDuration(t, time.Now(), before, 100*time.Millisecond)
+	require.NoError(t, err)
 
-	assert.Nil(t, nil, w1.Get())
+	require.Nil(t, nil, w1.Get())
 
 	err = store.Heartbeat("foo", "i1", 100*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// watch channel will error out, but Get() will be tried
 	<-w1.C()
-	assert.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, []string{"i1"}, w1.Get())
 
 	for {
 		// update will be called from the timeouts of watch creation
@@ -359,26 +346,25 @@ func TestWatchNonBlocking(t *testing.T) {
 	// wait enough time > any sort of reset or retry interval to make sure
 	// no update is trigger by retries, only by watch updates
 	time.Sleep(500 * time.Millisecond)
-	assert.Equal(t, int32(failTotal+1), updateCalled)
+	require.Equal(t, int32(failTotal+1), updateCalled)
 
 	// drain current notifications
 	<-w1.C()
 	err = store.Heartbeat("foo", "i2", 100*time.Second)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w1.C()
-	assert.Equal(t, []string{"i1", "i2"}, w1.Get())
+	require.Equal(t, []string{"i1", "i2"}, w1.Get())
 
 	w1.Close()
 }
 
 func testStore(t *testing.T) (*clientv3.Client, Options, func()) {
 	ecluster := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	ec := ecluster.Client(0)
+	ec := ecluster.RandClient()
 
 	closer := func() {
 		ecluster.Terminate(t)
-		ec.Watcher.Close()
 	}
 	return ec, NewOptions(), closer
 }

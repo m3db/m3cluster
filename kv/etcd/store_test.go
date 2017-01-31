@@ -496,11 +496,10 @@ func genProto(msg string) proto.Message {
 
 func testStore(t *testing.T) (*clientv3.Client, Options, func()) {
 	ecluster := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	ec := ecluster.Client(0)
+	ec := ecluster.RandClient()
 
 	closer := func() {
 		ecluster.Terminate(t)
-		ec.Watcher.Close()
 	}
 
 	return ec, NewOptions().SetWatchChanCheckInterval(10 * time.Millisecond), closer
