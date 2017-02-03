@@ -24,9 +24,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/m3db/m3cluster/mocks"
+
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
-	"github.com/m3db/m3cluster/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -301,7 +302,7 @@ func TestWatchNonBlocking(t *testing.T) {
 	require.NoError(t, err)
 
 	failTotal := 1
-	mw := testutil.NewBlackholeWatcher(failTotal, ec)
+	mw := mocks.NewBlackholeWatcher(failTotal, ec)
 	c.watcher = mw
 
 	before := time.Now()

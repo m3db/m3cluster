@@ -18,14 +18,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package watchhelper
+package watchmanager
 
 import (
 	"errors"
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3x/instrument"
+
+	"github.com/coreos/etcd/clientv3"
 )
 
 const (
@@ -35,10 +36,10 @@ const (
 )
 
 var (
-	errNilWatch                  = errors.New("invalid optiosn: nil watcher")
+	errNilWatch                  = errors.New("invalid options: nil watcher")
 	errNilUpdateFn               = errors.New("invalid options: nil updateFn")
-	errNilCheckAndStopFn         = errors.New("invalid options: nil checkAndStopFn")
-	errNilInstrumentOptions      = errors.New("invalid optiosn: nil instrument options")
+	errNilTickAndStopFn          = errors.New("invalid options: nil tickAndStopFn")
+	errNilInstrumentOptions      = errors.New("invalid options: nil instrument options")
 	errInvalidWatchCheckInterval = errors.New("invalid watch channel check interval")
 )
 
@@ -53,9 +54,9 @@ func NewOptions() Options {
 }
 
 type options struct {
-	watcher        clientv3.Watcher
-	updateFn       UpdateFn
-	checkAndStopFn CheckAndStopFn
+	watcher       clientv3.Watcher
+	updateFn      UpdateFn
+	tickAndStopFn TickAndStopFn
 
 	wopts                  []clientv3.OpOption
 	watchChanCheckInterval time.Duration
@@ -92,7 +93,6 @@ func (o *options) SetWatchChanResetInterval(t time.Duration) Options {
 	opts := *o
 	opts.watchChanResetInterval = t
 	return &opts
-
 }
 
 func (o *options) WatchChanInitTimeout() time.Duration {
@@ -113,16 +113,15 @@ func (o *options) SetUpdateFn(f UpdateFn) Options {
 	opts := *o
 	opts.updateFn = f
 	return &opts
-
 }
 
-func (o *options) CheckAndStopFn() CheckAndStopFn {
-	return o.checkAndStopFn
+func (o *options) TickAndStopFn() TickAndStopFn {
+	return o.tickAndStopFn
 }
 
-func (o *options) SetCheckAndStopFn(f CheckAndStopFn) Options {
+func (o *options) SetTickAndStopFn(f TickAndStopFn) Options {
 	opts := *o
-	opts.checkAndStopFn = f
+	opts.tickAndStopFn = f
 	return &opts
 }
 
@@ -155,8 +154,8 @@ func (o *options) Validate() error {
 		return errNilUpdateFn
 	}
 
-	if o.checkAndStopFn == nil {
-		return errNilCheckAndStopFn
+	if o.tickAndStopFn == nil {
+		return errNilTickAndStopFn
 	}
 
 	if o.iopts == nil {

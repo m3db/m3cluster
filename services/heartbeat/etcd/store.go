@@ -26,13 +26,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
-	"github.com/m3db/m3cluster/etcd/watch_helper"
+	"github.com/m3db/m3cluster/etcd/watchmanager"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services/heartbeat"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
 	"github.com/m3db/m3x/watch"
+
+	"github.com/coreos/etcd/clientv3"
 	"github.com/uber-go/tally"
 	"golang.org/x/net/context"
 )
@@ -66,10 +67,10 @@ func NewStore(c *clientv3.Client, opts Options) (heartbeat.Store, error) {
 		watcher: c.Watcher,
 	}
 
-	whOptions := watchhelper.NewOptions().
+	whOptions := watchmanager.NewOptions().
 		SetWatcher(c.Watcher).
 		SetUpdateFn(store.update).
-		SetCheckAndStopFn(store.checkAndStopWatch).
+		SetTickAndStopFn(store.tickAndStop).
 		SetWatchOptions([]clientv3.OpOption{
 			// WithPrefix so that the watch will receive any changes
 			// from the instances under the service
@@ -85,7 +86,7 @@ func NewStore(c *clientv3.Client, opts Options) (heartbeat.Store, error) {
 		SetWatchChanResetInterval(opts.WatchChanResetInterval()).
 		SetInstrumentsOptions(opts.InstrumentsOptions())
 
-	wh, err := watchhelper.NewWatchHelper(whOptions)
+	wh, err := watchmanager.NewWatchManager(whOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +110,7 @@ type client struct {
 	kv      clientv3.KV
 	watcher clientv3.Watcher
 
-	wh watchhelper.WatchHelper
+	wh watchmanager.WatchManager
 }
 
 type clientMetrics struct {
@@ -197,7 +198,7 @@ func (c *client) Watch(service string) (xwatch.Watch, error) {
 		watchable = xwatch.NewWatchable()
 		c.watchables[serviceKey] = watchable
 
-		go c.wh.Run(serviceKey)
+		go c.wh.Watch(serviceKey)
 	}
 	c.Unlock()
 
@@ -234,7 +235,7 @@ func (c *client) update(key string) error {
 	return nil
 }
 
-func (c *client) checkAndStopWatch(key string) bool {
+func (c *client) tickAndStop(key string) bool {
 	// fast path
 	c.RLock()
 	watchable, ok := c.watchables[key]

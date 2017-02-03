@@ -18,16 +18,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package watchhelper
+package watchmanager
 
 import (
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/m3db/m3cluster/mocks"
+
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
-	"github.com/m3db/m3cluster/testutil"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 )
@@ -49,7 +50,7 @@ func TestWatchChan(t *testing.T) {
 		require.Fail(t, "could not get notification")
 	}
 
-	mw := testutil.NewBlackholeWatcher(3, ec)
+	mw := mocks.NewBlackholeWatcher(3, ec)
 	wh.opts = wh.opts.SetWatcher(mw).SetWatchChanInitTimeout(100 * time.Millisecond)
 
 	before := time.Now()
@@ -62,7 +63,7 @@ func TestWatchSimple(t *testing.T) {
 	wh, ec, updateCalled, shouldStop, doneCh, closer := testSetup(t)
 	defer closer()
 
-	go wh.Run("foo")
+	go wh.Watch("foo")
 
 	require.Equal(t, int32(0), atomic.LoadInt32(updateCalled))
 
@@ -107,13 +108,13 @@ func TestWatchRecreateWatch(t *testing.T) {
 	defer closer()
 
 	failTotal := 3
-	mw := testutil.NewBlackholeWatcher(failTotal, ec)
+	mw := mocks.NewBlackholeWatcher(failTotal, ec)
 	wh.opts = wh.opts.
 		SetWatcher(mw).
 		SetWatchChanInitTimeout(100 * time.Millisecond).
 		SetWatchChanResetInterval(300 * time.Millisecond)
 
-	go wh.Run("foo")
+	go wh.Watch("foo")
 
 	// watch will error out but updateFn will be tried
 	for {
@@ -156,7 +157,7 @@ func TestWatchNoLeader(t *testing.T) {
 				return nil
 			},
 		).
-		SetCheckAndStopFn(
+		SetTickAndStopFn(
 			func(string) bool {
 				if atomic.LoadInt32(&shouldStop) == 0 {
 					return false
@@ -170,10 +171,10 @@ func TestWatchNoLeader(t *testing.T) {
 		).
 		SetWatchChanInitTimeout(200 * time.Millisecond)
 
-	wh, err := NewWatchHelper(opts)
+	wh, err := NewWatchManager(opts)
 	require.NoError(t, err)
 
-	go wh.Run("foo")
+	go wh.Watch("foo")
 
 	time.Sleep(2 * time.Second)
 	// there should be a valid watch now, trigger a notification
@@ -206,7 +207,7 @@ func TestWatchNoLeader(t *testing.T) {
 	}
 }
 
-func testSetup(t *testing.T) (*watchHelper, *clientv3.Client, *int32, *int32, chan struct{}, func()) {
+func testSetup(t *testing.T) (*manager, *clientv3.Client, *int32, *int32, chan struct{}, func()) {
 	ecluster := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
 	ec := ecluster.RandClient()
 
@@ -225,7 +226,7 @@ func testSetup(t *testing.T) (*watchHelper, *clientv3.Client, *int32, *int32, ch
 			atomic.AddInt32(&updateCalled, 1)
 			return nil
 		}).
-		SetCheckAndStopFn(func(string) bool {
+		SetTickAndStopFn(func(string) bool {
 			if atomic.LoadInt32(&shouldStop) == 0 {
 				return false
 			}
@@ -237,8 +238,8 @@ func testSetup(t *testing.T) (*watchHelper, *clientv3.Client, *int32, *int32, ch
 		SetWatchChanCheckInterval(100 * time.Millisecond).
 		SetWatchChanInitTimeout(100 * time.Millisecond)
 
-	wh, err := NewWatchHelper(opts)
+	wh, err := NewWatchManager(opts)
 	require.NoError(t, err)
 
-	return wh.(*watchHelper), ec, &updateCalled, &shouldStop, doneCh, closer
+	return wh.(*manager), ec, &updateCalled, &shouldStop, doneCh, closer
 }

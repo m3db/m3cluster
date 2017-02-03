@@ -31,7 +31,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/generated/proto/kvtest"
 	"github.com/m3db/m3cluster/kv"
-	"github.com/m3db/m3cluster/testutil"
+	"github.com/m3db/m3cluster/mocks"
 	"github.com/stretchr/testify/require"
 )
 
@@ -448,7 +448,7 @@ func TestWatchNonBlocking(t *testing.T) {
 	c := store.(*client)
 
 	failTotal := 3
-	mw := testutil.NewBlackholeWatcher(failTotal, ec)
+	mw := mocks.NewBlackholeWatcher(failTotal, ec)
 	c.watcher = mw
 
 	_, err = c.Set("foo", genProto("bar1"))

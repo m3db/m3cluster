@@ -28,7 +28,7 @@ import (
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
-	"github.com/m3db/m3cluster/etcd/watch_helper"
+	"github.com/m3db/m3cluster/etcd/watchmanager"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
@@ -62,10 +62,10 @@ func NewStore(c *clientv3.Client, opts Options) (kv.Store, error) {
 			diskReadError:  scope.Counter("disk-read-error"),
 		},
 	}
-	whOptions := watchhelper.NewOptions().
+	whOptions := watchmanager.NewOptions().
 		SetWatcher(c.Watcher).
 		SetUpdateFn(store.update).
-		SetCheckAndStopFn(store.checkAndStopWatch).
+		SetTickAndStopFn(store.tickAndStop).
 		SetWatchOptions([]clientv3.OpOption{
 			// periodically (appx every 10 mins) checks for the latest data
 			// with or without any update notification
@@ -78,7 +78,7 @@ func NewStore(c *clientv3.Client, opts Options) (kv.Store, error) {
 		SetWatchChanResetInterval(opts.WatchChanResetInterval()).
 		SetInstrumentsOptions(opts.InstrumentsOptions())
 
-	wh, err := watchhelper.NewWatchHelper(whOptions)
+	wh, err := watchmanager.NewWatchManager(whOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ type client struct {
 	cacheFile      string
 	cacheUpdatedCh chan struct{}
 
-	wh watchhelper.WatchHelper
+	wh watchmanager.WatchManager
 }
 
 type clientMetrics struct {
@@ -169,7 +169,7 @@ func (c *client) Watch(key string) (kv.ValueWatch, error) {
 		watchable = kv.NewValueWatchable()
 		c.watchables[newKey] = watchable
 
-		go c.wh.Run(newKey)
+		go c.wh.Watch(newKey)
 
 	}
 	c.Unlock()
@@ -214,7 +214,7 @@ func (c *client) update(key string) error {
 	return nil
 }
 
-func (c *client) checkAndStopWatch(key string) bool {
+func (c *client) tickAndStop(key string) bool {
 	// fast path
 	c.RLock()
 	watchable, ok := c.watchables[key]

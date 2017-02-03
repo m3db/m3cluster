@@ -18,55 +18,55 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package watchhelper
+package watchmanager
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3x/log"
+
+	"github.com/coreos/etcd/clientv3"
 	"github.com/uber-go/tally"
 )
 
-// NewWatchHelper creates a new watch helper
-func NewWatchHelper(opts Options) (WatchHelper, error) {
+// NewWatchManager creates a new watch manager
+func NewWatchManager(opts Options) (WatchManager, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
 
 	scope := opts.InstrumentsOptions().MetricsScope()
-	return &watchHelper{
+	return &manager{
 		opts:   opts,
 		logger: opts.InstrumentsOptions().Logger(),
-		m: clientMetrics{
+		m: metrics{
 			etcdWatchCreate: scope.Counter("etcd-watch-create"),
 			etcdWatchError:  scope.Counter("etcd-watch-error"),
 			etcdWatchReset:  scope.Counter("etcd-watch-reset"),
 		},
-
-		updateFn:       opts.UpdateFn(),
-		checkAndStopFn: opts.CheckAndStopFn(),
+		updateFn:      opts.UpdateFn(),
+		tickAndStopFn: opts.TickAndStopFn(),
 	}, nil
 }
 
-type watchHelper struct {
+type manager struct {
 	opts   Options
 	logger xlog.Logger
-	m      clientMetrics
+	m      metrics
 
-	updateFn       func(key string) error
-	checkAndStopFn func(key string) bool
+	updateFn      UpdateFn
+	tickAndStopFn TickAndStopFn
 }
 
-type clientMetrics struct {
+type metrics struct {
 	etcdWatchCreate tally.Counter
 	etcdWatchError  tally.Counter
 	etcdWatchReset  tally.Counter
 }
 
-func (w *watchHelper) watchChanWithTimeout(key string) (clientv3.WatchChan, error) {
+func (w *manager) watchChanWithTimeout(key string) (clientv3.WatchChan, error) {
 	doneCh := make(chan struct{})
 
 	var watchChan clientv3.WatchChan
@@ -87,7 +87,7 @@ func (w *watchHelper) watchChanWithTimeout(key string) (clientv3.WatchChan, erro
 	}
 }
 
-func (w *watchHelper) Run(key string) {
+func (w *manager) Watch(key string) {
 	ticker := time.Tick(w.opts.WatchChanCheckInterval())
 
 	var (
@@ -139,7 +139,7 @@ func (w *watchHelper) Run(key string) {
 				w.logger.Errorf("received notification for key %s, but failed to get value: %v", key, err)
 			}
 		case <-ticker:
-			if w.checkAndStopFn(key) {
+			if w.tickAndStopFn(key) {
 				w.logger.Infof("watch on key %s ended", key)
 				return
 			}

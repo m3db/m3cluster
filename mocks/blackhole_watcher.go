@@ -1,4 +1,4 @@
-package testutil
+package mocks
 
 import (
 	"sync"
@@ -8,8 +8,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-// MockWatcher mocks an etcd client that just blackholes a few watch requests
-type MockWatcher struct {
+// watcher mocks an etcd client that just blackholes a few watch requests
+type watcher struct {
 	sync.Mutex
 
 	failed    int
@@ -18,8 +18,8 @@ type MockWatcher struct {
 }
 
 // NewBlackholeWatcher returns a watcher that mimics blackholing
-func NewBlackholeWatcher(failTotal int, c *clientv3.Client) *MockWatcher {
-	return &MockWatcher{
+func NewBlackholeWatcher(failTotal int, c *clientv3.Client) clientv3.Watcher {
+	return &watcher{
 		failed:    0,
 		failTotal: failTotal,
 		c:         c,
@@ -27,7 +27,7 @@ func NewBlackholeWatcher(failTotal int, c *clientv3.Client) *MockWatcher {
 }
 
 // Watch is implementing etcd clientv3 Watcher interface
-func (m *MockWatcher) Watch(ctx context.Context, key string, opts ...clientv3.OpOption) clientv3.WatchChan {
+func (m *watcher) Watch(ctx context.Context, key string, opts ...clientv3.OpOption) clientv3.WatchChan {
 	m.Lock()
 
 	if m.failed < m.failTotal {
@@ -43,6 +43,6 @@ func (m *MockWatcher) Watch(ctx context.Context, key string, opts ...clientv3.Op
 }
 
 // Close is implementing etcd clientv3 Watcher interface
-func (m *MockWatcher) Close() error {
+func (m *watcher) Close() error {
 	return m.c.Close()
 }

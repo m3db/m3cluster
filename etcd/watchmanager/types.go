@@ -18,27 +18,28 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package watchhelper
+package watchmanager
 
 import (
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3x/instrument"
+
+	"github.com/coreos/etcd/clientv3"
 )
 
-// WatchHelper helps maintaining etcd watch on a key
-type WatchHelper interface {
-	// Run watches the key forever until the CheckAndStopFn returns true
-	Run(key string)
+// WatchManager manages etcd watch on a key
+type WatchManager interface {
+	// Watch watches the key forever until the CheckAndStopFn returns true
+	Watch(key string)
 }
 
 // UpdateFn is called when an event on the watch channel happens
 type UpdateFn func(key string) error
 
-// CheckAndStopFn is called every once a while
+// TickAndStopFn is called every once a while
 // to check and stop the watch if needed
-type CheckAndStopFn func(key string) bool
+type TickAndStopFn func(key string) bool
 
 // Options are options for the etcd watch helper
 type Options interface {
@@ -52,10 +53,10 @@ type Options interface {
 	// SetUpdateFn sets the UpdateFn
 	SetUpdateFn(f UpdateFn) Options
 
-	// CheckAndStopFn is the function called periodicaly to check if a watch should be stopped
-	CheckAndStopFn() CheckAndStopFn
-	// SetCheckAndStopFn sets the CheckAndStopFn
-	SetCheckAndStopFn(f CheckAndStopFn) Options
+	// TickAndStopFn is the function called periodicaly to check if a watch should be stopped
+	TickAndStopFn() TickAndStopFn
+	// SetTickAndStopFn sets the TickAndStopFn
+	SetTickAndStopFn(f TickAndStopFn) Options
 
 	// WatchOptions is a set of options for the etcd watch
 	WatchOptions() []clientv3.OpOption
