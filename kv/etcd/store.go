@@ -25,10 +25,10 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
+	"github.com/m3db/m3cluster/etcd/watch_helper"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
@@ -41,7 +41,7 @@ const etcdVersionZero = 0
 var noopCancel func()
 
 // NewStore creates a kv store based on etcd
-func NewStore(c *clientv3.Client, opts Options) kv.Store {
+func NewStore(c *clientv3.Client, opts Options) (kv.Store, error) {
 	scope := opts.InstrumentsOptions().MetricsScope()
 
 	store := &client{
@@ -55,17 +55,35 @@ func NewStore(c *clientv3.Client, opts Options) kv.Store {
 		cache:          newCache(),
 		cacheUpdatedCh: make(chan struct{}, 1),
 		m: clientMetrics{
-			etcdGetError:    scope.Counter("etcd-get-error"),
-			etcdPutError:    scope.Counter("etcd-put-error"),
-			etcdTnxError:    scope.Counter("etcd-tnx-error"),
-			etcdWatchCreate: scope.Counter("etcd-watch-create"),
-			etcdWatchError:  scope.Counter("etcd-watch-error"),
-			etcdWatchReset:  scope.Counter("etcd-watch-reset"),
-			diskWriteError:  scope.Counter("disk-write-error"),
-			diskReadError:   scope.Counter("disk-read-error"),
+			etcdGetError:   scope.Counter("etcd-get-error"),
+			etcdPutError:   scope.Counter("etcd-put-error"),
+			etcdTnxError:   scope.Counter("etcd-tnx-error"),
+			diskWriteError: scope.Counter("disk-write-error"),
+			diskReadError:  scope.Counter("disk-read-error"),
 		},
 	}
-	store.updateFn = store.updateWithRetry
+	whOptions := watchhelper.NewOptions().
+		SetWatcher(c.Watcher).
+		SetUpdateFn(store.update).
+		SetCheckAndStopFn(store.checkAndStopWatch).
+		SetWatchOptions([]clientv3.OpOption{
+			// periodically (appx every 10 mins) checks for the latest data
+			// with or without any update notification
+			clientv3.WithProgressNotify(),
+			// receive initial notification once the watch channel is created
+			clientv3.WithCreatedNotify(),
+		}).
+		SetWatchChanCheckInterval(opts.WatchChanCheckInterval()).
+		SetWatchChanInitTimeout(opts.WatchChanInitTimeout()).
+		SetWatchChanResetInterval(opts.WatchChanResetInterval()).
+		SetInstrumentsOptions(opts.InstrumentsOptions())
+
+	wh, err := watchhelper.NewWatchHelper(whOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	store.wh = wh
 
 	if store.cacheFile != "" {
 		if err := store.initCache(); err != nil {
@@ -80,7 +98,7 @@ func NewStore(c *clientv3.Client, opts Options) kv.Store {
 			}
 		}()
 	}
-	return store
+	return store, nil
 }
 
 type client struct {
@@ -97,27 +115,28 @@ type client struct {
 	cacheFile      string
 	cacheUpdatedCh chan struct{}
 
-	updateFn func(w kv.ValueWatchable, key string) error
+	wh watchhelper.WatchHelper
 }
 
 type clientMetrics struct {
-	etcdGetError    tally.Counter
-	etcdPutError    tally.Counter
-	etcdTnxError    tally.Counter
-	etcdWatchCreate tally.Counter
-	etcdWatchError  tally.Counter
-	etcdWatchReset  tally.Counter
-	diskWriteError  tally.Counter
-	diskReadError   tally.Counter
+	etcdGetError   tally.Counter
+	etcdPutError   tally.Counter
+	etcdTnxError   tally.Counter
+	diskWriteError tally.Counter
+	diskReadError  tally.Counter
 }
 
 // Get returns the latest value from etcd store and only fall back to
 // in-memory cache if the remote store is unavailable
 func (c *client) Get(key string) (kv.Value, error) {
+	return c.get(c.opts.KeyFn()(key))
+}
+
+func (c *client) get(key string) (kv.Value, error) {
 	ctx, cancel := c.context()
 	defer cancel()
 
-	r, err := c.kv.Get(ctx, c.opts.KeyFn()(key))
+	r, err := c.kv.Get(ctx, key)
 	if err != nil {
 		c.m.etcdGetError.Inc(1)
 		cachedV, ok := c.getCache(key)
@@ -143,114 +162,76 @@ func (c *client) Get(key string) (kv.Value, error) {
 }
 
 func (c *client) Watch(key string) (kv.ValueWatch, error) {
+	newKey := c.opts.KeyFn()(key)
 	c.Lock()
-	watchable, ok := c.watchables[key]
+	watchable, ok := c.watchables[newKey]
 	if !ok {
 		watchable = kv.NewValueWatchable()
-		c.watchables[key] = watchable
+		c.watchables[newKey] = watchable
 
-		go func() {
-			ticker := time.Tick(c.opts.WatchChanCheckInterval())
+		go c.wh.Run(newKey)
 
-			var (
-				watchChan clientv3.WatchChan
-				err       error
-			)
-			for {
-				if watchChan == nil {
-					c.m.etcdWatchCreate.Inc(1)
-					watchChan, err = c.watchChanWithTimeout(key)
-					if err != nil {
-						c.logger.Errorf("could not create etcd watch, %v", err)
-
-						// NB(cw) when we failed to create a etcd watch channel
-						// we do a get for now and will try to recreate the watch chan later
-						if err = c.updateFn(watchable, key); err != nil {
-							c.logger.Errorf("failed to get value for key %s: %v", key, err)
-						}
-						// avoid recreating watch channel too frequently
-						time.Sleep(c.opts.WatchChanResetInterval())
-						continue
-					}
-				}
-
-				select {
-				case r, ok := <-watchChan:
-					if !ok {
-						// the watch chan is closed, set it to nil so it will be recreated
-						// this is unlikely to happen but just to be defensive
-						watchChan = nil
-						c.logger.Warnf("etcd watch channel closed on key %s, recreating a watch channel", key)
-
-						// avoid recreating watch channel too frequently
-						time.Sleep(c.opts.WatchChanResetInterval())
-						c.m.etcdWatchReset.Inc(1)
-
-						continue
-					}
-
-					// handle the update
-					if err = r.Err(); err != nil {
-						c.logger.Errorf("received error on watch channel: %v", err)
-						c.m.etcdWatchError.Inc(1)
-						// do not stop here, even though the update contains an error
-						// we still take this chance to attemp a Get() for the latest value
-					}
-
-					if err = c.updateFn(watchable, key); err != nil {
-						c.logger.Errorf("received notification for key %s, but failed to get value: %v", key, err)
-					}
-				case <-ticker:
-					c.RLock()
-					numWatches := watchable.NumWatches()
-					c.RUnlock()
-
-					if numWatches != 0 {
-						// there are still watches on this watchable, do nothing
-						continue
-					}
-
-					if cleanedUp := c.tryCleanUp(key); cleanedUp {
-						return
-					}
-				}
-			}
-		}()
 	}
 	c.Unlock()
 	_, w, err := watchable.Watch()
 	return w, err
 }
 
-func (c *client) watchChanWithTimeout(key string) (clientv3.WatchChan, error) {
-	doneCh := make(chan struct{})
-
-	var watchChan clientv3.WatchChan
-	go func() {
-		watchChan = c.watcher.Watch(
-			context.Background(),
-			c.opts.KeyFn()(key),
-			// periodically (appx every 10 mins) checks for the latest data
-			// with or without any update notification
-			clientv3.WithProgressNotify(),
-			// receive initial notification once the watch channel is created
-			clientv3.WithCreatedNotify(),
-		)
-		close(doneCh)
-	}()
-
-	select {
-	case <-doneCh:
-		return watchChan, nil
-	case <-time.After(c.opts.WatchChanInitTimeout()):
-		return nil, fmt.Errorf("etcd watch chan creation timed-out on key: %s", key)
+func (c *client) update(key string) error {
+	var (
+		newValue kv.Value
+		err      error
+	)
+	// we need retry here because if Get() failed on an watch update,
+	// it has to wait 10 mins to be notified to try again
+	if execErr := c.retrier.Attempt(func() error {
+		newValue, err = c.get(key)
+		if err == kv.ErrNotFound {
+			// do not retry on ErrNotFound
+			return xretry.NonRetryableError(err)
+		}
+		return err
+	}); execErr != nil {
+		return execErr
 	}
+
+	c.RLock()
+	w, ok := c.watchables[key]
+	c.RUnlock()
+	if !ok {
+		return fmt.Errorf("unexpected: no watchable found for key: %s", key)
+	}
+
+	curValue := w.Get()
+	if curValue == nil {
+		return w.Update(newValue)
+	}
+
+	if newValue.(*value).isNewer(curValue.(*value)) {
+		return w.Update(newValue)
+	}
+
+	return nil
 }
 
-func (c *client) tryCleanUp(key string) bool {
+func (c *client) checkAndStopWatch(key string) bool {
+	// fast path
+	c.RLock()
+	watchable, ok := c.watchables[key]
+	c.RUnlock()
+	if !ok {
+		c.logger.Warnf("unexpected: key %s is already cleaned up", key)
+		return true
+	}
+
+	if watchable.NumWatches() != 0 {
+		return false
+	}
+
+	// slow path
 	c.Lock()
 	defer c.Unlock()
-	watchable, ok := c.watchables[key]
+	watchable, ok = c.watchables[key]
 	if !ok {
 		// not expect this to happen
 		c.logger.Warnf("unexpected: key %s is already cleaned up", key)
@@ -265,36 +246,6 @@ func (c *client) tryCleanUp(key string) bool {
 	watchable.Close()
 	delete(c.watchables, key)
 	return true
-}
-
-func (c *client) updateWithRetry(w kv.ValueWatchable, key string) error {
-	var (
-		newValue kv.Value
-		err      error
-	)
-	// we need retry here because if Get() failed on an watch update,
-	// it has to wait 10 mins to be notified to try again
-	if execErr := c.retrier.Attempt(func() error {
-		newValue, err = c.Get(key)
-		if err == kv.ErrNotFound {
-			// do not retry on ErrNotFound
-			return xretry.NonRetryableError(err)
-		}
-		return err
-	}); execErr != nil {
-		return execErr
-	}
-
-	curValue := w.Get()
-	if curValue == nil {
-		return w.Update(newValue)
-	}
-
-	if newValue.(*value).isNewer(curValue.(*value)) {
-		return w.Update(newValue)
-	}
-
-	return nil
 }
 
 func (c *client) Set(key string, v proto.Message) (int, error) {

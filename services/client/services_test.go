@@ -604,7 +604,7 @@ func testSetup(t *testing.T) (Options, func(), *mockHBGen) {
 				SetKeyFn(func(key string) string {
 					return fmt.Sprintf("[%s][%s]", zone, key)
 				}),
-		), nil
+		)
 	}
 
 	m := &mockHBGen{

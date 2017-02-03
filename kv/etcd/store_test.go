@@ -23,7 +23,6 @@ package etcd
 import (
 	"fmt"
 	"io/ioutil"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -33,89 +32,93 @@ import (
 	"github.com/m3db/m3cluster/generated/proto/kvtest"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/testutil"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetAndSet(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 
 	value, err := store.Get("foo")
-	assert.Error(t, err)
-	assert.Equal(t, kv.ErrNotFound, err)
-	assert.Nil(t, value)
+	require.Error(t, err)
+	require.Equal(t, kv.ErrNotFound, err)
+	require.Nil(t, value)
 
 	version, err := store.Set("foo", genProto("bar1"))
-	assert.NoError(t, err)
-	assert.Equal(t, 1, version)
+	require.NoError(t, err)
+	require.Equal(t, 1, version)
 
 	value, err = store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
 
 	version, err = store.Set("foo", genProto("bar2"))
-	assert.NoError(t, err)
-	assert.Equal(t, 2, version)
+	require.NoError(t, err)
+	require.Equal(t, 2, version)
 
 	value, err = store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar2", 2)
 }
 
 func TestNoCache(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 
-	store := NewStore(ec, opts)
-	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 
 	version, err := store.Set("foo", genProto("bar1"))
-	assert.NoError(t, err)
-	assert.Equal(t, 1, version)
+	require.NoError(t, err)
+	require.Equal(t, 1, version)
 
 	value, err := store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
 	// the will send a notification but won't trigger a sync
 	// because no cache file is set
-	assert.Equal(t, 1, len(store.(*client).cacheUpdatedCh))
+	require.Equal(t, 1, len(store.(*client).cacheUpdatedCh))
 
 	closeFn()
 
 	// from cache
 	value, err = store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
 
 	// new store but no cache file set
-	store = NewStore(ec, opts)
+	store, err = NewStore(ec, opts)
+	require.NoError(t, err)
 
 	_, err = store.Set("foo", genProto("bar1"))
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = store.Get("foo")
-	assert.Error(t, err)
-	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
+	require.Error(t, err)
+	require.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 }
 
 func TestCache(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 
 	f, err := ioutil.TempFile("", "")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	opts = opts.SetCacheFilePath(f.Name())
 
-	store := NewStore(ec, opts)
-	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 
 	version, err := store.Set("foo", genProto("bar1"))
-	assert.NoError(t, err)
-	assert.Equal(t, 1, version)
+	require.NoError(t, err)
+	require.Equal(t, 1, version)
 
 	value, err := store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
 	for {
 		// the notification should be picked up and trigger a sync
@@ -127,42 +130,44 @@ func TestCache(t *testing.T) {
 
 	// from cache
 	value, err = store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
-	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
+	require.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 
 	// new store but with cache file
-	store = NewStore(ec, opts)
+	store, err = NewStore(ec, opts)
+	require.NoError(t, err)
 
 	_, err = store.Set("key", genProto("bar1"))
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = store.Get("key")
-	assert.Error(t, err)
-	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
+	require.Error(t, err)
+	require.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 
 	value, err = store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
-	assert.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
+	require.Equal(t, 0, len(store.(*client).cacheUpdatedCh))
 }
 
 func TestSetIfNotExist(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 
 	version, err := store.SetIfNotExists("foo", genProto("bar"))
-	assert.NoError(t, err)
-	assert.Equal(t, 1, version)
+	require.NoError(t, err)
+	require.Equal(t, 1, version)
 
 	version, err = store.SetIfNotExists("foo", genProto("bar"))
-	assert.Error(t, err)
-	assert.Equal(t, kv.ErrAlreadyExists, err)
+	require.Error(t, err)
+	require.Equal(t, kv.ErrAlreadyExists, err)
 
 	value, err := store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar", 1)
 }
 
@@ -170,26 +175,27 @@ func TestCheckAndSet(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 
 	version, err := store.CheckAndSet("foo", 1, genProto("bar"))
-	assert.Error(t, err)
-	assert.Equal(t, kv.ErrVersionMismatch, err)
+	require.Error(t, err)
+	require.Equal(t, kv.ErrVersionMismatch, err)
 
 	version, err = store.SetIfNotExists("foo", genProto("bar"))
-	assert.NoError(t, err)
-	assert.Equal(t, 1, version)
+	require.NoError(t, err)
+	require.Equal(t, 1, version)
 
 	version, err = store.CheckAndSet("foo", 1, genProto("bar"))
-	assert.NoError(t, err)
-	assert.Equal(t, 2, version)
+	require.NoError(t, err)
+	require.Equal(t, 2, version)
 
 	version, err = store.CheckAndSet("foo", 1, genProto("bar"))
-	assert.Error(t, err)
-	assert.Equal(t, kv.ErrVersionMismatch, err)
+	require.Error(t, err)
+	require.Equal(t, kv.ErrVersionMismatch, err)
 
 	value, err := store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar", 2)
 }
 
@@ -197,18 +203,19 @@ func TestWatchClose(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 
-	_, err := store.Set("foo", genProto("bar1"))
-	assert.NoError(t, err)
+	_, err = store.Set("foo", genProto("bar1"))
+	require.NoError(t, err)
 	w1, err := store.Watch("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	<-w1.C()
 	verifyValue(t, w1.Get(), "bar1", 1)
 
 	c := store.(*client)
-	_, ok := c.watchables["foo"]
-	assert.True(t, ok)
+	_, ok := c.watchables["test/foo"]
+	require.True(t, ok)
 
 	// closing w1 will close the go routine for the watch updates
 	w1.Close()
@@ -216,7 +223,7 @@ func TestWatchClose(t *testing.T) {
 	// waits until the original watchable is cleaned up
 	for {
 		c.RLock()
-		_, ok = c.watchables["foo"]
+		_, ok = c.watchables["test/foo"]
 		c.RUnlock()
 		if !ok {
 			break
@@ -225,13 +232,13 @@ func TestWatchClose(t *testing.T) {
 
 	// getting a new watch will create a new watchale and thread to watch for updates
 	w2, err := store.Watch("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	<-w2.C()
 	verifyValue(t, w2.Get(), "bar1", 1)
 
 	// verify that w1 will no longer be updated because the original watchable is closed
 	_, err = store.Set("foo", genProto("bar2"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	<-w2.C()
 	verifyValue(t, w2.Get(), "bar2", 2)
 	verifyValue(t, w1.Get(), "bar1", 1)
@@ -244,17 +251,18 @@ func TestWatchLastVersion(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 
 	w, err := store.Watch("foo")
-	assert.NoError(t, err)
-	assert.Nil(t, w.Get())
+	require.NoError(t, err)
+	require.Nil(t, w.Get())
 
 	lastVersion := 100
 	go func() {
 		for i := 1; i <= lastVersion; i++ {
 			_, err := store.Set("foo", genProto(fmt.Sprintf("bar%d", i)))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 	}()
 
@@ -274,34 +282,35 @@ func TestWatchFromExist(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 
-	_, err := store.Set("foo", genProto("bar1"))
-	assert.NoError(t, err)
+	_, err = store.Set("foo", genProto("bar1"))
+	require.NoError(t, err)
 	value, err := store.Get("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	verifyValue(t, value, "bar1", 1)
 
 	w, err := store.Watch("foo")
-	assert.NoError(t, err)
-	assert.Nil(t, w.Get())
+	require.NoError(t, err)
+	require.Nil(t, w.Get())
 
 	<-w.C()
-	assert.Equal(t, 0, len(w.C()))
+	require.Equal(t, 0, len(w.C()))
 	verifyValue(t, w.Get(), "bar1", 1)
 
 	_, err = store.Set("foo", genProto("bar2"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w.C()
-	assert.Equal(t, 0, len(w.C()))
+	require.Equal(t, 0, len(w.C()))
 	verifyValue(t, w.Get(), "bar2", 2)
 
 	_, err = store.Set("foo", genProto("bar3"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w.C()
-	assert.Equal(t, 0, len(w.C()))
+	require.Equal(t, 0, len(w.C()))
 	verifyValue(t, w.Get(), "bar3", 3)
 
 	w.Close()
@@ -311,25 +320,26 @@ func TestWatchFromNotExist(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 
 	w, err := store.Watch("foo")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(w.C()))
-	assert.Nil(t, w.Get())
+	require.NoError(t, err)
+	require.Equal(t, 0, len(w.C()))
+	require.Nil(t, w.Get())
 
 	_, err = store.Set("foo", genProto("bar1"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w.C()
-	assert.Equal(t, 0, len(w.C()))
+	require.Equal(t, 0, len(w.C()))
 	verifyValue(t, w.Get(), "bar1", 1)
 
 	_, err = store.Set("foo", genProto("bar2"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w.C()
-	assert.Equal(t, 0, len(w.C()))
+	require.Equal(t, 0, len(w.C()))
 	verifyValue(t, w.Get(), "bar2", 2)
 
 	w.Close()
@@ -339,45 +349,46 @@ func TestMultipleWatchesFromExist(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 
-	_, err := store.Set("foo", genProto("bar1"))
-	assert.NoError(t, err)
+	_, err = store.Set("foo", genProto("bar1"))
+	require.NoError(t, err)
 
 	w1, err := store.Watch("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	w2, err := store.Watch("foo")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
+	require.Equal(t, 0, len(w1.C()))
 	verifyValue(t, w1.Get(), "bar1", 1)
 
 	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
+	require.Equal(t, 0, len(w2.C()))
 	verifyValue(t, w2.Get(), "bar1", 1)
 
 	_, err = store.Set("foo", genProto("bar2"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
+	require.Equal(t, 0, len(w1.C()))
 	verifyValue(t, w1.Get(), "bar2", 2)
 
 	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
+	require.Equal(t, 0, len(w2.C()))
 	verifyValue(t, w2.Get(), "bar2", 2)
 
 	_, err = store.Set("foo", genProto("bar3"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
+	require.Equal(t, 0, len(w1.C()))
 	verifyValue(t, w1.Get(), "bar3", 3)
 
 	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
+	require.Equal(t, 0, len(w2.C()))
 	verifyValue(t, w2.Get(), "bar3", 3)
 
 	w1.Close()
@@ -388,37 +399,38 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 	w1, err := store.Watch("foo")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(w1.C()))
-	assert.Nil(t, w1.Get())
+	require.NoError(t, err)
+	require.Equal(t, 0, len(w1.C()))
+	require.Nil(t, w1.Get())
 
 	w2, err := store.Watch("foo")
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(w2.C()))
-	assert.Nil(t, w2.Get())
+	require.NoError(t, err)
+	require.Equal(t, 0, len(w2.C()))
+	require.Nil(t, w2.Get())
 
 	_, err = store.Set("foo", genProto("bar1"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
+	require.Equal(t, 0, len(w1.C()))
 	verifyValue(t, w1.Get(), "bar1", 1)
 
 	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
+	require.Equal(t, 0, len(w2.C()))
 	verifyValue(t, w2.Get(), "bar1", 1)
 
 	_, err = store.Set("foo", genProto("bar2"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	<-w1.C()
-	assert.Equal(t, 0, len(w1.C()))
+	require.Equal(t, 0, len(w1.C()))
 	verifyValue(t, w1.Get(), "bar2", 2)
 
 	<-w2.C()
-	assert.Equal(t, 0, len(w2.C()))
+	require.Equal(t, 0, len(w2.C()))
 	verifyValue(t, w2.Get(), "bar2", 2)
 
 	w1.Close()
@@ -430,54 +442,27 @@ func TestWatchNonBlocking(t *testing.T) {
 	defer closeFn()
 
 	opts = opts.SetWatchChanResetInterval(200 * time.Millisecond).SetWatchChanInitTimeout(200 * time.Millisecond)
-	store := NewStore(ec, opts)
+
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 	c := store.(*client)
 
 	failTotal := 3
 	mw := testutil.NewBlackholeWatcher(failTotal, ec)
 	c.watcher = mw
 
-	var updateCalled int32
-	c.updateFn = func(w kv.ValueWatchable, key string) error {
-		atomic.AddInt32(&updateCalled, 1)
-		return c.updateWithRetry(w, key)
-	}
-
-	_, err := c.Set("foo", genProto("bar1"))
-	assert.NoError(t, err)
+	_, err = c.Set("foo", genProto("bar1"))
+	require.NoError(t, err)
 
 	before := time.Now()
 	w1, err := c.Watch("foo")
-	assert.WithinDuration(t, time.Now(), before, 100*time.Millisecond)
-	assert.NoError(t, err)
+	require.WithinDuration(t, time.Now(), before, 100*time.Millisecond)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(w1.C()))
 
 	// watch channel will error out, but Get() will be tried
 	<-w1.C()
 	verifyValue(t, w1.Get(), "bar1", 1)
-
-	for {
-		// update will be called from the timeouts of watch creation
-		// plus 1 notification from successfully creating the watch channel
-		if atomic.LoadInt32(&updateCalled) == int32(failTotal+1) {
-			break
-		}
-
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	// wait enough time > any sort of reset or retry interval to make sure
-	// no update is trigger by retries, only by watch updates
-	time.Sleep(300 * time.Millisecond)
-	assert.Equal(t, int32(failTotal+1), updateCalled)
-
-	// the get will not update the value because they are all on the same version
-	// thus no new notifications
-	assert.Equal(t, 0, len(w1.C()))
-	_, err = c.Set("foo", genProto("bar2"))
-	assert.NoError(t, err)
-
-	<-w1.C()
-	verifyValue(t, w1.Get(), "bar2", 2)
 
 	w1.Close()
 }
@@ -485,9 +470,9 @@ func TestWatchNonBlocking(t *testing.T) {
 func verifyValue(t *testing.T, v kv.Value, value string, version int) {
 	var testMsg kvtest.Foo
 	err := v.Unmarshal(&testMsg)
-	assert.NoError(t, err)
-	assert.Equal(t, value, testMsg.Msg)
-	assert.Equal(t, version, v.Version())
+	require.NoError(t, err)
+	require.Equal(t, value, testMsg.Msg)
+	require.Equal(t, version, v.Version())
 }
 
 func genProto(msg string) proto.Message {
@@ -502,5 +487,11 @@ func testStore(t *testing.T) (*clientv3.Client, Options, func()) {
 		ecluster.Terminate(t)
 	}
 
-	return ec, NewOptions().SetWatchChanCheckInterval(10 * time.Millisecond), closer
+	opts := NewOptions().
+		SetWatchChanCheckInterval(10 * time.Millisecond).
+		SetKeyFn(func(key string) string {
+			return fmt.Sprintf("test/%s", key)
+		})
+
+	return ec, opts, closer
 }

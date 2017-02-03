@@ -21,14 +21,12 @@
 package etcd
 
 import (
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
 	"github.com/m3db/m3cluster/testutil"
-	"github.com/m3db/m3x/watch"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,16 +36,19 @@ func TestKeys(t *testing.T) {
 
 	require.Equal(t, "_hb/service/instance", heartbeatKey(s, id))
 	require.Equal(t, "_hb/service", servicePrefix(s))
-	require.Equal(t, "instance", instanceFromKey(heartbeatKey(s, id), s))
+	require.Equal(t, "instance", instanceFromKey(heartbeatKey(s, id), servicePrefix(s)))
 	require.Equal(t, "_hb/service/instance/1m0s", leaseKey(s, id, time.Minute))
 }
 
 func TestReuseLeaseID(t *testing.T) {
-	cli, opts, closeFn := testStore(t)
+	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(cli, opts).(*client)
-	err := store.Heartbeat("s", "i1", time.Minute)
+	c, err := NewStore(ec, opts)
+	require.NoError(t, err)
+	store := c.(*client)
+
+	err = store.Heartbeat("s", "i1", time.Minute)
 	require.NoError(t, err)
 
 	store.RLock()
@@ -70,11 +71,14 @@ func TestReuseLeaseID(t *testing.T) {
 }
 
 func TestHeartbeat(t *testing.T) {
-	cli, opts, closeFn := testStore(t)
+	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(cli, opts)
-	err := store.Heartbeat("s", "i1", 1*time.Second)
+	c, err := NewStore(ec, opts)
+	require.NoError(t, err)
+	store := c.(*client)
+
+	err = store.Heartbeat("s", "i1", 1*time.Second)
 	require.NoError(t, err)
 	err = store.Heartbeat("s", "i2", 2*time.Second)
 	require.NoError(t, err)
@@ -112,7 +116,9 @@ func TestWatch(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
+
 	w1, err := store.Watch("foo")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(w1.C()))
@@ -161,9 +167,10 @@ func TestWatchClose(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts.SetWatchChanCheckInterval(10*time.Millisecond))
+	store, err := NewStore(ec, opts.SetWatchChanCheckInterval(10*time.Millisecond))
+	require.NoError(t, err)
 
-	err := store.Heartbeat("foo", "i1", 100*time.Second)
+	err = store.Heartbeat("foo", "i1", 100*time.Second)
 	require.NoError(t, err)
 
 	w1, err := store.Watch("foo")
@@ -172,7 +179,7 @@ func TestWatchClose(t *testing.T) {
 	require.Equal(t, []string{"i1"}, w1.Get())
 
 	c := store.(*client)
-	_, ok := c.watchables["foo"]
+	_, ok := c.watchables["_hb/foo"]
 	require.True(t, ok)
 
 	// closing w1 will close the go routine for the watch updates
@@ -181,7 +188,7 @@ func TestWatchClose(t *testing.T) {
 	// waits until the original watchable is cleaned up
 	for {
 		c.RLock()
-		_, ok = c.watchables["foo"]
+		_, ok = c.watchables["_hb/foo"]
 		c.RUnlock()
 		if !ok {
 			break
@@ -205,35 +212,13 @@ func TestWatchClose(t *testing.T) {
 	w2.Close()
 }
 
-func TestRenewLeaseDoNotTriggerWatch(t *testing.T) {
-	ec, opts, closeFn := testStore(t)
-	defer closeFn()
-
-	store := NewStore(ec, opts).(*client)
-
-	w, err := store.watchChanWithTimeout("foo")
-	require.NoError(t, err)
-	<-w
-
-	err = store.Heartbeat("foo", "i1", 200*time.Second)
-	require.NoError(t, err)
-	<-w
-
-	err = store.Heartbeat("foo", "i1", 200*time.Second)
-	require.NoError(t, err)
-
-	select {
-	case <-w:
-		require.Fail(t, "unexpected notification")
-	case <-time.After(200 * time.Millisecond):
-	}
-}
-
 func TestMultipleWatchesFromNotExist(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
-	store := NewStore(ec, opts)
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
+
 	w1, err := store.Watch("foo")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(w1.C()))
@@ -307,53 +292,39 @@ func TestWatchNonBlocking(t *testing.T) {
 	defer closeFn()
 
 	opts = opts.SetWatchChanResetInterval(200 * time.Millisecond).SetWatchChanInitTimeout(200 * time.Millisecond)
-	store := NewStore(ec, opts)
+
+	store, err := NewStore(ec, opts)
+	require.NoError(t, err)
 	c := store.(*client)
 
-	failTotal := 3
+	err = store.Heartbeat("foo", "i1", 100*time.Second)
+	require.NoError(t, err)
+
+	failTotal := 1
 	mw := testutil.NewBlackholeWatcher(failTotal, ec)
 	c.watcher = mw
-
-	var updateCalled int32
-	c.updateFn = func(w xwatch.Watchable, service string) error {
-		atomic.AddInt32(&updateCalled, 1)
-		return c.updateWithRetry(w, service)
-	}
 
 	before := time.Now()
 	w1, err := c.Watch("foo")
 	require.WithinDuration(t, time.Now(), before, 100*time.Millisecond)
 	require.NoError(t, err)
 
-	require.Nil(t, nil, w1.Get())
-
-	err = store.Heartbeat("foo", "i1", 100*time.Second)
-	require.NoError(t, err)
 	// watch channel will error out, but Get() will be tried
-	<-w1.C()
+	select {
+	case <-w1.C():
+	case <-time.After(200 * time.Millisecond):
+		require.Fail(t, "notification came too late")
+	}
 	require.Equal(t, []string{"i1"}, w1.Get())
 
+	time.Sleep(5 * (opts.WatchChanResetInterval() + opts.WatchChanInitTimeout()))
+
+	err = store.Heartbeat("foo", "i2", 100*time.Second)
 	for {
-		// update will be called from the timeouts of watch creation
-		// plus 1 notification from successfully creating the watch channel
-		if atomic.LoadInt32(&updateCalled) == int32(failTotal+1) {
+		if len(w1.Get().([]string)) == 2 {
 			break
 		}
-
-		time.Sleep(100 * time.Millisecond)
 	}
-
-	// wait enough time > any sort of reset or retry interval to make sure
-	// no update is trigger by retries, only by watch updates
-	time.Sleep(500 * time.Millisecond)
-	require.Equal(t, int32(failTotal+1), updateCalled)
-
-	// drain current notifications
-	<-w1.C()
-	err = store.Heartbeat("foo", "i2", 100*time.Second)
-	require.NoError(t, err)
-
-	<-w1.C()
 	require.Equal(t, []string{"i1", "i2"}, w1.Get())
 
 	w1.Close()
