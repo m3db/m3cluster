@@ -155,24 +155,27 @@ func TestWatchNoLeader(t *testing.T) {
 				atomic.AddInt32(&updateCalled, 1)
 				return nil
 			},
-		).SetCheckAndStopFn(
-		func(string) bool {
-			if atomic.LoadInt32(&shouldStop) == 0 {
-				return false
-			}
+		).
+		SetCheckAndStopFn(
+			func(string) bool {
+				if atomic.LoadInt32(&shouldStop) == 0 {
+					return false
+				}
 
-			close(doneCh)
+				close(doneCh)
 
-			// stopped = true
-			return true
-		},
-	).SetWatchChanCheckInterval(100 * time.Millisecond)
+				// stopped = true
+				return true
+			},
+		).
+		SetWatchChanInitTimeout(200 * time.Millisecond)
 
 	wh, err := NewWatchHelper(opts)
 	require.NoError(t, err)
 
 	go wh.Run("foo")
 
+	time.Sleep(2 * time.Second)
 	// there should be a valid watch now, trigger a notification
 	_, err = ec.Put(context.Background(), "foo", "v")
 	require.NoError(t, err)
