@@ -79,11 +79,12 @@ func (w *manager) watchChanWithTimeout(key string) (clientv3.WatchChan, error) {
 		close(doneCh)
 	}()
 
+	timeout := w.opts.WatchChanInitTimeout()
 	select {
 	case <-doneCh:
 		return watchChan, nil
-	case <-time.After(w.opts.WatchChanInitTimeout()):
-		return nil, fmt.Errorf("etcd watch chan creation timed-out on key: %s", key)
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("etcd watch create timed out after %s for key: %s", timeout.String(), key)
 	}
 }
 
@@ -99,7 +100,7 @@ func (w *manager) Watch(key string) {
 			w.m.etcdWatchCreate.Inc(1)
 			watchChan, err = w.watchChanWithTimeout(key)
 			if err != nil {
-				w.logger.Errorf("could not create etcd watch, %v", err)
+				w.logger.Errorf("could not create etcd watch: %v", err)
 
 				// NB(cw) when we failed to create a etcd watch channel
 				// we do a get for now and will try to recreate the watch chan later
