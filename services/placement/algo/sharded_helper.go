@@ -142,7 +142,7 @@ func (ph *placementHelper) GeneratePlacement() services.ServicePlacement {
 		}
 	}
 	return placement.NewPlacement().
-		SetInstances(ph.getInstances()).
+		SetInstances(ph.instanceList()).
 		SetShards(ph.uniqueShards).
 		SetReplicaFactor(ph.rf).
 		SetIsSharded(true)
@@ -162,7 +162,7 @@ func (ph *placementHelper) PlaceShards(shards []shard.Shard, from services.Place
 		ph.placeToRacksOtherThanOrigin(shardSet, from)
 	}
 
-	instanceHeap := ph.BuildInstanceHeap(nonLeavingInstances(ph.getInstances()), true)
+	instanceHeap := ph.BuildInstanceHeap(nonLeavingInstances(ph.instanceList()), true)
 	// if there are shards left to be assigned, distribute them evenly
 	var triedInstances []services.PlacementInstance
 	for _, s := range shardSet {
@@ -380,7 +380,7 @@ func isRackOverWeight(rackWeight, totalWeight uint32, rf int) bool {
 	return float64(rackWeight)/float64(totalWeight) >= 1.0/float64(rf)
 }
 
-func (ph *placementHelper) getInstances() []services.PlacementInstance {
+func (ph *placementHelper) instanceList() []services.PlacementInstance {
 	res := make([]services.PlacementInstance, 0, len(ph.instances))
 	for _, instance := range ph.instances {
 		res = append(res, instance)
