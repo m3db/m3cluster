@@ -104,7 +104,7 @@ func TestWatchSimple(t *testing.T) {
 }
 
 func TestWatchRecreateWatch(t *testing.T) {
-	wh, ec, updateCalled, _, _, closer := testSetup(t)
+	wh, ec, updateCalled, shouldStop, doneCh, closer := testSetup(t)
 	defer closer()
 
 	failTotal := 3
@@ -136,6 +136,10 @@ func TestWatchRecreateWatch(t *testing.T) {
 			break
 		}
 	}
+
+	// clean up the background go routine
+	atomic.AddInt32(shouldStop, 1)
+	<-doneCh
 }
 
 func TestWatchNoLeader(t *testing.T) {
@@ -205,6 +209,10 @@ func TestWatchNoLeader(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+
+	// clean up the background go routine
+	atomic.AddInt32(&shouldStop, 1)
+	<-doneCh
 }
 
 func testSetup(t *testing.T) (*manager, *clientv3.Client, *int32, *int32, chan struct{}, func()) {
