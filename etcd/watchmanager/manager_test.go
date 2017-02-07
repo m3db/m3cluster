@@ -50,7 +50,7 @@ func TestWatchChan(t *testing.T) {
 		require.Fail(t, "could not get notification")
 	}
 
-	mw := mocks.NewBlackholeWatcher(3, ec)
+	mw := mocks.NewBlackholeWatcher(ec, 3, func() { time.Sleep(time.Minute) })
 	wh.opts = wh.opts.SetWatcher(mw).SetWatchChanInitTimeout(100 * time.Millisecond)
 
 	before := time.Now()
@@ -108,7 +108,7 @@ func TestWatchRecreateWatch(t *testing.T) {
 	defer closer()
 
 	failTotal := 3
-	mw := mocks.NewBlackholeWatcher(failTotal, ec)
+	mw := mocks.NewBlackholeWatcher(ec, failTotal, func() { time.Sleep(time.Minute) })
 	wh.opts = wh.opts.
 		SetWatcher(mw).
 		SetWatchChanInitTimeout(100 * time.Millisecond).

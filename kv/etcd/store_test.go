@@ -448,7 +448,7 @@ func TestWatchNonBlocking(t *testing.T) {
 	c := store.(*client)
 
 	failTotal := 3
-	mw := mocks.NewBlackholeWatcher(failTotal, ec)
+	mw := mocks.NewBlackholeWatcher(ec, failTotal, func() { time.Sleep(time.Minute) })
 	c.watcher = mw
 
 	_, err = c.Set("foo", genProto("bar1"))

@@ -2,7 +2,6 @@ package mocks
 
 import (
 	"sync"
-	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"golang.org/x/net/context"
@@ -15,14 +14,16 @@ type watcher struct {
 	failed    int
 	failTotal int
 	c         *clientv3.Client
+	onFail    func()
 }
 
 // NewBlackholeWatcher returns a watcher that mimics blackholing
-func NewBlackholeWatcher(failTotal int, c *clientv3.Client) clientv3.Watcher {
+func NewBlackholeWatcher(c *clientv3.Client, failTotal int, onFail func()) clientv3.Watcher {
 	return &watcher{
 		failed:    0,
 		failTotal: failTotal,
 		c:         c,
+		onFail:    onFail,
 	}
 }
 
@@ -34,7 +35,7 @@ func (m *watcher) Watch(ctx context.Context, key string, opts ...clientv3.OpOpti
 		m.failed++
 		m.Unlock()
 
-		time.Sleep(time.Minute)
+		m.onFail()
 		return nil
 	}
 	m.Unlock()

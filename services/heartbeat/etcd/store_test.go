@@ -302,7 +302,7 @@ func TestWatchNonBlocking(t *testing.T) {
 	require.NoError(t, err)
 
 	failTotal := 1
-	mw := mocks.NewBlackholeWatcher(failTotal, ec)
+	mw := mocks.NewBlackholeWatcher(ec, failTotal, func() { time.Sleep(time.Minute) })
 	c.watcher = mw
 
 	before := time.Now()
