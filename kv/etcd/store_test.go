@@ -32,6 +32,7 @@ import (
 	"github.com/m3db/m3cluster/generated/proto/kvtest"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/mocks"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -292,8 +293,7 @@ func TestWatchFromExist(t *testing.T) {
 	verifyValue(t, value, "bar1", 1)
 
 	w, err := store.Watch("foo")
-	require.NoError(t, err)
-	require.Nil(t, w.Get())
+	assert.NoError(t, err)
 
 	<-w.C()
 	require.Equal(t, 0, len(w.C()))
