@@ -22,6 +22,7 @@ package etcd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -38,7 +39,11 @@ import (
 
 const etcdVersionZero = 0
 
-var noopCancel func()
+var (
+	noopCancel func()
+
+	errInvalidHistoryVersion = errors.New("invalid version range")
+)
 
 // NewStore creates a kv store based on etcd
 func NewStore(c *clientv3.Client, opts Options) (kv.Store, error) {
@@ -150,15 +155,70 @@ func (c *client) get(key string) (kv.Value, error) {
 		return nil, kv.ErrNotFound
 	}
 
-	if r.Count > 1 {
-		return nil, fmt.Errorf("received %d values for key %s, expecting 1", r.Count, key)
-	}
-
 	v := newValue(r.Kvs[0].Value, r.Kvs[0].Version, r.Kvs[0].ModRevision)
 
 	c.mergeCache(key, v)
 
 	return v, nil
+}
+
+func (c *client) History(key string, from, to int) ([]kv.Value, error) {
+	if from >= to || from < 0 || to < 0 {
+		return nil, errInvalidHistoryVersion
+	}
+
+	newKey := c.opts.KeyFn()(key)
+
+	ctx, cancel := c.context()
+	r, err := c.kv.Get(ctx, newKey)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+
+	if r.Count == 0 {
+		return nil, kv.ErrNotFound
+	}
+
+	numValue := to - from
+
+	latestKV := r.Kvs[0]
+	latestVersion := int(latestKV.Version)
+	latestModRev := latestKV.ModRevision
+	createRev := latestKV.CreateRevision
+
+	if latestVersion < from {
+		return nil, errors.New("no value available in the version range")
+	}
+
+	if latestVersion-from+1 < numValue {
+		// get the correct size of the result slice
+		numValue = latestVersion - from + 1
+	}
+
+	res := make([]kv.Value, numValue)
+
+	if latestVersion < to {
+		res[len(res)-1] = newValue(latestKV.Value, latestKV.Version, latestModRev)
+	}
+
+	for latestModRev > createRev && latestVersion > from {
+		ctx, cancel := c.context()
+		r, err = c.kv.Get(ctx, newKey, clientv3.WithRev(latestModRev-1))
+		cancel()
+		if err != nil {
+			return nil, err
+		}
+
+		v := r.Kvs[0]
+		latestModRev = v.ModRevision
+		latestVersion = int(v.Version)
+		if latestVersion < to {
+			res[latestVersion-from] = newValue(v.Value, v.Version, v.ModRevision)
+		}
+	}
+
+	return res, nil
 }
 
 func (c *client) Watch(key string) (kv.ValueWatch, error) {
