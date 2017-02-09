@@ -186,7 +186,6 @@ func (c *client) History(key string, from, to int) ([]kv.Value, error) {
 	latestKV := r.Kvs[0]
 	latestVersion := int(latestKV.Version)
 	latestModRev := latestKV.ModRevision
-	createRev := latestKV.CreateRevision
 
 	if latestVersion < from {
 		// no value available in the requested version range
@@ -204,7 +203,7 @@ func (c *client) History(key string, from, to int) ([]kv.Value, error) {
 		res[len(res)-1] = newValue(latestKV.Value, latestKV.Version, latestModRev)
 	}
 
-	for latestModRev > createRev && latestVersion > from {
+	for latestVersion > from {
 		ctx, cancel := c.context()
 		defer cancel()
 
