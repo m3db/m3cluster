@@ -184,39 +184,45 @@ func (c *client) History(key string, from, to int) ([]kv.Value, error) {
 	numValue := to - from
 
 	latestKV := r.Kvs[0]
-	latestVersion := int(latestKV.Version)
-	latestModRev := latestKV.ModRevision
+	version := int(latestKV.Version)
+	modRev := latestKV.ModRevision
 
-	if latestVersion < from {
+	if version < from {
 		// no value available in the requested version range
 		return nil, nil
 	}
 
-	if latestVersion-from+1 < numValue {
+	if version-from+1 < numValue {
 		// get the correct size of the result slice
-		numValue = latestVersion - from + 1
+		numValue = version - from + 1
 	}
 
 	res := make([]kv.Value, numValue)
 
-	if latestVersion < to {
-		res[len(res)-1] = newValue(latestKV.Value, latestKV.Version, latestModRev)
+	if version < to {
+		// put it in the last element of the result
+		res[version-from] = newValue(latestKV.Value, latestKV.Version, modRev)
 	}
 
-	for latestVersion > from {
+	for version > from {
 		ctx, cancel := c.context()
 		defer cancel()
 
-		r, err = c.kv.Get(ctx, newKey, clientv3.WithRev(latestModRev-1))
+		r, err = c.kv.Get(ctx, newKey, clientv3.WithRev(modRev-1))
 		if err != nil {
 			return nil, err
 		}
 
+		if r.Count == 0 {
+			// unexpected
+			return nil, fmt.Errorf("could not find version %d for key %s", version-1, key)
+		}
+
 		v := r.Kvs[0]
-		latestModRev = v.ModRevision
-		latestVersion = int(v.Version)
-		if latestVersion < to {
-			res[latestVersion-from] = newValue(v.Value, v.Version, v.ModRevision)
+		modRev = v.ModRevision
+		version = int(v.Version)
+		if version < to {
+			res[version-from] = newValue(v.Value, v.Version, v.ModRevision)
 		}
 	}
 
