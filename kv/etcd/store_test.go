@@ -467,35 +467,6 @@ func TestWatchNonBlocking(t *testing.T) {
 	w1.Close()
 }
 
-func verifyValue(t *testing.T, v kv.Value, value string, version int) {
-	var testMsg kvtest.Foo
-	err := v.Unmarshal(&testMsg)
-	require.NoError(t, err)
-	require.Equal(t, value, testMsg.Msg)
-	require.Equal(t, version, v.Version())
-}
-
-func genProto(msg string) proto.Message {
-	return &kvtest.Foo{Msg: msg}
-}
-
-func testStore(t *testing.T) (*clientv3.Client, Options, func()) {
-	ecluster := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
-	ec := ecluster.RandClient()
-
-	closer := func() {
-		ecluster.Terminate(t)
-	}
-
-	opts := NewOptions().
-		SetWatchChanCheckInterval(10 * time.Millisecond).
-		SetKeyFn(func(key string) string {
-			return fmt.Sprintf("test/%s", key)
-		})
-
-	return ec, opts, closer
-}
-
 func TestHistory(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
@@ -515,6 +486,14 @@ func TestHistory(t *testing.T) {
 		store.Set("k1", genProto(fmt.Sprintf("bar%d", i)))
 		store.Set("k2", genProto(fmt.Sprintf("bar%d", i)))
 	}
+
+	res, err = store.History("k1", 5, 5)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(res))
+
+	res, err = store.History("k1", 15, 20)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(res))
 
 	res, err = store.History("k1", 6, 10)
 	assert.NoError(t, err)
@@ -543,4 +522,33 @@ func TestHistory(t *testing.T) {
 		verifyValue(t, value, fmt.Sprintf("bar%d", version), version)
 	}
 
+}
+
+func verifyValue(t *testing.T, v kv.Value, value string, version int) {
+	var testMsg kvtest.Foo
+	err := v.Unmarshal(&testMsg)
+	require.NoError(t, err)
+	require.Equal(t, value, testMsg.Msg)
+	require.Equal(t, version, v.Version())
+}
+
+func genProto(msg string) proto.Message {
+	return &kvtest.Foo{Msg: msg}
+}
+
+func testStore(t *testing.T) (*clientv3.Client, Options, func()) {
+	ecluster := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
+	ec := ecluster.RandClient()
+
+	closer := func() {
+		ecluster.Terminate(t)
+	}
+
+	opts := NewOptions().
+		SetWatchChanCheckInterval(10 * time.Millisecond).
+		SetKeyFn(func(key string) string {
+			return fmt.Sprintf("test/%s", key)
+		})
+
+	return ec, opts, closer
 }

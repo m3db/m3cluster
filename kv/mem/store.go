@@ -183,7 +183,7 @@ func (s *store) CheckAndSet(key string, version int, val proto.Message) (int, er
 }
 
 func (s *store) History(key string, from, to int) ([]kv.Value, error) {
-	if from <= 0 || to <= 0 || from >= to {
+	if from <= 0 || to <= 0 || from > to {
 		return nil, errors.New("bad request")
 	}
 	s.RLock()

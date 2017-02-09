@@ -190,9 +190,6 @@ func TestFakeStoreErrors(t *testing.T) {
 	_, err = s.History("foo", 0, 10)
 	require.Error(t, err)
 
-	_, err = s.History("foo", 10, 10)
-	require.Error(t, err)
-
 	_, err = s.History("foo", 20, 10)
 	require.Error(t, err)
 }
@@ -213,4 +210,12 @@ func TestHistory(t *testing.T) {
 	for i := 0; i < len(vals); i++ {
 		require.Equal(t, i+3, vals[i].Version())
 	}
+
+	vals, err = s.History("foo", 3, 3)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(vals))
+
+	vals, err = s.History("foo", 13, 17)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(vals))
 }

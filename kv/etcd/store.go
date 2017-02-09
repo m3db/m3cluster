@@ -163,15 +163,16 @@ func (c *client) get(key string) (kv.Value, error) {
 }
 
 func (c *client) History(key string, from, to int) ([]kv.Value, error) {
-	if from >= to || from < 0 || to < 0 {
+	if from > to || from < 0 || to < 0 {
 		return nil, errInvalidHistoryVersion
 	}
 
 	newKey := c.opts.KeyFn()(key)
 
 	ctx, cancel := c.context()
+	defer cancel()
+
 	r, err := c.kv.Get(ctx, newKey)
-	cancel()
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +189,8 @@ func (c *client) History(key string, from, to int) ([]kv.Value, error) {
 	createRev := latestKV.CreateRevision
 
 	if latestVersion < from {
-		return nil, errors.New("no value available in the version range")
+		// no value available in the requested version range
+		return nil, nil
 	}
 
 	if latestVersion-from+1 < numValue {
@@ -204,8 +206,9 @@ func (c *client) History(key string, from, to int) ([]kv.Value, error) {
 
 	for latestModRev > createRev && latestVersion > from {
 		ctx, cancel := c.context()
+		defer cancel()
+
 		r, err = c.kv.Get(ctx, newKey, clientv3.WithRev(latestModRev-1))
-		cancel()
 		if err != nil {
 			return nil, err
 		}
