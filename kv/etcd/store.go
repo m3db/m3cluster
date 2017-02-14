@@ -167,6 +167,10 @@ func (c *client) History(key string, from, to int) ([]kv.Value, error) {
 		return nil, errInvalidHistoryVersion
 	}
 
+	if from == to {
+		return nil, nil
+	}
+
 	newKey := c.opts.KeyFn()(key)
 
 	ctx, cancel := c.context()
