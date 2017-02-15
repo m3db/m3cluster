@@ -276,22 +276,17 @@ func (c *client) update(key string) error {
 	}
 
 	curValue := w.Get()
-	if curValue == nil {
-		if newValue != nil {
-			// get first value
-			return w.Update(newValue)
-		}
-
+	if curValue == nil && newValue == nil {
 		// nothing to update
 		return nil
 	}
 
-	if newValue == nil {
-		// key was deleted
-		return w.Update(nil)
+	if curValue == nil || newValue == nil {
+		// got the first value or received a delete update
+		return w.Update(newValue)
 	}
 
-	// atm both curValue and newValue are valid, compare version
+	// now both curValue and newValue are valid, compare version
 	if newValue.(*value).isNewer(curValue.(*value)) {
 		return w.Update(newValue)
 	}

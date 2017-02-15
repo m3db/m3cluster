@@ -550,6 +550,10 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, err)
 	verifyValue(t, v, "bar2", 2)
 
+	v, err = store.Delete("foo")
+	require.Error(t, err)
+	require.Equal(t, kv.ErrNotFound, err)
+
 	v, err = store.Get("foo")
 	require.Error(t, err)
 	require.Equal(t, kv.ErrNotFound, err)
