@@ -162,7 +162,8 @@ func (a rackAwarePlacementAlgorithm) addInstance(p services.ServicePlacement, ad
 		if !placement.IsInstanceLeaving(instance) {
 			return nil, errAddingInstanceAlreadyExist
 		}
-		p, addingInstance = a.moveLeavingShardsBack(p, instance)
+		p = a.moveLeavingShardsBack(p, instance)
+		addingInstance = instance
 	}
 
 	ph := newAddInstanceHelper(p, addingInstance, a.opts)
@@ -182,7 +183,7 @@ func (a rackAwarePlacementAlgorithm) addInstance(p services.ServicePlacement, ad
 	return ph.GeneratePlacement(), nil
 }
 
-func (a rackAwarePlacementAlgorithm) moveLeavingShardsBack(p services.ServicePlacement, source services.PlacementInstance) (services.ServicePlacement, services.PlacementInstance) {
+func (a rackAwarePlacementAlgorithm) moveLeavingShardsBack(p services.ServicePlacement, source services.PlacementInstance) services.ServicePlacement {
 	ph := newAddInstanceHelper(p, source, a.opts)
 	instanceID := source.ID()
 	// since the instance does not know where did its shards go, we need to iterate the whole placement to find them
@@ -199,5 +200,5 @@ func (a rackAwarePlacementAlgorithm) moveLeavingShardsBack(p services.ServicePla
 		}
 	}
 
-	return ph.GeneratePlacement(), source
+	return ph.GeneratePlacement()
 }
