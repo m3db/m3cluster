@@ -173,8 +173,7 @@ func (c *client) Unadvertise(sid services.ServiceID, id string) error {
 	key := adKey(sid, id)
 
 	c.Lock()
-	ch, ok := c.adDoneChs[key]
-	if ok {
+	if ch, ok := c.adDoneChs[key]; ok {
 		// if this client is advertising the instance, stop it
 		close(ch)
 		delete(c.adDoneChs, key)

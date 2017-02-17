@@ -320,15 +320,14 @@ type leaseCache struct {
 
 func (c *leaseCache) get(service, instance string, ttl time.Duration) (clientv3.LeaseID, bool) {
 	c.RLock()
+	defer c.RUnlock()
+
 	leases, ok := c.leases[heartbeatKey(service, instance)]
 	if !ok {
-		c.RUnlock()
 		return clientv3.LeaseID(0), false
 	}
 
 	id, ok := leases[ttl]
-	c.RUnlock()
-
 	return id, ok
 }
 
@@ -336,13 +335,14 @@ func (c *leaseCache) put(service, instance string, ttl time.Duration, id clientv
 	key := heartbeatKey(service, instance)
 
 	c.Lock()
+	defer c.Unlock()
+
 	leases, ok := c.leases[key]
 	if !ok {
 		leases = make(map[time.Duration]clientv3.LeaseID)
 		c.leases[key] = leases
 	}
 	leases[ttl] = id
-	c.Unlock()
 }
 
 func (c *leaseCache) delete(service, instance string) {
