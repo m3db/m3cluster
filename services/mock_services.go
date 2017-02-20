@@ -442,26 +442,6 @@ func (_m *MockAdvertisement) EXPECT() *_MockAdvertisementRecorder {
 	return _m.recorder
 }
 
-func (_m *MockAdvertisement) InstanceID() string {
-	ret := _m.ctrl.Call(_m, "InstanceID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-func (_mr *_MockAdvertisementRecorder) InstanceID() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "InstanceID")
-}
-
-func (_m *MockAdvertisement) SetInstanceID(id string) Advertisement {
-	ret := _m.ctrl.Call(_m, "SetInstanceID", id)
-	ret0, _ := ret[0].(Advertisement)
-	return ret0
-}
-
-func (_mr *_MockAdvertisementRecorder) SetInstanceID(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetInstanceID", arg0)
-}
-
 func (_m *MockAdvertisement) ServiceID() ServiceID {
 	ret := _m.ctrl.Call(_m, "ServiceID")
 	ret0, _ := ret[0].(ServiceID)
@@ -502,24 +482,24 @@ func (_mr *_MockAdvertisementRecorder) SetHealth(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetHealth", arg0)
 }
 
-func (_m *MockAdvertisement) Endpoint() string {
-	ret := _m.ctrl.Call(_m, "Endpoint")
-	ret0, _ := ret[0].(string)
+func (_m *MockAdvertisement) PlacementInstance() PlacementInstance {
+	ret := _m.ctrl.Call(_m, "PlacementInstance")
+	ret0, _ := ret[0].(PlacementInstance)
 	return ret0
 }
 
-func (_mr *_MockAdvertisementRecorder) Endpoint() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Endpoint")
+func (_mr *_MockAdvertisementRecorder) PlacementInstance() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlacementInstance")
 }
 
-func (_m *MockAdvertisement) SetEndpoint(e string) Advertisement {
-	ret := _m.ctrl.Call(_m, "SetEndpoint", e)
+func (_m *MockAdvertisement) SetPlacementInstance(p PlacementInstance) Advertisement {
+	ret := _m.ctrl.Call(_m, "SetPlacementInstance", p)
 	ret0, _ := ret[0].(Advertisement)
 	return ret0
 }
 
-func (_mr *_MockAdvertisementRecorder) SetEndpoint(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetEndpoint", arg0)
+func (_mr *_MockAdvertisementRecorder) SetPlacementInstance(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetPlacementInstance", arg0)
 }
 
 // Mock of ServiceID interface

@@ -38,10 +38,11 @@ import (
 )
 
 var (
-	errWatchInitTimeout = errors.New("service watch init time out")
-	errNoServiceName    = errors.New("no service specified")
-	errNoServiceID      = errors.New("no service id specified")
-	errNoInstanceID     = errors.New("no instance id specified")
+	errWatchInitTimeout   = errors.New("service watch init time out")
+	errNoServiceName      = errors.New("no service specified")
+	errNoServiceID        = errors.New("no service id specified")
+	errNoInstanceID       = errors.New("no instance id specified")
+	errAdPlacementMissing = errors.New("advertisement is missing placement instance")
 )
 
 // NewServices returns a client of Services
@@ -118,7 +119,12 @@ func (c *client) PlacementService(sid services.ServiceID, opts services.Placemen
 }
 
 func (c *client) Advertise(ad services.Advertisement) error {
-	if err := validateAdvertisement(ad.ServiceID(), ad.InstanceID()); err != nil {
+	pi := ad.PlacementInstance()
+	if pi == nil {
+		return errAdPlacementMissing
+	}
+
+	if err := validateAdvertisement(ad.ServiceID(), pi.ID()); err != nil {
 		return err
 	}
 
@@ -132,12 +138,12 @@ func (c *client) Advertise(ad services.Advertisement) error {
 		return err
 	}
 
-	key := adKey(ad.ServiceID(), ad.InstanceID())
+	key := adKey(ad.ServiceID(), pi.ID())
 	c.Lock()
 	ch, ok := c.adDoneChs[key]
 	if ok {
 		c.Unlock()
-		return fmt.Errorf("service %s, instance %s is already being advertised", ad.ServiceID(), ad.InstanceID())
+		return fmt.Errorf("service %s, instance %s is already being advertised", ad.ServiceID(), pi.ID())
 	}
 	ch = make(chan struct{})
 	c.adDoneChs[key] = ch
@@ -152,7 +158,7 @@ func (c *client) Advertise(ad services.Advertisement) error {
 			select {
 			case <-ticker:
 				if isHealthy(ad) {
-					if err := hb.Heartbeat(serviceKey(sid), ad.InstanceID(), m.LivenessInterval()); err != nil {
+					if err := hb.Heartbeat(serviceKey(sid), pi.ID(), m.LivenessInterval()); err != nil {
 						c.logger.Errorf("could not heartbeat service %s, %v", sid.String(), err)
 						errCounter.Inc(1)
 					}

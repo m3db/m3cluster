@@ -114,14 +114,17 @@ type ServiceInstance interface {
 
 // Advertisement advertises the availability of a given instance of a service
 type Advertisement interface {
-	InstanceID() string                           // the ID of the instance being advertised
-	SetInstanceID(id string) Advertisement        // sets the ID of the instance being advertised
 	ServiceID() ServiceID                         // the service being advertised
 	SetServiceID(service ServiceID) Advertisement // sets the service being advertised
 	Health() func() error                         // optional health function, return an error to indicate unhealthy
 	SetHealth(health func() error) Advertisement  // sets the health function for the advertised instance
-	Endpoint() string                             // endpoint exposed by the service
-	SetEndpoint(e string) Advertisement           // sets the endpoint exposed by the service
+
+	// Returns the placement instance associated with this advertisement, which
+	// contains the ID of the instance advertising and all other relevant fields.
+	PlacementInstance() PlacementInstance
+
+	// Sets the PlacementInstance that is advertising.
+	SetPlacementInstance(p PlacementInstance) Advertisement
 }
 
 // ServiceID contains the fields required to id a service

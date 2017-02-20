@@ -98,6 +98,12 @@ func TestAdvertiseErrors(t *testing.T) {
 	ad := services.NewAdvertisement()
 	err = sd.Advertise(ad)
 	require.Error(t, err)
+	require.Equal(t, errAdPlacementMissing, err)
+
+	ad = services.NewAdvertisement().
+		SetPlacementInstance(placement.NewInstance())
+	err = sd.Advertise(ad)
+	require.Error(t, err)
 	require.Equal(t, errNoServiceID, err)
 
 	sid := services.NewServiceID()
@@ -106,7 +112,10 @@ func TestAdvertiseErrors(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, errNoInstanceID, err)
 
-	ad = ad.SetInstanceID("i1")
+	pi := placement.NewInstance()
+	pi.SetID("i1")
+
+	ad = ad.SetPlacementInstance(pi)
 	err = sd.Advertise(ad)
 	require.Error(t, err)
 	require.Equal(t, errNoServiceName, err)
@@ -196,7 +205,9 @@ func TestAdvertiseUnadvertise(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ad := services.NewAdvertisement().SetServiceID(sid).SetInstanceID("i1")
+	ad := services.NewAdvertisement().
+		SetServiceID(sid).
+		SetPlacementInstance(placement.NewInstance().SetID("i1"))
 
 	require.NoError(t, sd.Advertise(ad))
 	s, ok := m.getMockStore("zone1")
