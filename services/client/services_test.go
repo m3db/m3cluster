@@ -178,7 +178,9 @@ func TestUnadvertise(t *testing.T) {
 	s, ok := m.getMockStore("zone1")
 	require.True(t, ok)
 
-	err = s.Heartbeat(serviceKey(sid), "i1", time.Hour)
+	i1 := placement.NewInstance().SetID("i1")
+
+	err = s.Heartbeat(serviceKey(sid), i1, time.Hour)
 	require.NoError(t, err)
 
 	err = sd.Unadvertise(sid, "i1")
@@ -333,7 +335,9 @@ func TestQueryNotIncludeUnhealthy(t *testing.T) {
 	hb, err := opts.HeartbeatGen()("zone1")
 	require.NoError(t, err)
 
-	err = hb.Heartbeat("m3db", "i1", time.Second)
+	i1 := placement.NewInstance().SetID("i1")
+
+	err = hb.Heartbeat("m3db", i1, time.Second)
 	require.NoError(t, err)
 
 	s, err = sd.Query(sid, qopts)
@@ -874,7 +878,7 @@ type mockHBStore struct {
 	watchables map[string]xwatch.Watchable
 }
 
-func (hb *mockHBStore) Heartbeat(s string, id string, ttl time.Duration) error {
+func (hb *mockHBStore) Heartbeat(s string, instance services.PlacementInstance, ttl time.Duration) error {
 	hb.Lock()
 	defer hb.Unlock()
 	hbMap, ok := hb.hbs[s]
@@ -882,7 +886,7 @@ func (hb *mockHBStore) Heartbeat(s string, id string, ttl time.Duration) error {
 		hbMap = map[string]time.Time{}
 		hb.hbs[s] = hbMap
 	}
-	hbMap[id] = time.Now()
+	hbMap[instance.ID()] = time.Now()
 	return nil
 }
 

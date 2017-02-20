@@ -26,8 +26,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/etcd/watchmanager"
 	"github.com/m3db/m3cluster/kv"
+	"github.com/m3db/m3cluster/services"
+	svcClient "github.com/m3db/m3cluster/services/client"
 	"github.com/m3db/m3cluster/services/heartbeat"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
@@ -119,8 +122,8 @@ type clientMetrics struct {
 	etcdLeaseError tally.Counter
 }
 
-func (c *client) Heartbeat(service, instance string, ttl time.Duration) error {
-	leaseID, ok := c.cache.get(service, instance, ttl)
+func (c *client) Heartbeat(service string, instance services.PlacementInstance, ttl time.Duration) error {
+	leaseID, ok := c.cache.get(service, instance.ID(), ttl)
 	if ok {
 		ctx, cancel := c.context()
 		defer cancel()
@@ -145,10 +148,20 @@ func (c *client) Heartbeat(service, instance string, ttl time.Duration) error {
 	ctx, cancel = c.context()
 	defer cancel()
 
+	instanceProto, err := svcClient.PlacementInstanceToProto(instance)
+	if err != nil {
+		return err
+	}
+
+	instanceBytes, err := proto.Marshal(instanceProto)
+	if err != nil {
+		return err
+	}
+
 	_, err = c.kv.Put(
 		ctx,
-		heartbeatKey(service, instance),
-		"",
+		heartbeatKey(service, instance.ID()),
+		string(instanceBytes),
 		clientv3.WithLease(resp.ID),
 	)
 	if err != nil {
@@ -156,7 +169,7 @@ func (c *client) Heartbeat(service, instance string, ttl time.Duration) error {
 		return err
 	}
 
-	c.cache.put(service, instance, ttl, resp.ID)
+	c.cache.put(service, instance.ID(), ttl, resp.ID)
 
 	return nil
 }

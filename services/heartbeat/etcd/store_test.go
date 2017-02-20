@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/m3db/m3cluster/mocks"
+	"github.com/m3db/m3cluster/services/placement"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
@@ -44,11 +45,13 @@ func TestReuseLeaseID(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
+	i1 := placement.NewInstance().SetID("i1")
+
 	c, err := NewStore(ec, opts)
 	require.NoError(t, err)
 	store := c.(*client)
 
-	err = store.Heartbeat("s", "i1", time.Minute)
+	err = store.Heartbeat("s", i1, time.Minute)
 	require.NoError(t, err)
 
 	store.RLock()
@@ -61,7 +64,7 @@ func TestReuseLeaseID(t *testing.T) {
 	}
 	store.RUnlock()
 
-	err = store.Heartbeat("s", "i1", time.Minute)
+	err = store.Heartbeat("s", i1, time.Minute)
 	require.NoError(t, err)
 
 	store.RLock()
@@ -78,13 +81,16 @@ func TestHeartbeat(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
+	i1 := placement.NewInstance().SetID("i1")
+	i2 := placement.NewInstance().SetID("i2")
+
 	c, err := NewStore(ec, opts)
 	require.NoError(t, err)
 	store := c.(*client)
 
-	err = store.Heartbeat("s", "i1", 1*time.Second)
+	err = store.Heartbeat("s", i1, 1*time.Second)
 	require.NoError(t, err)
-	err = store.Heartbeat("s", "i2", 2*time.Second)
+	err = store.Heartbeat("s", i2, 2*time.Second)
 	require.NoError(t, err)
 
 	ids, err := store.Get("s")
@@ -122,14 +128,17 @@ func TestDelete(t *testing.T) {
 	ec, opts, closeFn := testStore(t)
 	defer closeFn()
 
+	i1 := placement.NewInstance().SetID("i1")
+	i2 := placement.NewInstance().SetID("i2")
+
 	c, err := NewStore(ec, opts)
 	require.NoError(t, err)
 	store := c.(*client)
 
-	err = store.Heartbeat("s", "i1", time.Hour)
+	err = store.Heartbeat("s", i1, time.Hour)
 	require.NoError(t, err)
 
-	err = store.Heartbeat("s", "i2", time.Hour)
+	err = store.Heartbeat("s", i2, time.Hour)
 	require.NoError(t, err)
 
 	ids, err := store.Get("s")
@@ -149,7 +158,7 @@ func TestDelete(t *testing.T) {
 	require.Equal(t, 1, len(ids))
 	require.Contains(t, ids, "i2")
 
-	err = store.Heartbeat("s", "i1", time.Hour)
+	err = store.Heartbeat("s", i1, time.Hour)
 	require.NoError(t, err)
 
 	for {
@@ -167,12 +176,15 @@ func TestWatch(t *testing.T) {
 	store, err := NewStore(ec, opts)
 	require.NoError(t, err)
 
+	i1 := placement.NewInstance().SetID("i1")
+	i2 := placement.NewInstance().SetID("i2")
+
 	w1, err := store.Watch("foo")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(w1.C()))
 	require.Nil(t, w1.Get())
 
-	err = store.Heartbeat("foo", "i1", 2*time.Second)
+	err = store.Heartbeat("foo", i1, 2*time.Second)
 	require.NoError(t, err)
 
 	for range w1.C() {
@@ -182,7 +194,7 @@ func TestWatch(t *testing.T) {
 	}
 	require.Equal(t, []string{"i1"}, w1.Get())
 
-	err = store.Heartbeat("foo", "i2", 2*time.Second)
+	err = store.Heartbeat("foo", i2, 2*time.Second)
 	require.NoError(t, err)
 
 	for range w1.C() {
@@ -201,7 +213,7 @@ func TestWatch(t *testing.T) {
 	require.Equal(t, 0, len(w1.C()))
 	require.Equal(t, []string{}, w1.Get())
 
-	err = store.Heartbeat("foo", "i2", time.Second)
+	err = store.Heartbeat("foo", i2, time.Second)
 	require.NoError(t, err)
 
 	<-w1.C()
@@ -218,7 +230,10 @@ func TestWatchClose(t *testing.T) {
 	store, err := NewStore(ec, opts.SetWatchChanCheckInterval(10*time.Millisecond))
 	require.NoError(t, err)
 
-	err = store.Heartbeat("foo", "i1", 100*time.Second)
+	i1 := placement.NewInstance().SetID("i1")
+	i2 := placement.NewInstance().SetID("i2")
+
+	err = store.Heartbeat("foo", i1, 100*time.Second)
 	require.NoError(t, err)
 
 	w1, err := store.Watch("foo")
@@ -250,7 +265,7 @@ func TestWatchClose(t *testing.T) {
 	require.Equal(t, []string{"i1"}, w2.Get())
 
 	// verify that w1 will no longer be updated because the original watchable is closed
-	err = store.Heartbeat("foo", "i2", 100*time.Second)
+	err = store.Heartbeat("foo", i2, 100*time.Second)
 	require.NoError(t, err)
 	<-w2.C()
 	require.Equal(t, []string{"i1", "i2"}, w2.Get())
@@ -267,6 +282,9 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	store, err := NewStore(ec, opts)
 	require.NoError(t, err)
 
+	i1 := placement.NewInstance().SetID("i1")
+	i2 := placement.NewInstance().SetID("i2")
+
 	w1, err := store.Watch("foo")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(w1.C()))
@@ -277,7 +295,7 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	require.Equal(t, 0, len(w2.C()))
 	require.Nil(t, w2.Get())
 
-	err = store.Heartbeat("foo", "i1", 1*time.Second)
+	err = store.Heartbeat("foo", i1, 1*time.Second)
 	require.NoError(t, err)
 
 	for {
@@ -298,7 +316,7 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 	require.Equal(t, 0, len(w2.C()))
 	require.Equal(t, []string{"i1"}, w2.Get())
 
-	err = store.Heartbeat("foo", "i2", 2*time.Second)
+	err = store.Heartbeat("foo", i2, 2*time.Second)
 	require.NoError(t, err)
 
 	for {
@@ -341,11 +359,14 @@ func TestWatchNonBlocking(t *testing.T) {
 
 	opts = opts.SetWatchChanResetInterval(200 * time.Millisecond).SetWatchChanInitTimeout(200 * time.Millisecond)
 
+	i1 := placement.NewInstance().SetID("i1")
+	i2 := placement.NewInstance().SetID("i2")
+
 	store, err := NewStore(ec, opts)
 	require.NoError(t, err)
 	c := store.(*client)
 
-	err = store.Heartbeat("foo", "i1", 100*time.Second)
+	err = store.Heartbeat("foo", i1, 100*time.Second)
 	require.NoError(t, err)
 
 	failTotal := 1
@@ -367,7 +388,7 @@ func TestWatchNonBlocking(t *testing.T) {
 
 	time.Sleep(5 * (opts.WatchChanResetInterval() + opts.WatchChanInitTimeout()))
 
-	err = store.Heartbeat("foo", "i2", 100*time.Second)
+	err = store.Heartbeat("foo", i2, 100*time.Second)
 	for {
 		if len(w1.Get().([]string)) == 2 {
 			break

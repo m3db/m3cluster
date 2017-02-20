@@ -23,13 +23,14 @@ package heartbeat
 import (
 	"time"
 
+	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3x/watch"
 )
 
 // Store is a heartbeat store
 type Store interface {
 	// Heartbeat sends heartbeat for a service instance with a ttl
-	Heartbeat(service, instance string, ttl time.Duration) error
+	Heartbeat(service string, instance services.PlacementInstance, ttl time.Duration) error
 
 	// Get gets healthy instances for a service
 	Get(service string) ([]string, error)

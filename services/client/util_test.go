@@ -25,6 +25,8 @@ import (
 
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/services"
+	"github.com/m3db/m3cluster/services/placement"
+	"github.com/m3db/m3cluster/shard"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -138,6 +140,84 @@ func TestKeys(t *testing.T) {
 	assert.Equal(t, "_sd.placement/production/m3db", placementKey(sid))
 	assert.Equal(t, "_sd.metadata/production/m3db", metadataKey(sid))
 	assert.Equal(t, "production/m3db/instance1", adKey(sid, "instance1"))
+}
+
+func TestPlacementInstanceFromProto(t *testing.T) {
+	protoShardsUnsorted := getProtoShards([]uint32{2, 1, 0})
+
+	instanceProto := &placementproto.Instance{
+		Id:       "i1",
+		Rack:     "r1",
+		Zone:     "z1",
+		Endpoint: "e1",
+		Weight:   1,
+		Shards:   protoShardsUnsorted,
+	}
+
+	instance, err := PlacementInstanceFromProto(instanceProto)
+	assert.NoError(t, err)
+
+	instanceShards := instance.Shards()
+
+	// assert.Equal can't compare shards due to pointer types, we check them
+	// manually
+	instance.SetShards(shard.NewShards(nil))
+
+	expShards := shard.NewShards([]shard.Shard{
+		shard.NewShard(0).SetSourceID("i1").SetState(shard.Available),
+		shard.NewShard(1).SetSourceID("i1").SetState(shard.Available),
+		shard.NewShard(2).SetSourceID("i1").SetState(shard.Available),
+	})
+
+	expInstance := placement.NewInstance().
+		SetID("i1").
+		SetRack("r1").
+		SetZone("z1").
+		SetEndpoint("e1").
+		SetWeight(1)
+
+	assert.Equal(t, expInstance, instance)
+	assert.Equal(t, expShards.AllIDs(), instanceShards.AllIDs())
+
+	instanceProto.Shards[0].State = placementproto.ShardState(1000)
+	instance, err = PlacementInstanceFromProto(instanceProto)
+	assert.Error(t, err)
+	assert.Nil(t, instance)
+}
+
+func TestPlacementInstanceToProto(t *testing.T) {
+	shards := shard.NewShards([]shard.Shard{
+		shard.NewShard(2).SetSourceID("i1").SetState(shard.Available),
+		shard.NewShard(1).SetSourceID("i1").SetState(shard.Available),
+		shard.NewShard(0).SetSourceID("i1").SetState(shard.Available),
+	})
+
+	instance := placement.NewInstance().
+		SetID("i1").
+		SetRack("r1").
+		SetZone("z1").
+		SetEndpoint("e1").
+		SetWeight(1).
+		SetShards(shards)
+
+	instanceProto, err := PlacementInstanceToProto(instance)
+	assert.NoError(t, err)
+
+	protoShards := getProtoShards([]uint32{0, 1, 2})
+	for _, s := range protoShards {
+		s.SourceId = "i1"
+	}
+
+	expInstance := &placementproto.Instance{
+		Id:       "i1",
+		Rack:     "r1",
+		Zone:     "z1",
+		Endpoint: "e1",
+		Weight:   1,
+		Shards:   protoShards,
+	}
+
+	assert.Equal(t, expInstance, instanceProto)
 }
 
 func getProtoShards(ids []uint32) []*placementproto.Shard {

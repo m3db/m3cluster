@@ -90,20 +90,11 @@ func PlacementFromProto(p placementproto.Placement) (services.ServicePlacement, 
 
 	instances := make([]services.PlacementInstance, 0, len(p.Instances))
 	for _, instance := range p.Instances {
-		shards, err := shardsFromProto(instance.Shards)
+		pi, err := PlacementInstanceFromProto(instance)
 		if err != nil {
 			return nil, err
 		}
-		instances = append(
-			instances,
-			placement.NewInstance().
-				SetID(instance.Id).
-				SetRack(instance.Rack).
-				SetWeight(instance.Weight).
-				SetZone(instance.Zone).
-				SetEndpoint(instance.Endpoint).
-				SetShards(shards),
-		)
+		instances = append(instances, pi)
 	}
 
 	return placement.NewPlacement().
@@ -117,21 +108,13 @@ func PlacementFromProto(p placementproto.Placement) (services.ServicePlacement, 
 func PlacementToProto(p services.ServicePlacement) (placementproto.Placement, error) {
 	instances := make(map[string]*placementproto.Instance, p.NumInstances())
 	for _, instance := range p.Instances() {
-		ss, err := shardsToProto(instance.Shards())
+		pi, err := PlacementInstanceToProto(instance)
 		if err != nil {
 			return placementproto.Placement{}, err
 		}
-		shards := shardByIDAscending(ss)
-		sort.Sort(shards)
-		instances[instance.ID()] = &placementproto.Instance{
-			Id:       instance.ID(),
-			Rack:     instance.Rack(),
-			Zone:     instance.Zone(),
-			Weight:   instance.Weight(),
-			Endpoint: instance.Endpoint(),
-			Shards:   shards,
-		}
+		instances[instance.ID()] = pi
 	}
+
 	return placementproto.Placement{
 		Instances:     instances,
 		ReplicaFactor: uint32(p.ReplicaFactor()),
@@ -235,4 +218,41 @@ func serviceKey(s services.ServiceID) string {
 		return s.Name()
 	}
 	return fmt.Sprintf(keyFormat, s.Environment(), s.Name())
+}
+
+// PlacementInstanceFromProto converts an Instance proto message to a
+// PlacementInstance type.
+func PlacementInstanceFromProto(p *placementproto.Instance) (services.PlacementInstance, error) {
+	shards, err := shardsFromProto(p.Shards)
+	if err != nil {
+		return nil, err
+	}
+
+	return placement.NewInstance().
+		SetID(p.Id).
+		SetRack(p.Rack).
+		SetWeight(p.Weight).
+		SetZone(p.Zone).
+		SetEndpoint(p.Endpoint).
+		SetShards(shards), nil
+}
+
+// PlacementInstanceToProto converts a PlacementInstance type to an Instance
+// proto message.
+func PlacementInstanceToProto(p services.PlacementInstance) (*placementproto.Instance, error) {
+	ss, err := shardsToProto(p.Shards())
+	if err != nil {
+		return &placementproto.Instance{}, err
+	}
+	shards := shardByIDAscending(ss)
+	sort.Sort(shards)
+
+	return &placementproto.Instance{
+		Id:       p.ID(),
+		Rack:     p.Rack(),
+		Zone:     p.Zone(),
+		Weight:   p.Weight(),
+		Endpoint: p.Endpoint(),
+		Shards:   shards,
+	}, nil
 }
