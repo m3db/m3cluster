@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/m3db/m3cluster/mocks"
+	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement"
 
 	"github.com/coreos/etcd/clientv3"
@@ -93,35 +94,35 @@ func TestHeartbeat(t *testing.T) {
 	err = store.Heartbeat("s", i2, 2*time.Second)
 	require.NoError(t, err)
 
-	ids, err := store.Get("s")
+	instances, err := store.Get("s")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(ids))
-	require.Contains(t, ids, "i1")
-	require.Contains(t, ids, "i2")
+	require.Equal(t, 2, len(instances))
+	require.Contains(t, instances, i1)
+	require.Contains(t, instances, i2)
 
 	for {
-		ids, err = store.Get("s")
+		instances, err = store.Get("s")
 		require.NoError(t, err)
-		if len(ids) == 1 {
+		if len(instances) == 1 {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	require.Equal(t, 1, len(ids))
-	require.NotContains(t, ids, "i1")
-	require.Contains(t, ids, "i2")
+	require.Equal(t, 1, len(instances))
+	require.NotContains(t, instances, i1)
+	require.Contains(t, instances, i2)
 
 	for {
-		ids, err = store.Get("s")
+		instances, err = store.Get("s")
 		require.NoError(t, err)
-		if len(ids) == 0 {
+		if len(instances) == 0 {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	require.Equal(t, 0, len(ids))
-	require.NotContains(t, ids, "i1")
-	require.NotContains(t, ids, "i2")
+	require.Equal(t, 0, len(instances))
+	require.NotContains(t, instances, i1)
+	require.NotContains(t, instances, i2)
 }
 
 func TestDelete(t *testing.T) {
@@ -141,29 +142,29 @@ func TestDelete(t *testing.T) {
 	err = store.Heartbeat("s", i2, time.Hour)
 	require.NoError(t, err)
 
-	ids, err := store.Get("s")
+	instances, err := store.Get("s")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(ids))
-	require.Contains(t, ids, "i1")
-	require.Contains(t, ids, "i2")
+	require.Equal(t, 2, len(instances))
+	require.Contains(t, instances, i1)
+	require.Contains(t, instances, i2)
 
-	err = store.Delete("s", "i1")
+	err = store.Delete("s", i1.ID())
 	require.NoError(t, err)
 
-	err = store.Delete("s", "i1")
+	err = store.Delete("s", i1.ID())
 	require.Error(t, err)
 
-	ids, err = store.Get("s")
+	instances, err = store.Get("s")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(ids))
-	require.Contains(t, ids, "i2")
+	require.Equal(t, 1, len(instances))
+	require.Contains(t, instances, i2)
 
 	err = store.Heartbeat("s", i1, time.Hour)
 	require.NoError(t, err)
 
 	for {
-		ids, _ = store.Get("s")
-		if len(ids) == 2 {
+		instances, _ = store.Get("s")
+		if len(instances) == 2 {
 			break
 		}
 	}
@@ -188,37 +189,37 @@ func TestWatch(t *testing.T) {
 	require.NoError(t, err)
 
 	for range w1.C() {
-		if len(w1.Get().([]string)) == 1 {
+		if len(w1.Get().([]services.PlacementInstance)) == 1 {
 			break
 		}
 	}
-	require.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i1}, w1.Get())
 
 	err = store.Heartbeat("foo", i2, 2*time.Second)
 	require.NoError(t, err)
 
 	for range w1.C() {
-		if len(w1.Get().([]string)) == 2 {
+		if len(w1.Get().([]services.PlacementInstance)) == 2 {
 			break
 		}
 	}
-	require.Equal(t, []string{"i1", "i2"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i1, i2}, w1.Get())
 
 	for range w1.C() {
-		if len(w1.Get().([]string)) == 0 {
+		if len(w1.Get().([]services.PlacementInstance)) == 0 {
 			break
 		}
 	}
 	<-w1.C()
 	require.Equal(t, 0, len(w1.C()))
-	require.Equal(t, []string{}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{}, w1.Get())
 
 	err = store.Heartbeat("foo", i2, time.Second)
 	require.NoError(t, err)
 
 	<-w1.C()
 	require.Equal(t, 0, len(w1.C()))
-	require.Equal(t, []string{"i2"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i2}, w1.Get())
 
 	w1.Close()
 }
@@ -239,7 +240,7 @@ func TestWatchClose(t *testing.T) {
 	w1, err := store.Watch("foo")
 	require.NoError(t, err)
 	<-w1.C()
-	require.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i1}, w1.Get())
 
 	c := store.(*client)
 	_, ok := c.watchables["_hb/foo"]
@@ -262,14 +263,14 @@ func TestWatchClose(t *testing.T) {
 	w2, err := store.Watch("foo")
 	require.NoError(t, err)
 	<-w2.C()
-	require.Equal(t, []string{"i1"}, w2.Get())
+	require.Equal(t, []services.PlacementInstance{i1}, w2.Get())
 
 	// verify that w1 will no longer be updated because the original watchable is closed
 	err = store.Heartbeat("foo", i2, 100*time.Second)
 	require.NoError(t, err)
 	<-w2.C()
-	require.Equal(t, []string{"i1", "i2"}, w2.Get())
-	require.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i1, i2}, w2.Get())
+	require.Equal(t, []services.PlacementInstance{i1}, w1.Get())
 
 	w1.Close()
 	w2.Close()
@@ -303,51 +304,51 @@ func TestMultipleWatchesFromNotExist(t *testing.T) {
 		if g == nil {
 			continue
 		}
-		if len(g.([]string)) == 1 {
+		if len(g.([]services.PlacementInstance)) == 1 {
 			break
 		}
 	}
 
 	<-w1.C()
 	require.Equal(t, 0, len(w1.C()))
-	require.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i1}, w1.Get())
 
 	<-w2.C()
 	require.Equal(t, 0, len(w2.C()))
-	require.Equal(t, []string{"i1"}, w2.Get())
+	require.Equal(t, []services.PlacementInstance{i1}, w2.Get())
 
 	err = store.Heartbeat("foo", i2, 2*time.Second)
 	require.NoError(t, err)
 
 	for {
-		if len(w1.Get().([]string)) == 2 {
+		if len(w1.Get().([]services.PlacementInstance)) == 2 {
 			break
 		}
 	}
 	<-w1.C()
-	require.Equal(t, []string{"i1", "i2"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i1, i2}, w1.Get())
 	<-w2.C()
-	require.Equal(t, []string{"i1", "i2"}, w2.Get())
+	require.Equal(t, []services.PlacementInstance{i1, i2}, w2.Get())
 
 	for {
-		if len(w1.Get().([]string)) == 1 {
+		if len(w1.Get().([]services.PlacementInstance)) == 1 {
 			break
 		}
 	}
 	<-w1.C()
-	require.Equal(t, []string{"i2"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i2}, w1.Get())
 	<-w2.C()
-	require.Equal(t, []string{"i2"}, w2.Get())
+	require.Equal(t, []services.PlacementInstance{i2}, w2.Get())
 
 	for {
-		if len(w1.Get().([]string)) == 0 {
+		if len(w1.Get().([]services.PlacementInstance)) == 0 {
 			break
 		}
 	}
 	<-w1.C()
-	require.Equal(t, []string{}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{}, w1.Get())
 	<-w2.C()
-	require.Equal(t, []string{}, w2.Get())
+	require.Equal(t, []services.PlacementInstance{}, w2.Get())
 
 	w1.Close()
 	w2.Close()
@@ -384,17 +385,17 @@ func TestWatchNonBlocking(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 		require.Fail(t, "notification came too late")
 	}
-	require.Equal(t, []string{"i1"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i1}, w1.Get())
 
 	time.Sleep(5 * (opts.WatchChanResetInterval() + opts.WatchChanInitTimeout()))
 
 	err = store.Heartbeat("foo", i2, 100*time.Second)
 	for {
-		if len(w1.Get().([]string)) == 2 {
+		if len(w1.Get().([]services.PlacementInstance)) == 2 {
 			break
 		}
 	}
-	require.Equal(t, []string{"i1", "i2"}, w1.Get())
+	require.Equal(t, []services.PlacementInstance{i1, i2}, w1.Get())
 
 	w1.Close()
 }

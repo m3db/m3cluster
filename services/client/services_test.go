@@ -493,6 +493,9 @@ func TestWatchNotIncludeUnhealthy(t *testing.T) {
 	sd, err := NewServices(opts)
 	require.NoError(t, err)
 
+	i1 := placement.NewInstance().SetID("i1")
+	i2 := placement.NewInstance().SetID("i2")
+
 	qopts := services.NewQueryOptions()
 	sid := services.NewServiceID().SetName("m3db").SetZone("zone1")
 
@@ -538,7 +541,7 @@ func TestWatchNotIncludeUnhealthy(t *testing.T) {
 	require.True(t, ok)
 
 	// heartbeat
-	hbWatchable.Update([]string{"i1"})
+	hbWatchable.Update([]services.PlacementInstance{i1})
 	<-w.C()
 	s = w.Get().(services.Service)
 	require.Equal(t, 1, len(s.Instances()))
@@ -547,14 +550,14 @@ func TestWatchNotIncludeUnhealthy(t *testing.T) {
 	require.Equal(t, 1, s.Sharding().NumShards())
 	require.Equal(t, 2, s.Replication().Replicas())
 
-	hbWatchable.Update([]string{"i1", "i2"})
+	hbWatchable.Update([]services.PlacementInstance{i1, i2})
 	<-w.C()
 	s = w.Get().(services.Service)
 	require.Equal(t, 2, len(s.Instances()))
 	require.Equal(t, 1, s.Sharding().NumShards())
 	require.Equal(t, 2, s.Replication().Replicas())
 
-	hbWatchable.Update([]string{})
+	hbWatchable.Update([]services.PlacementInstance{})
 
 	<-w.C()
 	s = w.Get().(services.Service)
@@ -562,7 +565,7 @@ func TestWatchNotIncludeUnhealthy(t *testing.T) {
 	require.Equal(t, 1, s.Sharding().NumShards())
 	require.Equal(t, 2, s.Replication().Replicas())
 
-	hbWatchable.Update([]string{"i2"})
+	hbWatchable.Update([]services.PlacementInstance{i2})
 
 	<-w.C()
 	s = w.Get().(services.Service)
@@ -603,7 +606,7 @@ func TestWatchNotIncludeUnhealthy(t *testing.T) {
 
 	// now receive a update from heartbeat Store
 	// will try to merge it with existing valid placement
-	hbWatchable.Update([]string{"i1", "i2"})
+	hbWatchable.Update([]services.PlacementInstance{i1, i2})
 
 	<-w.C()
 	s = w.Get().(services.Service)
@@ -623,7 +626,7 @@ func TestWatchNotIncludeUnhealthy(t *testing.T) {
 	}
 
 	// the heartbeat update will be merged with the last known valid placement
-	hbWatchable.Update([]string{"i1", "i2"})
+	hbWatchable.Update([]services.PlacementInstance{i1, i2})
 
 	<-w.C()
 	s = w.Get().(services.Service)
@@ -890,19 +893,19 @@ func (hb *mockHBStore) Heartbeat(s string, instance services.PlacementInstance, 
 	return nil
 }
 
-func (hb *mockHBStore) Get(s string) ([]string, error) {
+func (hb *mockHBStore) Get(s string) ([]services.PlacementInstance, error) {
 	hb.Lock()
 	defer hb.Unlock()
 
-	var r []string
+	var r []services.PlacementInstance
 	hbMap, ok := hb.hbs[s]
 	if !ok {
 		return r, nil
 	}
 
-	r = make([]string, 0, len(hbMap))
+	r = make([]services.PlacementInstance, 0, len(hbMap))
 	for k := range hbMap {
-		r = append(r, k)
+		r = append(r, placement.NewInstance().SetID(k))
 	}
 	return r, nil
 }

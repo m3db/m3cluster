@@ -28,6 +28,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/etcd/watchmanager"
+	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
 	svcClient "github.com/m3db/m3cluster/services/client"
@@ -174,11 +175,11 @@ func (c *client) Heartbeat(service string, instance services.PlacementInstance, 
 	return nil
 }
 
-func (c *client) Get(service string) ([]string, error) {
+func (c *client) Get(service string) ([]services.PlacementInstance, error) {
 	return c.get(servicePrefix(service))
 }
 
-func (c *client) get(key string) ([]string, error) {
+func (c *client) get(key string) ([]services.PlacementInstance, error) {
 	ctx, cancel := c.context()
 	defer cancel()
 
@@ -188,9 +189,19 @@ func (c *client) get(key string) ([]string, error) {
 		return nil, err
 	}
 
-	r := make([]string, len(gr.Kvs))
+	r := make([]services.PlacementInstance, len(gr.Kvs))
 	for i, kv := range gr.Kvs {
-		r[i] = instanceFromKey(string(kv.Key), key)
+		p := &placementproto.Instance{}
+		if err := proto.Unmarshal(kv.Value, p); err != nil {
+			return nil, err
+		}
+
+		pi, err := svcClient.PlacementInstanceFromProto(p)
+		if err != nil {
+			return nil, err
+		}
+
+		r[i] = pi
 	}
 	return r, nil
 }
@@ -233,7 +244,7 @@ func (c *client) Watch(service string) (xwatch.Watch, error) {
 
 func (c *client) update(key string) error {
 	var (
-		newValue []string
+		newValue []services.PlacementInstance
 		err      error
 	)
 	// we need retry here because if Get() failed on an watch update,
