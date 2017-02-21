@@ -22,14 +22,10 @@ package client
 
 import (
 	"fmt"
-	"sort"
 	"time"
 
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
-	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/services"
-	"github.com/m3db/m3cluster/services/placement"
-	"github.com/m3db/m3cluster/shard"
 )
 
 const (
@@ -53,154 +49,6 @@ func metadataToProto(m services.Metadata) metadataproto.Metadata {
 	}
 }
 
-func serviceFromProto(p placementproto.Placement, sid services.ServiceID) (services.Service, error) {
-	r := make([]services.ServiceInstance, 0, len(p.Instances))
-	for _, instance := range p.Instances {
-		instance, err := serviceInstanceFromProto(instance, sid)
-		if err != nil {
-			return nil, err
-		}
-		r = append(r, instance)
-	}
-
-	return services.NewService().
-		SetReplication(services.NewServiceReplication().SetReplicas(int(p.ReplicaFactor))).
-		SetSharding(services.NewServiceSharding().SetNumShards(int(p.NumShards)).SetIsSharded(p.IsSharded)).
-		SetInstances(r), nil
-}
-
-func serviceInstanceFromProto(instance *placementproto.Instance, sid services.ServiceID) (services.ServiceInstance, error) {
-	shards, err := shardsFromProto(instance.Shards)
-	if err != nil {
-		return nil, err
-	}
-	return services.NewServiceInstance().
-		SetServiceID(sid).
-		SetInstanceID(instance.Id).
-		SetEndpoint(instance.Endpoint).
-		SetShards(shards), nil
-}
-
-// PlacementFromProto converts a placement proto to a ServicePlacement
-func PlacementFromProto(p placementproto.Placement) (services.ServicePlacement, error) {
-	shards := make([]uint32, p.NumShards)
-	for i := uint32(0); i < p.NumShards; i++ {
-		shards[i] = i
-	}
-
-	instances := make([]services.PlacementInstance, 0, len(p.Instances))
-	for _, instance := range p.Instances {
-		pi, err := PlacementInstanceFromProto(*instance)
-		if err != nil {
-			return nil, err
-		}
-		instances = append(instances, pi)
-	}
-
-	return placement.NewPlacement().
-		SetInstances(instances).
-		SetShards(shards).
-		SetReplicaFactor(int(p.ReplicaFactor)).
-		SetIsSharded(p.IsSharded), nil
-}
-
-// PlacementToProto converts a ServicePlacement to a placement proto
-func PlacementToProto(p services.ServicePlacement) (placementproto.Placement, error) {
-	instances := make(map[string]*placementproto.Instance, p.NumInstances())
-	for _, instance := range p.Instances() {
-		pi, err := PlacementInstanceToProto(instance)
-		if err != nil {
-			return placementproto.Placement{}, err
-		}
-		instances[instance.ID()] = pi
-	}
-
-	return placementproto.Placement{
-		Instances:     instances,
-		ReplicaFactor: uint32(p.ReplicaFactor()),
-		NumShards:     uint32(p.NumShards()),
-		IsSharded:     p.IsSharded(),
-	}, nil
-}
-
-func shardsToProto(shards shard.Shards) ([]*placementproto.Shard, error) {
-	r := make([]*placementproto.Shard, shards.NumShards())
-	for i, s := range shards.All() {
-		ss, err := shardStateToProto(s.State())
-		if err != nil {
-			return nil, err
-		}
-		r[i] = &placementproto.Shard{
-			Id:       s.ID(),
-			State:    ss,
-			SourceId: s.SourceID(),
-		}
-	}
-	return r, nil
-}
-
-func shardsFromProto(protoshards []*placementproto.Shard) (shard.Shards, error) {
-	shards := make([]shard.Shard, len(protoshards))
-	var err error
-	for i, s := range protoshards {
-		shards[i], err = shardFromProto(s)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return shard.NewShards(shards), nil
-}
-
-func shardFromProto(s *placementproto.Shard) (shard.Shard, error) {
-	ss, err := shardStateFromProto(s.State)
-	if err != nil {
-		return nil, err
-	}
-	return shard.NewShard(s.Id).SetState(ss).SetSourceID(s.SourceId), nil
-}
-
-func shardStateFromProto(s placementproto.ShardState) (shard.State, error) {
-	switch s {
-	case placementproto.ShardState_Initializing:
-		return shard.Initializing, nil
-	case placementproto.ShardState_Available:
-		return shard.Available, nil
-	case placementproto.ShardState_Leaving:
-		return shard.Leaving, nil
-	default:
-		var defaultShard shard.State
-		return defaultShard, fmt.Errorf("could not parse shard state %v from placement proto", s)
-	}
-}
-
-func shardStateToProto(s shard.State) (placementproto.ShardState, error) {
-	switch s {
-	case shard.Initializing:
-		return placementproto.ShardState_Initializing, nil
-	case shard.Available:
-		return placementproto.ShardState_Available, nil
-	case shard.Leaving:
-		return placementproto.ShardState_Leaving, nil
-	default:
-		var defaultShard placementproto.ShardState
-		return defaultShard, fmt.Errorf("could not parse shard state %v to placement proto", s)
-	}
-}
-
-type shardByIDAscending []*placementproto.Shard
-
-func (su shardByIDAscending) Len() int {
-	return len(su)
-}
-
-func (su shardByIDAscending) Less(i, j int) bool {
-	return su[i].Id < su[j].Id
-}
-
-func (su shardByIDAscending) Swap(i, j int) {
-	su[i], su[j] = su[j], su[i]
-}
-
 func adKey(sid services.ServiceID, id string) string {
 	return fmt.Sprintf(keyFormat, serviceKey(sid), id)
 }
@@ -218,41 +66,4 @@ func serviceKey(s services.ServiceID) string {
 		return s.Name()
 	}
 	return fmt.Sprintf(keyFormat, s.Environment(), s.Name())
-}
-
-// PlacementInstanceFromProto converts an Instance proto message to a
-// PlacementInstance type.
-func PlacementInstanceFromProto(p placementproto.Instance) (services.PlacementInstance, error) {
-	shards, err := shardsFromProto(p.Shards)
-	if err != nil {
-		return nil, err
-	}
-
-	return placement.NewInstance().
-		SetID(p.Id).
-		SetRack(p.Rack).
-		SetWeight(p.Weight).
-		SetZone(p.Zone).
-		SetEndpoint(p.Endpoint).
-		SetShards(shards), nil
-}
-
-// PlacementInstanceToProto converts a PlacementInstance type to an Instance
-// proto message.
-func PlacementInstanceToProto(p services.PlacementInstance) (*placementproto.Instance, error) {
-	ss, err := shardsToProto(p.Shards())
-	if err != nil {
-		return &placementproto.Instance{}, err
-	}
-	shards := shardByIDAscending(ss)
-	sort.Sort(shards)
-
-	return &placementproto.Instance{
-		Id:       p.ID(),
-		Rack:     p.Rack(),
-		Zone:     p.Zone(),
-		Weight:   p.Weight(),
-		Endpoint: p.Endpoint(),
-		Shards:   shards,
-	}, nil
 }

@@ -28,6 +28,7 @@ import (
 
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
+	"github.com/m3db/m3cluster/generated/proto/util"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/heartbeat"
@@ -495,7 +496,7 @@ func getServiceFromValue(value kv.Value, sid services.ServiceID) (services.Servi
 		return nil, err
 	}
 
-	return serviceFromProto(placement, sid)
+	return util.ServiceFromProto(placement, sid)
 }
 
 func waitForInitValue(kvStore kv.Store, w kv.ValueWatch, sid services.ServiceID, timeoutDur time.Duration) (kv.Value, error) {
