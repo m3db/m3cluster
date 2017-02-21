@@ -191,8 +191,8 @@ func (c *client) get(key string) ([]services.PlacementInstance, error) {
 
 	r := make([]services.PlacementInstance, len(gr.Kvs))
 	for i, kv := range gr.Kvs {
-		p := &placementproto.Instance{}
-		if err := proto.Unmarshal(kv.Value, p); err != nil {
+		var p placementproto.Instance
+		if err := proto.Unmarshal(kv.Value, &p); err != nil {
 			return nil, err
 		}
 

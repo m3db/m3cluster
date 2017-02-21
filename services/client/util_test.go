@@ -145,7 +145,7 @@ func TestKeys(t *testing.T) {
 func TestPlacementInstanceFromProto(t *testing.T) {
 	protoShardsUnsorted := getProtoShards([]uint32{2, 1, 0})
 
-	instanceProto := &placementproto.Instance{
+	instanceProto := placementproto.Instance{
 		Id:       "i1",
 		Rack:     "r1",
 		Zone:     "z1",

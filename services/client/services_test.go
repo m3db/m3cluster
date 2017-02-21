@@ -112,10 +112,9 @@ func TestAdvertiseErrors(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, errNoInstanceID, err)
 
-	pi := placement.NewInstance()
-	pi.SetID("i1")
+	i1 := placement.NewInstance().SetID("i1")
 
-	ad = ad.SetPlacementInstance(pi)
+	ad = ad.SetPlacementInstance(i1)
 	err = sd.Advertise(ad)
 	require.Error(t, err)
 	require.Equal(t, errNoServiceName, err)

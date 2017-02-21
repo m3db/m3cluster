@@ -90,7 +90,7 @@ func PlacementFromProto(p placementproto.Placement) (services.ServicePlacement, 
 
 	instances := make([]services.PlacementInstance, 0, len(p.Instances))
 	for _, instance := range p.Instances {
-		pi, err := PlacementInstanceFromProto(instance)
+		pi, err := PlacementInstanceFromProto(*instance)
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +222,7 @@ func serviceKey(s services.ServiceID) string {
 
 // PlacementInstanceFromProto converts an Instance proto message to a
 // PlacementInstance type.
-func PlacementInstanceFromProto(p *placementproto.Instance) (services.PlacementInstance, error) {
+func PlacementInstanceFromProto(p placementproto.Instance) (services.PlacementInstance, error) {
 	shards, err := shardsFromProto(p.Shards)
 	if err != nil {
 		return nil, err
