@@ -175,11 +175,36 @@ func (c *client) Heartbeat(service string, instance services.PlacementInstance, 
 	return nil
 }
 
-func (c *client) Get(service string) ([]services.PlacementInstance, error) {
+func (c *client) Get(service string) ([]string, error) {
 	return c.get(servicePrefix(service))
 }
 
-func (c *client) get(key string) ([]services.PlacementInstance, error) {
+func (c *client) get(key string) ([]string, error) {
+	ctx, cancel := c.context()
+	defer cancel()
+
+	resp, err := c.kv.Get(ctx, key,
+		clientv3.WithPrefix(),
+		clientv3.WithKeysOnly())
+
+	if err != nil {
+		c.m.etcdGetError.Inc(1)
+		return nil, err
+	}
+
+	r := make([]string, len(resp.Kvs))
+	for i, kv := range resp.Kvs {
+		r[i] = instanceFromKey(string(kv.Key), key)
+	}
+
+	return r, nil
+}
+
+func (c *client) GetInstances(service string) ([]services.PlacementInstance, error) {
+	return c.getInstances(servicePrefix(service))
+}
+
+func (c *client) getInstances(key string) ([]services.PlacementInstance, error) {
 	ctx, cancel := c.context()
 	defer cancel()
 
@@ -244,7 +269,7 @@ func (c *client) Watch(service string) (xwatch.Watch, error) {
 
 func (c *client) update(key string) error {
 	var (
-		newValue []services.PlacementInstance
+		newValue []string
 		err      error
 	)
 	// we need retry here because if Get() failed on an watch update,

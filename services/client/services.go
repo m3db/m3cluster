@@ -456,14 +456,14 @@ func isHealthy(ad services.Advertisement) bool {
 	return healthFn == nil || healthFn() == nil
 }
 
-func filterInstances(s services.Service, pis []services.PlacementInstance) services.Service {
+func filterInstances(s services.Service, ids []string) services.Service {
 	if s == nil {
 		return nil
 	}
 
 	instances := make([]services.ServiceInstance, 0, len(s.Instances()))
-	for _, pi := range pis {
-		if instance, err := s.Instance(pi.ID()); err == nil {
+	for _, id := range ids {
+		if instance, err := s.Instance(id); err == nil {
 			instances = append(instances, instance)
 		}
 	}
@@ -478,7 +478,7 @@ func filterInstancesWithWatch(s services.Service, hbw xwatch.Watch) services.Ser
 	if hbw.Get() == nil {
 		return s
 	}
-	return filterInstances(s, hbw.Get().([]services.PlacementInstance))
+	return filterInstances(s, hbw.Get().([]string))
 }
 
 func updateVersionGauge(vw kv.ValueWatch, versionGauge tally.Gauge) {

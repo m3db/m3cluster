@@ -33,7 +33,10 @@ type Store interface {
 	Heartbeat(service string, instance services.PlacementInstance, ttl time.Duration) error
 
 	// Get gets healthy instances for a service
-	Get(service string) ([]services.PlacementInstance, error)
+	Get(service string) ([]string, error)
+
+	// GetInstances returns a deserialized list of healthy PlacementInstances.
+	GetInstances(service string) ([]services.PlacementInstance, error)
 
 	// Delete deletes the heartbeat for a service instance
 	Delete(service, instance string) error
