@@ -43,7 +43,7 @@ import (
 const (
 	keySeparator    = "/"
 	cacheFileFormat = "%s-%s.json"
-	kvPrefix        = "_kv"
+	kvPrefix        = "_kv/"
 )
 
 type newClientFn func(endpoints []string) (*clientv3.Client, error)
@@ -210,7 +210,7 @@ func fileName(appID, zone string) string {
 }
 
 func prefix(env string) string {
-	res := concat(kvPrefix, keySeparator)
+	res := kvPrefix
 	if env != "" {
 		res = concat(res, concat(env, keySeparator))
 	}

@@ -22,6 +22,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -700,7 +701,7 @@ func testSetup(t *testing.T) (Options, func(), *mockHBGen) {
 			ec,
 			etcdKV.NewOptions().
 				SetWatchChanCheckInterval(100*time.Millisecond).
-				SetPrefix(zone+"/"),
+				SetPrefix(fmt.Sprintf("%s/", zone)),
 		)
 	}
 
