@@ -33,7 +33,6 @@ import (
 	etcdKV "github.com/m3db/m3cluster/kv/etcd"
 	"github.com/m3db/m3cluster/mocks"
 	"github.com/m3db/m3cluster/services"
-	"github.com/m3db/m3cluster/services/heartbeat"
 	"github.com/m3db/m3cluster/services/placement"
 	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/instrument"
@@ -50,7 +49,7 @@ func TestOptions(t *testing.T) {
 	})
 	require.Equal(t, errNoHeartbeatGen, opts.Validate())
 
-	opts = opts.SetHeartbeatGen(func(zone string) (heartbeat.Store, error) {
+	opts = opts.SetHeartbeatGen(func(zone string) (services.HeartbeatStore, error) {
 		return nil, nil
 	})
 	require.NoError(t, opts.Validate())
@@ -828,7 +827,7 @@ func testSetup(t *testing.T) (Options, func(), *mockHBGen) {
 	m := &mockHBGen{
 		hbs: map[string]*mockHBStore{},
 	}
-	hbGen := func(zone string) (heartbeat.Store, error) {
+	hbGen := func(zone string) (services.HeartbeatStore, error) {
 		return m.genMockStore(zone)
 	}
 

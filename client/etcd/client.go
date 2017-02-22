@@ -33,7 +33,6 @@ import (
 	etcdKV "github.com/m3db/m3cluster/kv/etcd"
 	"github.com/m3db/m3cluster/services"
 	sdClient "github.com/m3db/m3cluster/services/client"
-	"github.com/m3db/m3cluster/services/heartbeat"
 	etcdHeartbeat "github.com/m3db/m3cluster/services/heartbeat/etcd"
 	"github.com/m3db/m3x/instrument"
 	"github.com/m3db/m3x/log"
@@ -153,7 +152,7 @@ func (c *csclient) kvGen(kvOpts etcdKV.Options) sdClient.KVGen {
 
 func (c *csclient) heartbeatGen() sdClient.HeartbeatGen {
 	return sdClient.HeartbeatGen(
-		func(zone string) (heartbeat.Store, error) {
+		func(zone string) (services.HeartbeatStore, error) {
 			cli, err := c.etcdClientGen(zone)
 			if err != nil {
 				return nil, err

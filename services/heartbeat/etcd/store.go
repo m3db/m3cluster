@@ -32,7 +32,6 @@ import (
 	"github.com/m3db/m3cluster/generated/proto/util"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
-	"github.com/m3db/m3cluster/services/heartbeat"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
 	"github.com/m3db/m3x/watch"
@@ -51,7 +50,7 @@ const (
 var noopCancel func()
 
 // NewStore creates a heartbeat store based on etcd
-func NewStore(c *clientv3.Client, opts Options) (heartbeat.Store, error) {
+func NewStore(c *clientv3.Client, opts Options) (services.HeartbeatStore, error) {
 	scope := opts.InstrumentsOptions().MetricsScope()
 
 	store := &client{

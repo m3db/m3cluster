@@ -31,7 +31,6 @@ import (
 	"github.com/m3db/m3cluster/generated/proto/util"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
-	"github.com/m3db/m3cluster/services/heartbeat"
 	"github.com/m3db/m3cluster/services/placement/service"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/watch"
@@ -54,7 +53,7 @@ func NewServices(opts Options) (services.Services, error) {
 
 	return &client{
 		kvManagers: make(map[string]*kvManager),
-		hbStores:   make(map[string]heartbeat.Store),
+		hbStores:   make(map[string]services.HeartbeatStore),
 		adDoneChs:  make(map[string]chan struct{}),
 		opts:       opts,
 		logger:     opts.InstrumentsOptions().Logger(),
@@ -67,7 +66,7 @@ type client struct {
 
 	opts       Options
 	kvManagers map[string]*kvManager
-	hbStores   map[string]heartbeat.Store
+	hbStores   map[string]services.HeartbeatStore
 	adDoneChs  map[string]chan struct{}
 	logger     xlog.Logger
 	m          tally.Scope
@@ -325,7 +324,7 @@ func (c *client) getPlacementValue(sid services.ServiceID) (kv.Value, error) {
 	return v, nil
 }
 
-func (c *client) getHeartbeatStore(zone string) (heartbeat.Store, error) {
+func (c *client) getHeartbeatStore(zone string) (services.HeartbeatStore, error) {
 	c.Lock()
 	defer c.Unlock()
 	hb, ok := c.hbStores[zone]
