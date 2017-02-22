@@ -99,10 +99,20 @@ func TestHeartbeat(t *testing.T) {
 	require.Contains(t, ids, "i1")
 	require.Contains(t, ids, "i2")
 
+	// ensure that both Get and GetInstances return the same instances
+	// with their respective serialization methods
+	instances, err := store.GetInstances("s")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(instances))
+	require.Contains(t, instances, i1)
+	require.Contains(t, instances, i2)
+
 	for {
 		ids, err = store.Get("s")
+		instances, err2 := store.GetInstances("s")
 		require.NoError(t, err)
-		if len(ids) == 1 {
+		require.NoError(t, err2)
+		if len(ids) == 1 && len(instances) == 1 {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -113,8 +123,10 @@ func TestHeartbeat(t *testing.T) {
 
 	for {
 		ids, err = store.Get("s")
+		instances, err2 := store.GetInstances("s")
 		require.NoError(t, err)
-		if len(ids) == 0 {
+		require.NoError(t, err2)
+		if len(ids) == 0 && len(instances) == 0 {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -147,6 +159,12 @@ func TestDelete(t *testing.T) {
 	require.Contains(t, ids, "i1")
 	require.Contains(t, ids, "i2")
 
+	instances, err := store.GetInstances("s")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(instances))
+	require.Contains(t, instances, i1)
+	require.Contains(t, instances, i2)
+
 	err = store.Delete("s", i1.ID())
 	require.NoError(t, err)
 
@@ -158,12 +176,18 @@ func TestDelete(t *testing.T) {
 	require.Equal(t, 1, len(ids))
 	require.Contains(t, ids, "i2")
 
+	instances, err = store.GetInstances("s")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(instances))
+	require.Contains(t, instances, i2)
+
 	err = store.Heartbeat("s", i1, time.Hour)
 	require.NoError(t, err)
 
 	for {
 		ids, _ = store.Get("s")
-		if len(ids) == 2 {
+		instances, _ = store.GetInstances("s")
+		if len(ids) == 2 && len(instances) == 2 {
 			break
 		}
 	}
