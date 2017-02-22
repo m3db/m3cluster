@@ -37,6 +37,7 @@ import (
 	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/instrument"
 	"github.com/m3db/m3x/watch"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -722,7 +723,8 @@ func TestWatch_GetAfterTimeout(t *testing.T) {
 	m := &mockHBGen{
 		hbs: map[string]*mockHBStore{},
 	}
-	hbGen := func(zone string) (heartbeat.Store, error) {
+
+	hbGen := func(zone string) (services.HeartbeatStore, error) {
 		return m.genMockStore(zone)
 	}
 
@@ -804,6 +806,29 @@ func TestWatch_GetAfterTimeout(t *testing.T) {
 			break
 		}
 	}
+}
+func TestHeartbeatStore(t *testing.T) {
+	opts, closer, _ := testSetup(t)
+	defer closer()
+
+	sd, err := NewServices(opts)
+	require.NoError(t, err)
+
+	sid := services.NewServiceID()
+
+	_, err = sd.HeartbeatStore(sid)
+	assert.Equal(t, errNoServiceName, err)
+
+	sid = sid.SetName("m3db")
+
+	_, err = sd.HeartbeatStore(sid)
+	assert.Equal(t, errNoServiceZone, err)
+
+	sid = sid.SetZone("z1")
+
+	hb, err := sd.HeartbeatStore(sid)
+	assert.NoError(t, err)
+	assert.NotNil(t, hb)
 }
 
 func testSetup(t *testing.T) (Options, func(), *mockHBGen) {

@@ -43,6 +43,7 @@ var (
 	errNoServiceID        = errors.New("no service id specified")
 	errNoInstanceID       = errors.New("no instance id specified")
 	errAdPlacementMissing = errors.New("advertisement is missing placement instance")
+	errNoServiceZone      = errors.New("service ID is missing zone")
 )
 
 // NewServices returns a client of Services
@@ -308,6 +309,18 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 
 	_, w, err := watchable.Watch()
 	return w, err
+}
+
+func (c *client) HeartbeatStore(sid services.ServiceID) (services.HeartbeatStore, error) {
+	if err := validateServiceID(sid); err != nil {
+		return nil, err
+	}
+
+	if sid.Zone() == "" {
+		return nil, errNoServiceZone
+	}
+
+	return c.getHeartbeatStore(sid.Zone())
 }
 
 func (c *client) getPlacementValue(sid services.ServiceID) (kv.Value, error) {

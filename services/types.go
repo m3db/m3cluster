@@ -50,6 +50,9 @@ type Services interface {
 
 	// PlacementService returns a client of Placement Service
 	PlacementService(service ServiceID, popts PlacementOptions) (PlacementService, error)
+
+	// HeartbeatStore returns a heartbeat store for the given service.
+	HeartbeatStore(service ServiceID) (HeartbeatStore, error)
 }
 
 // Service describes the metadata and instances of a service
