@@ -29,7 +29,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/etcd/watchmanager"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
-	"github.com/m3db/m3cluster/generated/proto/util"
+	"github.com/m3db/m3cluster/proto/util"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3x/log"

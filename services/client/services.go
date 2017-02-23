@@ -28,7 +28,7 @@ import (
 
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
-	"github.com/m3db/m3cluster/generated/proto/util"
+	"github.com/m3db/m3cluster/proto/util"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement/service"
