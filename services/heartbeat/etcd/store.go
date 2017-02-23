@@ -29,8 +29,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/etcd/watchmanager"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
-	"github.com/m3db/m3cluster/proto/util"
 	"github.com/m3db/m3cluster/kv"
+	"github.com/m3db/m3cluster/proto/util"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
@@ -45,6 +45,7 @@ const (
 	heartbeatKeyPrefix = "_hb"
 	keySeparator       = "/"
 	keyFormat          = "%s/%s"
+	defaultEnv         = "default_env"
 )
 
 var noopCancel func()
@@ -351,12 +352,18 @@ func instanceFromKey(key, servicePrefix string) string {
 }
 
 // heartbeats for a service "svc" in env "test" should be stored under
-// "_hb/test/svc"
+// "_hb/test/svc". If a service's environment is empty it will fall back to
+// a default in order to provide a consistent naming scheme.
 func servicePrefix(sid services.ServiceID) string {
+	env := sid.Environment()
+	if env == "" {
+		env = defaultEnv
+	}
+
 	return fmt.Sprintf(
 		keyFormat,
 		heartbeatKeyPrefix,
-		fmt.Sprintf(keyFormat, sid.Environment(), sid.Name()))
+		fmt.Sprintf(keyFormat, env, sid.Name()))
 }
 
 func newLeaseCache() *leaseCache {
