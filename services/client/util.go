@@ -22,9 +22,7 @@ package client
 
 import (
 	"fmt"
-	"time"
 
-	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	"github.com/m3db/m3cluster/services"
 )
 
@@ -33,21 +31,6 @@ const (
 	metadataPrefix  = "_sd.metadata"
 	keyFormat       = "%s/%s"
 )
-
-func metadataFromProto(m metadataproto.Metadata) services.Metadata {
-	return services.NewMetadata().
-		SetPort(m.Port).
-		SetLivenessInterval(time.Duration(m.LivenessInterval)).
-		SetHeartbeatInterval(time.Duration(m.HeartbeatInterval))
-}
-
-func metadataToProto(m services.Metadata) metadataproto.Metadata {
-	return metadataproto.Metadata{
-		Port:              m.Port(),
-		LivenessInterval:  int64(m.LivenessInterval()),
-		HeartbeatInterval: int64(m.HeartbeatInterval()),
-	}
-}
 
 func adKey(sid services.ServiceID, id string) string {
 	return fmt.Sprintf(keyFormat, serviceKey(sid), id)

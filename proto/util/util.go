@@ -25,7 +25,9 @@ package util
 import (
 	"fmt"
 	"sort"
+	"time"
 
+	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement"
@@ -217,4 +219,23 @@ func PlacementInstanceToProto(p services.PlacementInstance) (*placementproto.Ins
 		Endpoint: p.Endpoint(),
 		Shards:   shards,
 	}, nil
+}
+
+// MetadataFromProto converts a Metadata proto message to a instances of
+// services.Metadata.
+func MetadataFromProto(m metadataproto.Metadata) services.Metadata {
+	return services.NewMetadata().
+		SetPort(m.Port).
+		SetLivenessInterval(time.Duration(m.LivenessInterval)).
+		SetHeartbeatInterval(time.Duration(m.HeartbeatInterval))
+}
+
+// MetadataToProto converts an instance of services.Metadata to its
+// corresponding proto-serialized Metadata message.
+func MetadataToProto(m services.Metadata) metadataproto.Metadata {
+	return metadataproto.Metadata{
+		Port:              m.Port(),
+		LivenessInterval:  int64(m.LivenessInterval()),
+		HeartbeatInterval: int64(m.HeartbeatInterval()),
+	}
 }
