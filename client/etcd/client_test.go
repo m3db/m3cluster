@@ -55,7 +55,7 @@ func TestETCDClientGen(t *testing.T) {
 	assert.Equal(t, c1, c1Again)
 }
 
-func TestKVAndHeartbeatStoreSharingETCDClient(t *testing.T) {
+func TestKVAndHeartbeatServiceSharingETCDClient(t *testing.T) {
 	cs, err := NewConfigServiceClient(testOptions().SetZone("zone1"))
 	assert.NoError(t, err)
 

@@ -51,8 +51,8 @@ type Services interface {
 	// PlacementService returns a client of Placement Service
 	PlacementService(service ServiceID, popts PlacementOptions) (PlacementService, error)
 
-	// HeartbeatStore returns a heartbeat store for the given service.
-	HeartbeatStore(service ServiceID) (HeartbeatStore, error)
+	// HeartbeatService returns a heartbeat store for the given service.
+	HeartbeatService(service ServiceID) (HeartbeatService, error)
 }
 
 // Service describes the metadata and instances of a service
@@ -297,8 +297,8 @@ type PlacementInstance interface {
 	SetShards(s shard.Shards) PlacementInstance // SetShards sets the shards owned by the instance
 }
 
-// HeartbeatStore manages heartbeating instances
-type HeartbeatStore interface {
+// HeartbeatService manages heartbeating instances
+type HeartbeatService interface {
 	// Heartbeat sends heartbeat for a service instance with a ttl
 	Heartbeat(sid ServiceID, instance PlacementInstance, ttl time.Duration) error
 

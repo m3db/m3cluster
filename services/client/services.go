@@ -54,7 +54,7 @@ func NewServices(opts Options) (services.Services, error) {
 
 	return &client{
 		kvManagers: make(map[string]*kvManager),
-		hbStores:   make(map[string]services.HeartbeatStore),
+		hbStores:   make(map[string]services.HeartbeatService),
 		adDoneChs:  make(map[string]chan struct{}),
 		opts:       opts,
 		logger:     opts.InstrumentsOptions().Logger(),
@@ -67,7 +67,7 @@ type client struct {
 
 	opts       Options
 	kvManagers map[string]*kvManager
-	hbStores   map[string]services.HeartbeatStore
+	hbStores   map[string]services.HeartbeatService
 	adDoneChs  map[string]chan struct{}
 	logger     xlog.Logger
 	m          tally.Scope
@@ -134,7 +134,7 @@ func (c *client) Advertise(ad services.Advertisement) error {
 		return err
 	}
 
-	hb, err := c.getHeartbeatStore(ad.ServiceID().Zone())
+	hb, err := c.getHeartbeatService(ad.ServiceID().Zone())
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (c *client) Unadvertise(sid services.ServiceID, id string) error {
 	}
 	c.Unlock()
 
-	hbStore, err := c.getHeartbeatStore(sid.Zone())
+	hbStore, err := c.getHeartbeatService(sid.Zone())
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (c *client) Query(sid services.ServiceID, opts services.QueryOptions) (serv
 	}
 
 	if !opts.IncludeUnhealthy() {
-		hbStore, err := c.getHeartbeatStore(sid.Zone())
+		hbStore, err := c.getHeartbeatService(sid.Zone())
 		if err != nil {
 			return nil, err
 		}
@@ -286,7 +286,7 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 	sdm := newServiceDiscoveryMetrics(c.serviceTaggedScope(sid))
 
 	if !opts.IncludeUnhealthy() {
-		hbStore, err := c.getHeartbeatStore(sid.Zone())
+		hbStore, err := c.getHeartbeatService(sid.Zone())
 		if err != nil {
 			placementWatch.Close()
 			return nil, err
@@ -311,7 +311,7 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 	return w, err
 }
 
-func (c *client) HeartbeatStore(sid services.ServiceID) (services.HeartbeatStore, error) {
+func (c *client) HeartbeatService(sid services.ServiceID) (services.HeartbeatService, error) {
 	if err := validateServiceID(sid); err != nil {
 		return nil, err
 	}
@@ -320,7 +320,7 @@ func (c *client) HeartbeatStore(sid services.ServiceID) (services.HeartbeatStore
 		return nil, errNoServiceZone
 	}
 
-	return c.getHeartbeatStore(sid.Zone())
+	return c.getHeartbeatService(sid.Zone())
 }
 
 func (c *client) getPlacementValue(sid services.ServiceID) (kv.Value, error) {
@@ -337,7 +337,7 @@ func (c *client) getPlacementValue(sid services.ServiceID) (kv.Value, error) {
 	return v, nil
 }
 
-func (c *client) getHeartbeatStore(zone string) (services.HeartbeatStore, error) {
+func (c *client) getHeartbeatService(zone string) (services.HeartbeatService, error) {
 	c.Lock()
 	defer c.Unlock()
 	hb, ok := c.hbStores[zone]

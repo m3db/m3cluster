@@ -152,7 +152,7 @@ func (c *csclient) kvGen(kvOpts etcdKV.Options) sdClient.KVGen {
 
 func (c *csclient) heartbeatGen() sdClient.HeartbeatGen {
 	return sdClient.HeartbeatGen(
-		func(zone string) (services.HeartbeatStore, error) {
+		func(zone string) (services.HeartbeatService, error) {
 			cli, err := c.etcdClientGen(zone)
 			if err != nil {
 				return nil, err

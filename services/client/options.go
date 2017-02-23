@@ -48,7 +48,7 @@ var (
 type KVGen func(zone string) (kv.Store, error)
 
 // HeartbeatGen generates a heartbeat store for a given zone
-type HeartbeatGen func(zone string) (services.HeartbeatStore, error)
+type HeartbeatGen func(zone string) (services.HeartbeatService, error)
 
 // Options are options for the client of Services
 type Options interface {

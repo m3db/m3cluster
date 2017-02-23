@@ -50,7 +50,7 @@ const (
 var noopCancel func()
 
 // NewStore creates a heartbeat store based on etcd
-func NewStore(c *clientv3.Client, opts Options) (services.HeartbeatStore, error) {
+func NewStore(c *clientv3.Client, opts Options) (services.HeartbeatService, error) {
 	scope := opts.InstrumentsOptions().MetricsScope()
 
 	store := &client{

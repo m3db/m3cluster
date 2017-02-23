@@ -50,7 +50,7 @@ func TestOptions(t *testing.T) {
 	})
 	require.Equal(t, errNoHeartbeatGen, opts.Validate())
 
-	opts = opts.SetHeartbeatGen(func(zone string) (services.HeartbeatStore, error) {
+	opts = opts.SetHeartbeatGen(func(zone string) (services.HeartbeatService, error) {
 		return nil, nil
 	})
 	require.NoError(t, opts.Validate())
@@ -724,7 +724,7 @@ func TestWatch_GetAfterTimeout(t *testing.T) {
 		hbs: map[string]*mockHBStore{},
 	}
 
-	hbGen := func(zone string) (services.HeartbeatStore, error) {
+	hbGen := func(zone string) (services.HeartbeatService, error) {
 		return m.genMockStore(zone)
 	}
 
@@ -807,7 +807,7 @@ func TestWatch_GetAfterTimeout(t *testing.T) {
 		}
 	}
 }
-func TestHeartbeatStore(t *testing.T) {
+func TestHeartbeatService(t *testing.T) {
 	opts, closer, _ := testSetup(t)
 	defer closer()
 
@@ -816,17 +816,17 @@ func TestHeartbeatStore(t *testing.T) {
 
 	sid := services.NewServiceID()
 
-	_, err = sd.HeartbeatStore(sid)
+	_, err = sd.HeartbeatService(sid)
 	assert.Equal(t, errNoServiceName, err)
 
 	sid = sid.SetName("m3db")
 
-	_, err = sd.HeartbeatStore(sid)
+	_, err = sd.HeartbeatService(sid)
 	assert.Equal(t, errNoServiceZone, err)
 
 	sid = sid.SetZone("z1")
 
-	hb, err := sd.HeartbeatStore(sid)
+	hb, err := sd.HeartbeatService(sid)
 	assert.NoError(t, err)
 	assert.NotNil(t, hb)
 }
@@ -852,7 +852,7 @@ func testSetup(t *testing.T) (Options, func(), *mockHBGen) {
 	m := &mockHBGen{
 		hbs: map[string]*mockHBStore{},
 	}
-	hbGen := func(zone string) (services.HeartbeatStore, error) {
+	hbGen := func(zone string) (services.HeartbeatService, error) {
 		return m.genMockStore(zone)
 	}
 
