@@ -159,7 +159,7 @@ func (c *client) Advertise(ad services.Advertisement) error {
 			select {
 			case <-ticker:
 				if isHealthy(ad) {
-					if err := hb.Heartbeat(serviceKey(sid), pi, m.LivenessInterval()); err != nil {
+					if err := hb.Heartbeat(sid, pi, m.LivenessInterval()); err != nil {
 						c.logger.Errorf("could not heartbeat service %s, %v", sid.String(), err)
 						errCounter.Inc(1)
 					}
@@ -192,7 +192,7 @@ func (c *client) Unadvertise(sid services.ServiceID, id string) error {
 		return err
 	}
 
-	return hbStore.Delete(serviceKey(sid), id)
+	return hbStore.Delete(sid, id)
 }
 
 func (c *client) Query(sid services.ServiceID, opts services.QueryOptions) (services.Service, error) {
@@ -216,7 +216,7 @@ func (c *client) Query(sid services.ServiceID, opts services.QueryOptions) (serv
 			return nil, err
 		}
 
-		ids, err := hbStore.Get(serviceKey(sid))
+		ids, err := hbStore.Get(sid)
 		if err != nil {
 			return nil, err
 		}
@@ -291,7 +291,7 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 			placementWatch.Close()
 			return nil, err
 		}
-		heartbeatWatch, err := hbStore.Watch(serviceKey(sid))
+		heartbeatWatch, err := hbStore.Watch(sid)
 		if err != nil {
 			placementWatch.Close()
 			return nil, err

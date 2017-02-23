@@ -122,8 +122,8 @@ type clientMetrics struct {
 	etcdLeaseError tally.Counter
 }
 
-func (c *client) Heartbeat(service string, instance services.PlacementInstance, ttl time.Duration) error {
-	leaseID, ok := c.cache.get(service, instance.ID(), ttl)
+func (c *client) Heartbeat(sid services.ServiceID, instance services.PlacementInstance, ttl time.Duration) error {
+	leaseID, ok := c.cache.get(sid, instance.ID(), ttl)
 	if ok {
 		ctx, cancel := c.context()
 		defer cancel()
@@ -160,7 +160,7 @@ func (c *client) Heartbeat(service string, instance services.PlacementInstance, 
 
 	_, err = c.kv.Put(
 		ctx,
-		heartbeatKey(service, instance.ID()),
+		heartbeatKey(sid, instance.ID()),
 		string(instanceBytes),
 		clientv3.WithLease(resp.ID),
 	)
@@ -169,13 +169,13 @@ func (c *client) Heartbeat(service string, instance services.PlacementInstance, 
 		return err
 	}
 
-	c.cache.put(service, instance.ID(), ttl, resp.ID)
+	c.cache.put(sid, instance.ID(), ttl, resp.ID)
 
 	return nil
 }
 
-func (c *client) Get(service string) ([]string, error) {
-	return c.get(servicePrefix(service))
+func (c *client) Get(sid services.ServiceID) ([]string, error) {
+	return c.get(servicePrefix(sid))
 }
 
 func (c *client) get(key string) ([]string, error) {
@@ -199,8 +199,8 @@ func (c *client) get(key string) ([]string, error) {
 	return r, nil
 }
 
-func (c *client) GetInstances(service string) ([]services.PlacementInstance, error) {
-	return c.getInstances(servicePrefix(service))
+func (c *client) GetInstances(sid services.ServiceID) ([]services.PlacementInstance, error) {
+	return c.getInstances(servicePrefix(sid))
 }
 
 func (c *client) getInstances(key string) ([]services.PlacementInstance, error) {
@@ -230,27 +230,27 @@ func (c *client) getInstances(key string) ([]services.PlacementInstance, error) 
 	return r, nil
 }
 
-func (c *client) Delete(service, instance string) error {
+func (c *client) Delete(sid services.ServiceID, instance string) error {
 	ctx, cancel := c.context()
 	defer cancel()
 
-	r, err := c.kv.Delete(ctx, heartbeatKey(service, instance))
+	r, err := c.kv.Delete(ctx, heartbeatKey(sid, instance))
 	if err != nil {
 		return err
 	}
 
 	if r.Deleted == 0 {
-		return fmt.Errorf("could not find heartbeat for service: %s, instance: %s", service, instance)
+		return fmt.Errorf("could not find heartbeat for service: %s, env: %s, instance: %s", sid.Name(), sid.Environment(), instance)
 	}
 
 	// NB(cw) we need to clean up cached lease ID, if not the next heartbeat might reuse the cached lease
 	// and keep alive on existing lease wont work since the key is deleted
-	c.cache.delete(service, instance)
+	c.cache.delete(sid, instance)
 	return nil
 }
 
-func (c *client) Watch(service string) (xwatch.Watch, error) {
-	serviceKey := servicePrefix(service)
+func (c *client) Watch(sid services.ServiceID) (xwatch.Watch, error) {
+	serviceKey := servicePrefix(sid)
 
 	c.Lock()
 	watchable, ok := c.watchables[serviceKey]
@@ -339,8 +339,8 @@ func (c *client) context() (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
-func heartbeatKey(service, instance string) string {
-	return fmt.Sprintf(keyFormat, servicePrefix(service), instance)
+func heartbeatKey(sid services.ServiceID, instance string) string {
+	return fmt.Sprintf(keyFormat, servicePrefix(sid), instance)
 }
 
 func instanceFromKey(key, servicePrefix string) string {
@@ -350,8 +350,13 @@ func instanceFromKey(key, servicePrefix string) string {
 	)
 }
 
-func servicePrefix(service string) string {
-	return fmt.Sprintf(keyFormat, heartbeatKeyPrefix, service)
+// heartbeats for a service "svc" in env "test" should be stored under
+// "_hb/test/svc"
+func servicePrefix(sid services.ServiceID) string {
+	return fmt.Sprintf(
+		keyFormat,
+		heartbeatKeyPrefix,
+		fmt.Sprintf(keyFormat, sid.Environment(), sid.Name()))
 }
 
 func newLeaseCache() *leaseCache {
@@ -366,11 +371,11 @@ type leaseCache struct {
 	leases map[string]map[time.Duration]clientv3.LeaseID
 }
 
-func (c *leaseCache) get(service, instance string, ttl time.Duration) (clientv3.LeaseID, bool) {
+func (c *leaseCache) get(sid services.ServiceID, instance string, ttl time.Duration) (clientv3.LeaseID, bool) {
 	c.RLock()
 	defer c.RUnlock()
 
-	leases, ok := c.leases[heartbeatKey(service, instance)]
+	leases, ok := c.leases[heartbeatKey(sid, instance)]
 	if !ok {
 		return clientv3.LeaseID(0), false
 	}
@@ -379,8 +384,8 @@ func (c *leaseCache) get(service, instance string, ttl time.Duration) (clientv3.
 	return id, ok
 }
 
-func (c *leaseCache) put(service, instance string, ttl time.Duration, id clientv3.LeaseID) {
-	key := heartbeatKey(service, instance)
+func (c *leaseCache) put(sid services.ServiceID, instance string, ttl time.Duration, id clientv3.LeaseID) {
+	key := heartbeatKey(sid, instance)
 
 	c.Lock()
 	defer c.Unlock()
@@ -393,8 +398,8 @@ func (c *leaseCache) put(service, instance string, ttl time.Duration, id clientv
 	leases[ttl] = id
 }
 
-func (c *leaseCache) delete(service, instance string) {
+func (c *leaseCache) delete(sid services.ServiceID, instance string) {
 	c.Lock()
-	delete(c.leases, heartbeatKey(service, instance))
+	delete(c.leases, heartbeatKey(sid, instance))
 	c.Unlock()
 }
