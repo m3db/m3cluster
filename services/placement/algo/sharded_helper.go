@@ -36,7 +36,7 @@ type PlacementHelper interface {
 	PlaceShards(shards []shard.Shard, from services.PlacementInstance) error
 
 	// GeneratePlacement generates a placement
-	GeneratePlacement() services.ServicePlacement
+	GeneratePlacement(includeEmptyInstance bool) services.ServicePlacement
 
 	// TargetLoadForInstance returns the targe load for a instance
 	TargetLoadForInstance(id string) int
@@ -134,15 +134,21 @@ func (ph *placementHelper) BuildInstanceHeap(instances []services.PlacementInsta
 	return newHeap(instances, availableCapacityAscending, ph.targetLoad, ph.rackToWeightMap)
 }
 
-func (ph *placementHelper) GeneratePlacement() services.ServicePlacement {
-	instancesWithLoad := make([]services.PlacementInstance, 0, len(ph.instances))
-	for _, instance := range ph.instances {
-		if loadOnInstance(instance) > 0 {
-			instancesWithLoad = append(instancesWithLoad, instance)
+func (ph *placementHelper) GeneratePlacement(includeEmptyInstance bool) services.ServicePlacement {
+	var instances []services.PlacementInstance
+	if !includeEmptyInstance {
+		instances = make([]services.PlacementInstance, 0, len(ph.instances))
+		for _, instance := range ph.instances {
+			if instance.Shards().NumShards() > 0 {
+				instances = append(instances, instance)
+			}
 		}
+	} else {
+		instances = ph.instanceList()
 	}
+
 	return placement.NewPlacement().
-		SetInstances(ph.instanceList()).
+		SetInstances(instances).
 		SetShards(ph.uniqueShards).
 		SetReplicaFactor(ph.rf).
 		SetIsSharded(true)
