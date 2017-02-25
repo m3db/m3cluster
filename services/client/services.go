@@ -256,7 +256,7 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 
 	initValue, err := waitForInitValue(kvm.kv, placementWatch, sid, c.opts.InitTimeout())
 	if err != nil {
-		return nil, fmt.Errorf("could not get init value within timeout, err: %s", err)
+		return nil, fmt.Errorf("could not get init value within timeout, err: %v", err)
 	}
 
 	initService, err := getServiceFromValue(initValue, sid)
@@ -367,31 +367,12 @@ func (c *client) watchPlacement(
 	for {
 		select {
 		case <-vw.C():
-			value := vw.Get()
-			if value == nil {
-				// NB(cw) this can only happen when the placement has been deleted
-				// it is safer to let the user keep using the old topology
-				c.logger.Info("received placement update with nil value")
+			newService := c.serviceFromUpdate(vw.Get(), initValue, sid, errCounter)
+			if newService == nil {
 				continue
 			}
 
-			if initValue != nil && !value.IsNewer(initValue) {
-				// NB(cw) this can only happen when the init wait called a Get() itself
-				// so the init value did not come from the watch, when the watch gets created
-				// the first update from it may from the same version.
-				c.logger.Info("received placement update on old version, skip")
-				continue
-			}
-
-			service, err := getServiceFromValue(value, sid)
-			if err != nil {
-				c.logger.Errorf("could not unmarshal update from kv store for placement on version %d, %v", value.Version(), err)
-				errCounter.Inc(1)
-				continue
-			}
-			c.logger.Infof("successfully parsed placement on version %d", value.Version())
-
-			w.Update(service)
+			w.Update(newService)
 		}
 	}
 }
@@ -408,36 +389,49 @@ func (c *client) watchPlacementAndHeartbeat(
 	for {
 		select {
 		case <-vw.C():
-			value := vw.Get()
-			if value == nil {
-				// NB(cw) this can only happen when the placement has been deleted
-				// it is safer to let the user keep using the old topology
-				c.logger.Info("received placement update with nil value")
+			newService := c.serviceFromUpdate(vw.Get(), initValue, sid, errCounter)
+			if newService == nil {
 				continue
 			}
 
-			if initValue != nil && !value.IsNewer(initValue) {
-				// NB(cw) this can only happen when the init wait called a Get() itself
-				// so the init value did not come from the watch, when the watch gets created
-				// the first update from it may from the same version.
-				c.logger.Info("received placement update on old version, skip")
-				continue
-			}
-
-			newService, err := getServiceFromValue(value, sid)
-			if err != nil {
-				c.logger.Errorf("could not unmarshal update from kv store for placement on version %d, %v", value.Version(), err)
-				errCounter.Inc(1)
-				continue
-			}
-
-			c.logger.Infof("successfully parsed placement on version %d", value.Version())
 			service = newService
 		case <-heartbeatWatch.C():
 			c.logger.Infof("received heartbeat update")
 		}
 		w.Update(filterInstancesWithWatch(service, heartbeatWatch))
 	}
+}
+
+func (c *client) serviceFromUpdate(
+	value kv.Value,
+	initValue kv.Value,
+	sid services.ServiceID,
+	errCounter tally.Counter,
+) services.Service {
+	if value == nil {
+		// NB(cw) this can only happen when the placement has been deleted
+		// it is safer to let the user keep using the old topology
+		c.logger.Info("received placement update with nil value")
+		return nil
+	}
+
+	if initValue != nil && !value.IsNewer(initValue) {
+		// NB(cw) this can only happen when the init wait called a Get() itself
+		// so the init value did not come from the watch, when the watch gets created
+		// the first update from it may from the same version.
+		c.logger.Infof("received stale placement update on version %d, skip", value.Version())
+		return nil
+	}
+
+	newService, err := getServiceFromValue(value, sid)
+	if err != nil {
+		c.logger.Errorf("could not unmarshal update from kv store for placement on version %d, %v", value.Version(), err)
+		errCounter.Inc(1)
+		return nil
+	}
+
+	c.logger.Infof("successfully parsed placement on version %d", value.Version())
+	return newService
 }
 
 func (c *client) serviceTaggedScope(sid services.ServiceID) tally.Scope {
