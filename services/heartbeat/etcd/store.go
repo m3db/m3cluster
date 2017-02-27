@@ -21,6 +21,7 @@
 package etcd
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -48,16 +49,24 @@ const (
 	defaultEnv         = "default_env"
 )
 
-var noopCancel func()
+var (
+	noopCancel     func()
+	errNoServiceID = errors.New("ServiceID cannot be empty")
+)
 
 // NewStore creates a heartbeat store based on etcd
 func NewStore(c *clientv3.Client, opts Options) (services.HeartbeatService, error) {
+	if opts.ServiceID == nil {
+		return nil, errNoServiceID
+	}
+
 	scope := opts.InstrumentsOptions().MetricsScope()
 
 	store := &client{
 		cache:      newLeaseCache(),
 		watchables: make(map[string]xwatch.Watchable),
 		opts:       opts,
+		sid:        opts.ServiceID(),
 		logger:     opts.InstrumentsOptions().Logger(),
 		retrier:    xretry.NewRetrier(opts.RetryOptions()),
 		m: clientMetrics{
@@ -106,6 +115,7 @@ type client struct {
 	cache      *leaseCache
 	watchables map[string]xwatch.Watchable
 	opts       Options
+	sid        services.ServiceID
 	logger     xlog.Logger
 	retrier    xretry.Retrier
 	m          clientMetrics
@@ -123,8 +133,8 @@ type clientMetrics struct {
 	etcdLeaseError tally.Counter
 }
 
-func (c *client) Heartbeat(sid services.ServiceID, instance services.PlacementInstance, ttl time.Duration) error {
-	leaseID, ok := c.cache.get(sid, instance.ID(), ttl)
+func (c *client) Heartbeat(instance services.PlacementInstance, ttl time.Duration) error {
+	leaseID, ok := c.cache.get(c.sid, instance.ID(), ttl)
 	if ok {
 		ctx, cancel := c.context()
 		defer cancel()
@@ -161,7 +171,7 @@ func (c *client) Heartbeat(sid services.ServiceID, instance services.PlacementIn
 
 	_, err = c.kv.Put(
 		ctx,
-		heartbeatKey(sid, instance.ID()),
+		heartbeatKey(c.sid, instance.ID()),
 		string(instanceBytes),
 		clientv3.WithLease(resp.ID),
 	)
@@ -170,13 +180,13 @@ func (c *client) Heartbeat(sid services.ServiceID, instance services.PlacementIn
 		return err
 	}
 
-	c.cache.put(sid, instance.ID(), ttl, resp.ID)
+	c.cache.put(c.sid, instance.ID(), ttl, resp.ID)
 
 	return nil
 }
 
-func (c *client) Get(sid services.ServiceID) ([]string, error) {
-	return c.get(servicePrefix(sid))
+func (c *client) Get() ([]string, error) {
+	return c.get(servicePrefix(c.sid))
 }
 
 func (c *client) get(key string) ([]string, error) {
@@ -200,8 +210,8 @@ func (c *client) get(key string) ([]string, error) {
 	return r, nil
 }
 
-func (c *client) GetInstances(sid services.ServiceID) ([]services.PlacementInstance, error) {
-	return c.getInstances(servicePrefix(sid))
+func (c *client) GetInstances() ([]services.PlacementInstance, error) {
+	return c.getInstances(servicePrefix(c.sid))
 }
 
 func (c *client) getInstances(key string) ([]services.PlacementInstance, error) {
@@ -231,27 +241,27 @@ func (c *client) getInstances(key string) ([]services.PlacementInstance, error) 
 	return r, nil
 }
 
-func (c *client) Delete(sid services.ServiceID, instance string) error {
+func (c *client) Delete(instance string) error {
 	ctx, cancel := c.context()
 	defer cancel()
 
-	r, err := c.kv.Delete(ctx, heartbeatKey(sid, instance))
+	r, err := c.kv.Delete(ctx, heartbeatKey(c.sid, instance))
 	if err != nil {
 		return err
 	}
 
 	if r.Deleted == 0 {
-		return fmt.Errorf("could not find heartbeat for service: %s, env: %s, instance: %s", sid.Name(), sid.Environment(), instance)
+		return fmt.Errorf("could not find heartbeat for service: %s, env: %s, instance: %s", c.sid.Name(), c.sid.Environment(), instance)
 	}
 
 	// NB(cw) we need to clean up cached lease ID, if not the next heartbeat might reuse the cached lease
 	// and keep alive on existing lease wont work since the key is deleted
-	c.cache.delete(sid, instance)
+	c.cache.delete(c.sid, instance)
 	return nil
 }
 
-func (c *client) Watch(sid services.ServiceID) (xwatch.Watch, error) {
-	serviceKey := servicePrefix(sid)
+func (c *client) Watch() (xwatch.Watch, error) {
+	serviceKey := servicePrefix(c.sid)
 
 	c.Lock()
 	watchable, ok := c.watchables[serviceKey]

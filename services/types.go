@@ -300,17 +300,17 @@ type PlacementInstance interface {
 // HeartbeatService manages heartbeating instances
 type HeartbeatService interface {
 	// Heartbeat sends heartbeat for a service instance with a ttl
-	Heartbeat(sid ServiceID, instance PlacementInstance, ttl time.Duration) error
+	Heartbeat(instance PlacementInstance, ttl time.Duration) error
 
 	// Get gets healthy instances for a service
-	Get(sid ServiceID) ([]string, error)
+	Get() ([]string, error)
 
 	// GetInstances returns a deserialized list of healthy PlacementInstances.
-	GetInstances(sid ServiceID) ([]PlacementInstance, error)
+	GetInstances() ([]PlacementInstance, error)
 
 	// Delete deletes the heartbeat for a service instance
-	Delete(sid ServiceID, instance string) error
+	Delete(instance string) error
 
 	// Watch watches the heartbeats for a service
-	Watch(sid ServiceID) (xwatch.Watch, error)
+	Watch() (xwatch.Watch, error)
 }

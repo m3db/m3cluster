@@ -133,7 +133,7 @@ func (c *client) Advertise(ad services.Advertisement) error {
 		return err
 	}
 
-	hb, err := c.getHeartbeatService(ad.ServiceID().Zone())
+	hb, err := c.getHeartbeatService(ad.ServiceID())
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (c *client) Advertise(ad services.Advertisement) error {
 			select {
 			case <-ticker:
 				if isHealthy(ad) {
-					if err := hb.Heartbeat(sid, pi, m.LivenessInterval()); err != nil {
+					if err := hb.Heartbeat(pi, m.LivenessInterval()); err != nil {
 						c.logger.Errorf("could not heartbeat service %s, %v", sid.String(), err)
 						errCounter.Inc(1)
 					}
@@ -186,12 +186,12 @@ func (c *client) Unadvertise(sid services.ServiceID, id string) error {
 	}
 	c.Unlock()
 
-	hbStore, err := c.getHeartbeatService(sid.Zone())
+	hbStore, err := c.getHeartbeatService(sid)
 	if err != nil {
 		return err
 	}
 
-	return hbStore.Delete(sid, id)
+	return hbStore.Delete(id)
 }
 
 func (c *client) Query(sid services.ServiceID, opts services.QueryOptions) (services.Service, error) {
@@ -210,12 +210,12 @@ func (c *client) Query(sid services.ServiceID, opts services.QueryOptions) (serv
 	}
 
 	if !opts.IncludeUnhealthy() {
-		hbStore, err := c.getHeartbeatService(sid.Zone())
+		hbStore, err := c.getHeartbeatService(sid)
 		if err != nil {
 			return nil, err
 		}
 
-		ids, err := hbStore.Get(sid)
+		ids, err := hbStore.Get()
 		if err != nil {
 			return nil, err
 		}
@@ -244,10 +244,8 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 		return nil, err
 	}
 
-	key := serviceKey(sid)
-
 	kvm.RLock()
-	watchable, exist := kvm.serviceWatchables[key]
+	watchable, exist := kvm.serviceWatchables[sid.String()]
 	kvm.RUnlock()
 	if exist {
 		_, w, err := watchable.Watch()
@@ -273,7 +271,7 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 
 	kvm.Lock()
 	defer kvm.Unlock()
-	watchable, exist = kvm.serviceWatchables[key]
+	watchable, exist = kvm.serviceWatchables[sid.String()]
 	if exist {
 		// if a watchable already exist now, we need to clean up the placement watch we just created
 		placementWatch.Close()
@@ -285,12 +283,12 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 	sdm := newServiceDiscoveryMetrics(c.serviceTaggedScope(sid))
 
 	if !opts.IncludeUnhealthy() {
-		hbStore, err := c.getHeartbeatService(sid.Zone())
+		hbStore, err := c.getHeartbeatService(sid)
 		if err != nil {
 			placementWatch.Close()
 			return nil, err
 		}
-		heartbeatWatch, err := hbStore.Watch(sid)
+		heartbeatWatch, err := hbStore.Watch()
 		if err != nil {
 			placementWatch.Close()
 			return nil, err
@@ -302,7 +300,7 @@ func (c *client) Watch(sid services.ServiceID, opts services.QueryOptions) (xwat
 		go c.watchPlacement(watchable, placementWatch, initValue, sid, sdm.serviceUnmalshalErr)
 	}
 
-	kvm.serviceWatchables[key] = watchable
+	kvm.serviceWatchables[sid.String()] = watchable
 
 	go updateVersionGauge(placementWatch, sdm.versionGauge)
 
@@ -315,7 +313,7 @@ func (c *client) HeartbeatService(sid services.ServiceID) (services.HeartbeatSer
 		return nil, err
 	}
 
-	return c.getHeartbeatService(sid.Zone())
+	return c.getHeartbeatService(sid)
 }
 
 func (c *client) getPlacementValue(sid services.ServiceID) (kv.Value, error) {
@@ -332,20 +330,20 @@ func (c *client) getPlacementValue(sid services.ServiceID) (kv.Value, error) {
 	return v, nil
 }
 
-func (c *client) getHeartbeatService(zone string) (services.HeartbeatService, error) {
+func (c *client) getHeartbeatService(sid services.ServiceID) (services.HeartbeatService, error) {
 	c.Lock()
 	defer c.Unlock()
-	hb, ok := c.hbStores[zone]
+	hb, ok := c.hbStores[sid.String()]
 	if ok {
 		return hb, nil
 	}
 
-	hb, err := c.opts.HeartbeatGen()(zone)
+	hb, err := c.opts.HeartbeatGen()(sid)
 	if err != nil {
 		return nil, err
 	}
 
-	c.hbStores[zone] = hb
+	c.hbStores[sid.String()] = hb
 	return hb, nil
 }
 
