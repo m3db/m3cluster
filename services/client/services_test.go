@@ -814,10 +814,14 @@ func TestHeartbeatService(t *testing.T) {
 	sd, err := NewServices(opts)
 	require.NoError(t, err)
 
-	_, err = sd.HeartbeatService("")
-	assert.Equal(t, errZoneEmpty, err)
+	sid := services.NewServiceID()
 
-	hb, err := sd.HeartbeatService("z1")
+	_, err = sd.HeartbeatService(sid)
+	assert.Equal(t, errNoServiceName, err)
+
+	sid = sid.SetName("m3db").SetZone("z1")
+
+	hb, err := sd.HeartbeatService(sid)
 	assert.NoError(t, err)
 	assert.NotNil(t, hb)
 }
