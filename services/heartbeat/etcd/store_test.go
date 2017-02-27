@@ -37,8 +37,8 @@ func TestKeys(t *testing.T) {
 	sid := services.NewServiceID().SetName("service")
 	id := "instance"
 
-	require.Equal(t, "_hb/default_env/service", servicePrefix(sid))
-	require.Equal(t, "_hb/default_env/service/instance", heartbeatKey(sid, id))
+	require.Equal(t, "_hb/service", servicePrefix(sid))
+	require.Equal(t, "_hb/service/instance", heartbeatKey(sid, id))
 
 	sid = sid.SetEnvironment("test")
 	require.Equal(t, "_hb/test/service/instance", heartbeatKey(sid, id))

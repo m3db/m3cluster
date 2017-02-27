@@ -352,12 +352,12 @@ func instanceFromKey(key, servicePrefix string) string {
 }
 
 // heartbeats for a service "svc" in env "test" should be stored under
-// "_hb/test/svc". If a service's environment is empty it will fall back to
-// a default in order to provide a consistent naming scheme.
+// "_hb/test/svc". A service "svc" with no environment will be stored under
+// "_hb/svc".
 func servicePrefix(sid services.ServiceID) string {
 	env := sid.Environment()
 	if env == "" {
-		env = defaultEnv
+		return fmt.Sprintf(keyFormat, heartbeatKeyPrefix, sid.Name())
 	}
 
 	return fmt.Sprintf(
