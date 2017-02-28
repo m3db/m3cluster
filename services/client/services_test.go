@@ -826,6 +826,73 @@ func TestHeartbeatService(t *testing.T) {
 	assert.NotNil(t, hb)
 }
 
+func TestCacheCollisions_Heartbeat(t *testing.T) {
+	opts, closer, _ := testSetup(t)
+	defer closer()
+
+	sid := func() services.ServiceID {
+		return services.NewServiceID().SetName("svc")
+	}
+
+	sd, err := NewServices(opts)
+	require.NoError(t, err)
+	c := sd.(*client)
+
+	for _, id := range []services.ServiceID{
+		sid().SetEnvironment("e1").SetZone("z1"),
+		sid().SetEnvironment("e1").SetZone("z2"),
+		sid().SetEnvironment("e2").SetZone("z1"),
+		sid().SetEnvironment("e2").SetZone("z2"),
+	} {
+		_, err := sd.HeartbeatService(id)
+		assert.NoError(t, err)
+	}
+
+	assert.Equal(t, 4, len(c.hbStores), "cached hb stores should have 4 unique entries")
+}
+
+func TestCacheCollisions_Watchables(t *testing.T) {
+	opts, closer, _ := testSetup(t)
+	defer closer()
+
+	sd, err := NewServices(opts.SetInitTimeout(defaultInitTimeout))
+	require.NoError(t, err)
+
+	sid := func() services.ServiceID {
+		return services.NewServiceID().SetName("svc")
+	}
+
+	qopts := services.NewQueryOptions().SetIncludeUnhealthy(true)
+
+	for _, id := range []services.ServiceID{
+		sid().SetEnvironment("e1").SetZone("z1"),
+		sid().SetEnvironment("e1").SetZone("z2"),
+		sid().SetEnvironment("e2").SetZone("z1"),
+		sid().SetEnvironment("e2").SetZone("z2"),
+	} {
+		_, err := sd.HeartbeatService(id)
+		assert.NoError(t, err)
+
+		ps, err := sd.PlacementService(id, placement.NewOptions())
+		require.NoError(t, err)
+
+		p := placement.NewPlacement().SetInstances([]services.PlacementInstance{
+			placement.NewInstance().SetID("i1").SetEndpoint("i:p"),
+		})
+		err = ps.SetPlacement(p)
+		assert.NoError(t, err)
+
+		_, err = sd.Watch(id, qopts)
+		assert.NoError(t, err)
+	}
+
+	for _, z := range []string{"z1", "z2"} {
+		kvm, err := sd.(*client).getKVManager(z)
+		require.NoError(t, err)
+		assert.Equal(t, 2, len(kvm.serviceWatchables), "each zone should have 2 unique watchable entries")
+	}
+}
+
 func testSetup(t *testing.T) (Options, func(), *mockHBGen) {
 	ecluster := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
 	ec := ecluster.RandClient()
