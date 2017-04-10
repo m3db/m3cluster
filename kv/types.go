@@ -105,3 +105,66 @@ type Store interface {
 	// History returns the value for a key in version range [from, to)
 	History(key string, from, to int) ([]Value, error)
 }
+
+// TargetType is the type of the comparison target in the condition
+type TargetType int
+
+// list of supported TargetTypes
+const (
+	Version TargetType = iota
+)
+
+// Condition defines the prerequisite for a transaction
+type Condition interface {
+	// Type returns the type of the comparison target
+	Type() TargetType
+	// SetType sets the type of the comparison target
+	SetType(tt TargetType) Condition
+
+	// Key returns the key in the condition
+	Key() string
+	// SetKey sets the key in the condition
+	SetKey(key string) Condition
+
+	// Value returns the value for comparison
+	Value() interface{}
+	// SetValue sets the value for comparison
+	SetValue(value interface{}) Condition
+}
+
+// OpType is the type of the operation
+type OpType int
+
+// list of supported OpTypes
+const (
+	Set OpType = iota
+)
+
+// Op is the operation to be performed in a transaction
+type Op interface {
+	// Type returns the type of the operation
+	Type() OpType
+	// SetType sets the type of the operation
+	SetType(ot OpType) Op
+
+	// Key returns the key used in the operation
+	Key() string
+	// SetKey sets the key in the operation
+	SetKey(key string) Op
+
+	// Value returns the value to be set, if the op type is Set
+	Value() proto.Message
+	// SetValue sets the value to be set, if the op type is Set
+	SetValue(proto.Message) Op
+}
+
+// Response captures the response of the transaction
+// TODO(cw) add Values if Get operation is supported
+type Response interface{}
+
+// TxnStore supports transactions on top of Store interface
+type TxnStore interface {
+	Store
+
+	Txn([]Condition, []Op) (Response, error)
+}
