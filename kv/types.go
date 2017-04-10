@@ -111,7 +111,7 @@ type TargetType int
 
 // list of supported TargetTypes
 const (
-	Version TargetType = iota
+	TargetVersion TargetType = iota
 )
 
 // Condition defines the prerequisite for a transaction
@@ -119,7 +119,7 @@ type Condition interface {
 	// Type returns the type of the comparison target
 	Type() TargetType
 	// SetType sets the type of the comparison target
-	SetType(tt TargetType) Condition
+	SetType(t TargetType) Condition
 
 	// Key returns the key in the condition
 	Key() string
@@ -151,16 +151,19 @@ type Op interface {
 	Key() string
 	// SetKey sets the key in the operation
 	SetKey(key string) Op
+}
 
-	// Value returns the value to be set, if the op type is Set
-	Value() proto.Message
-	// SetValue sets the value to be set, if the op type is Set
-	SetValue(proto.Message) Op
+// OpResponse is the response of a transaction operation
+type OpResponse interface {
+	Op
+
+	Value() interface{}
 }
 
 // Response captures the response of the transaction
-// TODO(cw) add Values if Get operation is supported
-type Response interface{}
+type Response interface {
+	Responses() []OpResponse
+}
 
 // TxnStore supports transactions on top of Store interface
 type TxnStore interface {
