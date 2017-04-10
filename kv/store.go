@@ -20,10 +20,7 @@
 
 package kv
 
-import (
-	"github.com/gogo/protobuf/proto"
-	xwatch "github.com/m3db/m3x/watch"
-)
+import xwatch "github.com/m3db/m3x/watch"
 
 type valueWatch struct {
 	w xwatch.Watch
