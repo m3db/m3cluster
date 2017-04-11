@@ -84,7 +84,7 @@ type csclient struct {
 	sdErr  error
 
 	kvOnce sync.Once
-	kv     kv.Store
+	kv     kv.TxnStore
 	kvErr  error
 }
 
@@ -98,7 +98,15 @@ func (c *csclient) Services() (services.Services, error) {
 
 func (c *csclient) KV() (kv.Store, error) {
 	c.kvOnce.Do(func() {
-		c.kv, c.kvErr = c.newKVStore()
+		c.kv, c.kvErr = c.newTxnStore()
+	})
+
+	return c.kv, c.kvErr
+}
+
+func (c *csclient) Txn() (kv.TxnStore, error) {
+	c.kvOnce.Do(func() {
+		c.kv, c.kvErr = c.newTxnStore()
 	})
 
 	return c.kv, c.kvErr
@@ -121,32 +129,31 @@ func (c *csclient) newServices() (services.Services, error) {
 	)
 }
 
-func (c *csclient) newKVStore() (kv.Store, error) {
-	env := c.opts.Env()
-	kvGen := c.kvGen(etcdKV.NewOptions().
+func (c *csclient) newTxnStore() (kv.TxnStore, error) {
+	opts := etcdKV.NewOptions().
 		SetInstrumentsOptions(instrument.NewOptions().
 			SetLogger(c.logger).
-			SetMetricsScope(c.kvScope),
-		).
-		SetPrefix(prefix(env)),
-	)
-	return kvGen(c.opts.Zone())
+			SetMetricsScope(c.kvScope)).
+		SetPrefix(prefix(c.opts.Env()))
+	return c.txnGen(opts, c.opts.Zone())
 }
 
 func (c *csclient) kvGen(kvOpts etcdKV.Options) sdClient.KVGen {
-	return sdClient.KVGen(
-		func(zone string) (kv.Store, error) {
-			cli, err := c.etcdClientGen(zone)
-			if err != nil {
-				return nil, err
-			}
+	return sdClient.KVGen(func(zone string) (kv.Store, error) {
+		return c.txnGen(kvOpts, zone)
+	})
+}
 
-			return etcdKV.NewStore(
-				cli.KV,
-				cli.Watcher,
-				kvOpts.SetCacheFilePath(cacheFileForZone(c.opts.CacheDir(), kvOpts.ApplyPrefix(c.opts.AppID()), zone)),
-			)
-		},
+func (c *csclient) txnGen(kvOpts etcdKV.Options, zone string) (kv.TxnStore, error) {
+	cli, err := c.etcdClientGen(zone)
+	if err != nil {
+		return nil, err
+	}
+
+	return etcdKV.NewStore(
+		cli.KV,
+		cli.Watcher,
+		kvOpts.SetCacheFilePath(cacheFileForZone(c.opts.CacheDir(), kvOpts.ApplyPrefix(c.opts.AppID()), zone)),
 	)
 }
 
@@ -159,11 +166,10 @@ func (c *csclient) heartbeatGen() sdClient.HeartbeatGen {
 			}
 
 			opts := etcdHeartbeat.NewOptions().
-				SetInstrumentsOptions(
-					instrument.NewOptions().
-						SetLogger(c.logger).
-						SetMetricsScope(c.hbScope),
-				).SetServiceID(sid)
+				SetInstrumentsOptions(instrument.NewOptions().
+					SetLogger(c.logger).
+					SetMetricsScope(c.hbScope)).
+				SetServiceID(sid)
 			return etcdHeartbeat.NewStore(cli, opts)
 		},
 	)
