@@ -41,9 +41,11 @@ import (
 const etcdVersionZero = 0
 
 var (
-	noopCancel func()
-
+	noopCancel               func()
+	emptyCmp                 clientv3.Cmp
+	emptyOp                  clientv3.Op
 	errInvalidHistoryVersion = errors.New("invalid version range")
+	errNilPutResponse        = errors.New("nil put response from etcd")
 )
 
 // NewStore creates a kv store based on etcd
@@ -234,6 +236,46 @@ func (c *client) History(key string, from, to int) ([]kv.Value, error) {
 	return res, nil
 }
 
+func (c *client) processCondition(condition kv.Condition) (clientv3.Cmp, error) {
+	var cmp clientv3.Cmp
+	switch condition.TargetType() {
+	case kv.TargetVersion:
+		cmp = clientv3.Version(c.opts.ApplyPrefix(condition.Key()))
+	default:
+		return emptyCmp, kv.ErrUnknownTargetType
+	}
+
+	var compareStr string
+	switch condition.CompareType() {
+	case kv.CompareEqual:
+		compareStr = condition.CompareType().String()
+	default:
+		return emptyCmp, kv.ErrUnknownCompareType
+	}
+
+	return clientv3.Compare(cmp, compareStr, condition.Value()), nil
+}
+
+func (c *client) processOp(op kv.Op) (clientv3.Op, error) {
+	switch op.Type() {
+	case kv.OpSet:
+		opSet := op.(kv.SetOp)
+
+		value, err := proto.Marshal(opSet.Value)
+		if err != nil {
+			return emptyOp, err
+		}
+
+		return clientv3.OpPut(
+			c.opts.ApplyPrefix(opSet.Key()),
+			string(value),
+			clientv3.WithPrevKV(),
+		), nil
+	default:
+		return emptyOp, kv.ErrUnknownOpType
+	}
+}
+
 func (c *client) Txn(conditions []kv.Condition, ops []kv.Op) (kv.Response, error) {
 	ctx, cancel := c.context()
 	defer cancel()
@@ -242,19 +284,12 @@ func (c *client) Txn(conditions []kv.Condition, ops []kv.Op) (kv.Response, error
 
 	cmps := make([]clientv3.Cmp, len(conditions))
 	for i, condition := range conditions {
-		var cmp clientv3.Cmp
-		switch condition.TargetType() {
-		case kv.TargetVersion:
-			cmp = clientv3.Version(c.opts.ApplyPrefix(condition.Key()))
-		default:
-			return nil, kv.ErrUnknownTargetType
+		cmp, err := c.processCondition(condition)
+		if err != nil {
+			return nil, err
 		}
 
-		cmps[i] = clientv3.Compare(
-			cmp,
-			condition.CompareType().String(),
-			condition.Value(),
-		)
+		cmps[i] = cmp
 	}
 
 	txn = txn.If(cmps...)
@@ -262,28 +297,17 @@ func (c *client) Txn(conditions []kv.Condition, ops []kv.Op) (kv.Response, error
 	etcdOps := make([]clientv3.Op, len(ops))
 	opResponses := make([]kv.OpResponse, len(ops))
 	for i, op := range ops {
-		switch op.Type() {
-		case kv.OpSet:
-			opSet := op.(kv.SetOp)
-
-			value, err := proto.Marshal(opSet.Value)
-			if err != nil {
-				return nil, err
-			}
-
-			etcdOps[i] = clientv3.OpPut(
-				c.opts.ApplyPrefix(opSet.Key()),
-				string(value),
-				clientv3.WithPrevKV(),
-			)
-
-			// NB(cw) We need to initiate the OpResponse with a default version here
-			// because if a key was set first time, there is no way to get the key
-			// in the response from etcd
-			opResponses[i] = kv.NewOpResponse(opSet.Key(), 1)
-		default:
-			return nil, kv.ErrUnknownOpType
+		etcdOp, err := c.processOp(op)
+		if err != nil {
+			return nil, err
 		}
+
+		etcdOps[i] = etcdOp
+
+		// NB(cw) We need to initiate the OpResponse with a default version here
+		// because if a key was set first time, there is no way to get the key
+		// in the response from etcd
+		opResponses[i] = kv.NewOpResponse(op)
 	}
 
 	txn = txn.Then(etcdOps...)
@@ -298,13 +322,25 @@ func (c *client) Txn(conditions []kv.Condition, ops []kv.Op) (kv.Response, error
 	}
 
 	for i := range r.Responses {
-		// NB(cw) once we start to support other OpType
-		// we need to check the response type
-		res := r.Responses[i].GetResponsePut()
+		opr := opResponses[i]
+		switch opr.Type() {
+		case kv.OpSet:
+			// NB(cw) once we start to support other OpType
+			// we need to check the response type
+			res := r.Responses[i].GetResponsePut()
 
-		if res.PrevKv != nil {
-			opResponses[i] = opResponses[i].SetValue(int(res.PrevKv.Version + 1))
+			if res == nil {
+				return nil, errNilPutResponse
+			}
+
+			if res.PrevKv != nil {
+				opr = opr.SetValue(int(res.PrevKv.Version + 1))
+			} else {
+				opr = opr.SetValue(1)
+			}
 		}
+
+		opResponses[i] = opr
 	}
 
 	return kv.NewResponse().SetResponses(opResponses), nil

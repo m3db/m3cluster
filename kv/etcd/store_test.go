@@ -748,6 +748,25 @@ func TestTxn_ConditionFail(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestTxn_UnknownType(t *testing.T) {
+	ec, opts, closeFn := testStore(t)
+	defer closeFn()
+
+	store, err := NewStore(ec, ec, opts)
+	require.NoError(t, err)
+
+	_, err = store.Txn(
+		[]kv.Condition{
+			kv.NewCondition().
+				SetTargetType(kv.TargetVersion).
+				SetKey("foo").
+				SetValue(1),
+		},
+		[]kv.Op{kv.NewSetOp("foo", genProto("bar1"))},
+	)
+	require.Equal(t, kv.ErrUnknownCompareType, err)
+}
+
 func verifyValue(t *testing.T, v kv.Value, value string, version int) {
 	var testMsg kvtest.Foo
 	err := v.Unmarshal(&testMsg)

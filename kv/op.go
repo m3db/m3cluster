@@ -46,14 +46,14 @@ func NewSetOp(key string, value proto.Message) SetOp {
 }
 
 type opResponse struct {
-	opBase
+	Op
 
 	value interface{}
 }
 
 // NewOpResponse creates a new OpResponse
-func NewOpResponse(key string, value interface{}) OpResponse {
-	return opResponse{opBase: newOpBase(OpSet, key), value: value}
+func NewOpResponse(op Op) OpResponse {
+	return opResponse{Op: op}
 }
 
 func (r opResponse) Value() interface{}                { return r.value }

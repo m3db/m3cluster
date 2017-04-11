@@ -40,7 +40,10 @@ var (
 	ErrNotFound = errors.New("key not found")
 
 	// ErrUnknownTargetType is returned when an unknown TargetType is requested
-	ErrUnknownTargetType = errors.New("unknown condition type")
+	ErrUnknownTargetType = errors.New("unknown target type")
+
+	// ErrUnknownCompareType is returned when an unknown CompareType is requested
+	ErrUnknownCompareType = errors.New("unknown compare type")
 
 	// ErrUnknownOpType is returned when an unknown OpType is requested
 	ErrUnknownOpType = errors.New("unknown op type")
