@@ -47,7 +47,7 @@ var (
 )
 
 // NewStore creates a kv store based on etcd
-func NewStore(etcdKV clientv3.KV, etcdWatcher clientv3.Watcher, opts Options) (kv.Store, error) {
+func NewStore(etcdKV clientv3.KV, etcdWatcher clientv3.Watcher, opts Options) (kv.TxnStore, error) {
 	scope := opts.InstrumentsOptions().MetricsScope()
 
 	store := &client{
@@ -234,6 +234,82 @@ func (c *client) History(key string, from, to int) ([]kv.Value, error) {
 	return res, nil
 }
 
+func (c *client) Txn(conditions []kv.Condition, ops []kv.Op) (kv.Response, error) {
+	ctx, cancel := c.context()
+	defer cancel()
+
+	txn := c.kv.Txn(ctx)
+
+	cmps := make([]clientv3.Cmp, len(conditions))
+	for i, condition := range conditions {
+		var cmp clientv3.Cmp
+		switch condition.TargetType() {
+		case kv.TargetVersion:
+			cmp = clientv3.Version(c.opts.ApplyPrefix(condition.Key()))
+		default:
+			return nil, kv.ErrUnknownTargetType
+		}
+
+		cmps[i] = clientv3.Compare(
+			cmp,
+			condition.CompareType().String(),
+			condition.Value(),
+		)
+	}
+
+	txn = txn.If(cmps...)
+
+	etcdOps := make([]clientv3.Op, len(ops))
+	opResponses := make([]kv.OpResponse, len(ops))
+	for i, op := range ops {
+		switch op.Type() {
+		case kv.OpSet:
+			opSet := op.(kv.SetOp)
+
+			value, err := proto.Marshal(opSet.Value)
+			if err != nil {
+				return nil, err
+			}
+
+			etcdOps[i] = clientv3.OpPut(
+				c.opts.ApplyPrefix(opSet.Key()),
+				string(value),
+				clientv3.WithPrevKV(),
+			)
+
+			// NB(cw) We need to initiate the OpResponse with a default version here
+			// because if a key was set first time, there is no way to get the key
+			// in the response from etcd
+			opResponses[i] = kv.NewOpResponse(opSet.Key(), 1)
+		default:
+			return nil, kv.ErrUnknownOpType
+		}
+	}
+
+	txn = txn.Then(etcdOps...)
+
+	r, err := txn.Commit()
+	if err != nil {
+		c.m.etcdTnxError.Inc(1)
+		return nil, err
+	}
+	if !r.Succeeded {
+		return nil, kv.ErrConditionCheckFailed
+	}
+
+	for i := range r.Responses {
+		// NB(cw) once we start to support other OpType
+		// we need to check the response type
+		res := r.Responses[i].GetResponsePut()
+
+		if res.PrevKv != nil {
+			opResponses[i] = opResponses[i].SetValue(int(res.PrevKv.Version + 1))
+		}
+	}
+
+	return kv.NewResponse().SetResponses(opResponses), nil
+}
+
 func (c *client) Watch(key string) (kv.ValueWatch, error) {
 	newKey := c.opts.ApplyPrefix(key)
 	c.Lock()
@@ -370,7 +446,7 @@ func (c *client) CheckAndSet(key string, version int, v proto.Message) (int, err
 
 	key = c.opts.ApplyPrefix(key)
 	r, err := c.kv.Txn(ctx).
-		If(clientv3.Compare(clientv3.Version(key), "=", version)).
+		If(clientv3.Compare(clientv3.Version(key), kv.CompareEqual.String(), version)).
 		Then(clientv3.OpPut(key, string(value))).
 		Commit()
 	if err != nil {
