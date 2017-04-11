@@ -264,7 +264,7 @@ func TestDelete(t *testing.T) {
 func TestTxn(t *testing.T) {
 	store := NewStore()
 
-	r, err := store.Txn(
+	r, err := store.Commit(
 		[]kv.Condition{
 			kv.NewCondition().
 				SetCompareType(kv.CompareEqual).
@@ -291,7 +291,7 @@ func TestTxn(t *testing.T) {
 	require.Equal(t, kv.OpSet, r.Responses()[1].Type())
 	require.Equal(t, 1, r.Responses()[1].Value())
 
-	_, err = store.Txn(
+	_, err = store.Commit(
 		[]kv.Condition{
 			kv.NewCondition().
 				SetCompareType(kv.CompareEqual).

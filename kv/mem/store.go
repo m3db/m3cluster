@@ -241,7 +241,7 @@ func (s *store) History(key string, from, to int) ([]kv.Value, error) {
 }
 
 // NB(cw) When there is an error in one of the ops, the finished ops will not be rolled back
-func (s *store) Txn(conditions []kv.Condition, ops []kv.Op) (kv.Response, error) {
+func (s *store) Commit(conditions []kv.Condition, ops []kv.Op) (kv.Response, error) {
 	s.Lock()
 	defer s.Unlock()
 

@@ -100,7 +100,7 @@ func (c *csclient) KV() (kv.Store, error) {
 	return c.kv, c.kvErr
 }
 
-func (c *csclient) TxnStore() (kv.TxnStore, error) {
+func (c *csclient) Txn() (kv.TxnStore, error) {
 	c.createTxnStore()
 
 	return c.kv, c.kvErr
