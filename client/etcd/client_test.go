@@ -96,7 +96,7 @@ func TestClient(t *testing.T) {
 	defer closer()
 	c.newFn = fn
 
-	txn, err := c.Txn()
+	txn, err := c.TxnStore()
 	assert.NoError(t, err)
 
 	kv1, err := c.KV()

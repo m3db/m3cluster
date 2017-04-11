@@ -89,53 +89,51 @@ type csclient struct {
 }
 
 func (c *csclient) Services() (services.Services, error) {
-	c.sdOnce.Do(func() {
-		c.sd, c.sdErr = c.newServices()
-	})
+	c.createServices()
 
 	return c.sd, c.sdErr
 }
 
 func (c *csclient) KV() (kv.Store, error) {
-	c.kvOnce.Do(func() {
-		c.kv, c.kvErr = c.newTxnStore()
-	})
+	c.createTxnStore()
 
 	return c.kv, c.kvErr
 }
 
-func (c *csclient) Txn() (kv.TxnStore, error) {
-	c.kvOnce.Do(func() {
-		c.kv, c.kvErr = c.newTxnStore()
-	})
+func (c *csclient) TxnStore() (kv.TxnStore, error) {
+	c.createTxnStore()
 
 	return c.kv, c.kvErr
 }
 
-func (c *csclient) newServices() (services.Services, error) {
-	return sdClient.NewServices(sdClient.NewOptions().
-		SetInitTimeout(c.opts.ServiceInitTimeout()).
-		SetHeartbeatGen(c.heartbeatGen()).
-		SetKVGen(c.kvGen(etcdKV.NewOptions().
+func (c *csclient) createServices() {
+	c.sdOnce.Do(func() {
+		c.sd, c.sdErr = sdClient.NewServices(sdClient.NewOptions().
+			SetInitTimeout(c.opts.ServiceInitTimeout()).
+			SetHeartbeatGen(c.heartbeatGen()).
+			SetKVGen(c.kvGen(etcdKV.NewOptions().
+				SetInstrumentsOptions(instrument.NewOptions().
+					SetLogger(c.logger).
+					SetMetricsScope(c.kvScope),
+				)),
+			).
 			SetInstrumentsOptions(instrument.NewOptions().
 				SetLogger(c.logger).
-				SetMetricsScope(c.kvScope),
-			)),
-		).
-		SetInstrumentsOptions(instrument.NewOptions().
-			SetLogger(c.logger).
-			SetMetricsScope(c.sdScope),
-		),
-	)
+				SetMetricsScope(c.sdScope),
+			),
+		)
+	})
 }
 
-func (c *csclient) newTxnStore() (kv.TxnStore, error) {
-	opts := etcdKV.NewOptions().
-		SetInstrumentsOptions(instrument.NewOptions().
-			SetLogger(c.logger).
-			SetMetricsScope(c.kvScope)).
-		SetPrefix(prefix(c.opts.Env()))
-	return c.txnGen(opts, c.opts.Zone())
+func (c *csclient) createTxnStore() {
+	c.kvOnce.Do(func() {
+		opts := etcdKV.NewOptions().
+			SetInstrumentsOptions(instrument.NewOptions().
+				SetLogger(c.logger).
+				SetMetricsScope(c.kvScope)).
+			SetPrefix(prefix(c.opts.Env()))
+		c.kv, c.kvErr = c.txnGen(opts, c.opts.Zone())
+	})
 }
 
 func (c *csclient) kvGen(kvOpts etcdKV.Options) sdClient.KVGen {
