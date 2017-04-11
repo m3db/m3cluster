@@ -336,7 +336,7 @@ func (c *client) Txn(conditions []kv.Condition, ops []kv.Op) (kv.Response, error
 			if res.PrevKv != nil {
 				opr = opr.SetValue(int(res.PrevKv.Version + 1))
 			} else {
-				opr = opr.SetValue(1)
+				opr = opr.SetValue(etcdVersionZero + 1)
 			}
 		}
 
