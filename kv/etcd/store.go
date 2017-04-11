@@ -303,10 +303,6 @@ func (c *client) Txn(conditions []kv.Condition, ops []kv.Op) (kv.Response, error
 		}
 
 		etcdOps[i] = etcdOp
-
-		// NB(cw) We need to initiate the OpResponse with a default version here
-		// because if a key was set first time, there is no way to get the key
-		// in the response from etcd
 		opResponses[i] = kv.NewOpResponse(op)
 	}
 
@@ -325,10 +321,7 @@ func (c *client) Txn(conditions []kv.Condition, ops []kv.Op) (kv.Response, error
 		opr := opResponses[i]
 		switch opr.Type() {
 		case kv.OpSet:
-			// NB(cw) once we start to support other OpType
-			// we need to check the response type
 			res := r.Responses[i].GetResponsePut()
-
 			if res == nil {
 				return nil, errNilPutResponse
 			}
