@@ -16,46 +16,89 @@ type getValueFn func(kv.Value) (interface{}, error)
 type updateFn func(interface{})
 
 // WatchAndUpdateBool sets up a watch for a bool property.
-func WatchAndUpdateBool(store kv.Store, name string, property *bool, lock sync.Locker,
+func WatchAndUpdateBool(store kv.Store, key string, property *bool, lock sync.Locker,
 	defaultValue bool, logger xlog.Logger) error {
-	if store == nil {
-		return errNilStore
-	}
+	update := updateWithLock(func(i interface{}) { *property = i.(bool) }, lock)
 
-	watch, err := store.Watch(name)
-	if err != nil {
-		return err
-	}
+	return watchAndUpdate(store, key, getBool, update, defaultValue, logger)
+}
 
-	update := func(i interface{}) {
-		if lock != nil {
-			lock.Lock()
-		}
-		*property = i.(bool)
-		if lock != nil {
-			lock.Unlock()
-		}
-	}
+// WatchAndUpdateFloat64 sets up a watch for an float64 property.
+func WatchAndUpdateFloat64(store kv.Store, key string, property *float64, lock sync.Locker,
+	defaultValue float64, logger xlog.Logger) error {
+	update := updateWithLock(func(i interface{}) { *property = i.(float64) }, lock)
 
-	go func() {
-		for range watch.C() {
-			updateWithKV(getBool, update, name, watch.Get(), defaultValue, logger)
-		}
-	}()
+	return watchAndUpdate(store, key, getFloat64, update, defaultValue, logger)
+}
 
-	return nil
+// WatchAndUpdateInt64 sets up a watch for an int64 property.
+func WatchAndUpdateInt64(store kv.Store, key string, property *int64, lock sync.Locker,
+	defaultValue int64, logger xlog.Logger) error {
+	update := updateWithLock(func(i interface{}) { *property = i.(int64) }, lock)
+
+	return watchAndUpdate(store, key, getInt64, update, defaultValue, logger)
+}
+
+// WatchAndUpdateTime sets up a watch for a time property.
+func WatchAndUpdateTime(store kv.Store, key string, property *time.Time, lock sync.Locker,
+	defaultValue time.Time, logger xlog.Logger) error {
+	update := updateWithLock(func(i interface{}) { *property = i.(time.Time) }, lock)
+
+	return watchAndUpdate(store, key, getTime, update, defaultValue, logger)
 }
 
 // BoolFromValue get a bool from kv.Value
 func BoolFromValue(v kv.Value, key string, defaultValue bool, logger xlog.Logger) bool {
 	var res bool
-	update := func(i interface{}) {
-		res = i.(bool)
-	}
+	update := func(i interface{}) { res = i.(bool) }
 
 	updateWithKV(getBool, update, key, v, defaultValue, logger)
 
 	return res
+}
+
+// Float64FromValue gets an float64 from kv.Value
+func Float64FromValue(v kv.Value, key string, defaultValue float64, logger xlog.Logger) float64 {
+	var res float64
+	update := func(i interface{}) { res = i.(float64) }
+
+	updateWithKV(getFloat64, update, key, v, defaultValue, logger)
+
+	return res
+}
+
+// Int64FromValue gets an int64 from kv.Value
+func Int64FromValue(v kv.Value, key string, defaultValue int64, logger xlog.Logger) int64 {
+	var res int64
+	update := func(i interface{}) { res = i.(int64) }
+
+	updateWithKV(getInt64, update, key, v, defaultValue, logger)
+
+	return res
+}
+
+// StringArrayFromValue gets a string array from kv.Value
+func StringArrayFromValue(v kv.Value, key string, defaultValue []string, logger xlog.Logger) []string {
+	var res []string
+	update := func(i interface{}) { res = i.([]string) }
+
+	updateWithKV(getStringArray, update, key, v, defaultValue, logger)
+
+	return res
+}
+
+func updateWithLock(update updateFn, lock sync.Locker) updateFn {
+	return func(i interface{}) {
+		if lock != nil {
+			lock.Lock()
+		}
+
+		update(i)
+
+		if lock != nil {
+			lock.Unlock()
+		}
+	}
 }
 
 func getBool(v kv.Value) (interface{}, error) {
@@ -64,96 +107,10 @@ func getBool(v kv.Value) (interface{}, error) {
 	return boolProto.Value, err
 }
 
-// WatchAndUpdateFloat64 sets up a watch for an float64 property.
-func WatchAndUpdateFloat64(store kv.Store, key string, property *float64, lock sync.Locker,
-	defaultValue float64, logger xlog.Logger) error {
-	if store == nil {
-		return errNilStore
-	}
-
-	watch, err := store.Watch(key)
-	if err != nil {
-		return err
-	}
-
-	update := func(i interface{}) {
-		if lock != nil {
-			lock.Lock()
-		}
-		*property = i.(float64)
-		if lock != nil {
-			lock.Unlock()
-		}
-	}
-
-	go func() {
-		for range watch.C() {
-			updateWithKV(getFloat64, update, key, watch.Get(), defaultValue, logger)
-		}
-	}()
-
-	return nil
-}
-
-// Float64FromValue gets an float64 from kv.Value
-func Float64FromValue(v kv.Value, key string, defaultValue float64, logger xlog.Logger) float64 {
-	var res float64
-	update := func(i interface{}) {
-		res = i.(float64)
-	}
-
-	updateWithKV(getFloat64, update, key, v, defaultValue, logger)
-
-	return res
-}
-
 func getFloat64(v kv.Value) (interface{}, error) {
 	var float64proto commonpb.Float64Proto
 	err := v.Unmarshal(&float64proto)
 	return float64proto.Value, err
-}
-
-// WatchAndUpdateInt64 sets up a watch for an int64 property.
-func WatchAndUpdateInt64(store kv.Store, key string, property *int64, lock sync.Locker,
-	defaultValue int64, logger xlog.Logger) error {
-	if store == nil {
-		return errNilStore
-	}
-
-	watch, err := store.Watch(key)
-	if err != nil {
-		return err
-	}
-
-	update := func(i interface{}) {
-		if lock != nil {
-			lock.Lock()
-		}
-		*property = i.(int64)
-		if lock != nil {
-			lock.Unlock()
-		}
-	}
-
-	go func() {
-		for range watch.C() {
-			updateWithKV(getInt64, update, key, watch.Get(), defaultValue, logger)
-		}
-	}()
-
-	return nil
-}
-
-// Int64FromValue gets an int64 from kv.Value
-func Int64FromValue(v kv.Value, key string, defaultValue int64, logger xlog.Logger) int64 {
-	var res int64
-	update := func(i interface{}) {
-		res = i.(int64)
-	}
-
-	updateWithKV(getInt64, update, key, v, defaultValue, logger)
-
-	return res
 }
 
 func getInt64(v kv.Value) (interface{}, error) {
@@ -165,18 +122,6 @@ func getInt64(v kv.Value) (interface{}, error) {
 	return int64Proto.Value, nil
 }
 
-// StringArrayFromValue gets a string array from kv.Value
-func StringArrayFromValue(v kv.Value, key string, defaultValue []string, logger xlog.Logger) []string {
-	var res []string
-	update := func(i interface{}) {
-		res = i.([]string)
-	}
-
-	updateWithKV(getStringArray, update, key, v, defaultValue, logger)
-
-	return res
-}
-
 func getStringArray(v kv.Value) (interface{}, error) {
 	var stringArrProto commonpb.StringArrayProto
 	if err := v.Unmarshal(&stringArrProto); err != nil {
@@ -184,37 +129,6 @@ func getStringArray(v kv.Value) (interface{}, error) {
 	}
 
 	return stringArrProto.Values, nil
-}
-
-// WatchAndUpdateTime sets up a watch for a time property.
-func WatchAndUpdateTime(store kv.Store, key string, property *time.Time, lock sync.Locker,
-	defaultValue time.Time, logger xlog.Logger) error {
-	if store == nil {
-		return errNilStore
-	}
-
-	watch, err := store.Watch(key)
-	if err != nil {
-		return err
-	}
-
-	update := func(i interface{}) {
-		if lock != nil {
-			lock.Lock()
-		}
-		*property = i.(time.Time)
-		if lock != nil {
-			lock.Unlock()
-		}
-	}
-
-	go func() {
-		for range watch.C() {
-			updateWithKV(getTime, update, key, watch.Get(), defaultValue, logger)
-		}
-	}()
-
-	return nil
 }
 
 func getTime(v kv.Value) (interface{}, error) {
@@ -226,14 +140,28 @@ func getTime(v kv.Value) (interface{}, error) {
 	return time.Unix(int64Proto.Value, 0), nil
 }
 
-func updateWithKV(
-	getValue getValueFn,
-	update updateFn,
-	key string,
-	v kv.Value,
-	defaultValue interface{},
-	logger xlog.Logger,
-) error {
+func watchAndUpdate(store kv.Store, key string, getValue getValueFn, update updateFn,
+	defaultValue interface{}, logger xlog.Logger) error {
+	if store == nil {
+		return errNilStore
+	}
+
+	watch, err := store.Watch(key)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for range watch.C() {
+			updateWithKV(getValue, update, key, watch.Get(), defaultValue, logger)
+		}
+	}()
+
+	return nil
+}
+
+func updateWithKV(getValue getValueFn, update updateFn, key string, v kv.Value,
+	defaultValue interface{}, logger xlog.Logger) error {
 	if v == nil {
 		// the key is deleted from kv, use the default value
 		update(defaultValue)
