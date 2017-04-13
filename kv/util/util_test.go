@@ -10,17 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBoolFromValue(t *testing.T) {
-	require.True(t, BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: true}), "key", false, nil))
-	require.False(t, BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: false}), "key", true, nil))
-
-	require.True(t, BoolFromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", true, nil))
-	require.False(t, BoolFromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", false, nil))
-
-	require.True(t, BoolFromValue(nil, "key", true, nil))
-	require.False(t, BoolFromValue(nil, "key", false, nil))
-}
-
 func TestWatchAndUpdateBool(t *testing.T) {
 	testConfig := struct {
 		sync.RWMutex
@@ -79,12 +68,6 @@ func TestWatchAndUpdateBool(t *testing.T) {
 	}
 }
 
-func TestFloat64FromValue(t *testing.T) {
-	require.Equal(t, 20.5, Float64FromValue(mem.NewValue(0, &commonpb.Int64Proto{Value: 200}), "key", 20.5, nil))
-	require.Equal(t, 123.3, Float64FromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123.3}), "key", 20, nil))
-	require.Equal(t, 20.1, Float64FromValue(nil, "key", 20.1, nil))
-}
-
 func TestWatchAndUpdateFloat64(t *testing.T) {
 	testConfig := struct {
 		sync.RWMutex
@@ -126,13 +109,6 @@ func TestWatchAndUpdateFloat64(t *testing.T) {
 		}
 	}
 }
-
-func TestInt64FromValue(t *testing.T) {
-	require.Equal(t, int64(200), Int64FromValue(mem.NewValue(0, &commonpb.Int64Proto{Value: 200}), "key", 20, nil))
-	require.Equal(t, int64(20), Int64FromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", 20, nil))
-	require.Equal(t, int64(20), Int64FromValue(nil, "key", 20, nil))
-}
-
 func TestWatchAndUpdateInt64(t *testing.T) {
 	testConfig := struct {
 		sync.RWMutex
@@ -173,15 +149,6 @@ func TestWatchAndUpdateInt64(t *testing.T) {
 			break
 		}
 	}
-}
-
-func TestStringArrayFromValue(t *testing.T) {
-	defaultValue := []string{"d1", "d2"}
-	v1 := []string{"s1", "s2"}
-
-	require.Equal(t, v1, StringArrayFromValue(mem.NewValue(0, &commonpb.StringArrayProto{Values: v1}), "key", defaultValue, nil))
-	require.Equal(t, defaultValue, StringArrayFromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", defaultValue, nil))
-	require.Equal(t, defaultValue, StringArrayFromValue(nil, "key", defaultValue, nil))
 }
 
 func TestWatchAndUpdateTime(t *testing.T) {
@@ -226,4 +193,36 @@ func TestWatchAndUpdateTime(t *testing.T) {
 			break
 		}
 	}
+}
+
+func TestBoolFromValue(t *testing.T) {
+	require.True(t, BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: true}), "key", false, nil))
+	require.False(t, BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: false}), "key", true, nil))
+
+	require.True(t, BoolFromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", true, nil))
+	require.False(t, BoolFromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", false, nil))
+
+	require.True(t, BoolFromValue(nil, "key", true, nil))
+	require.False(t, BoolFromValue(nil, "key", false, nil))
+}
+
+func TestFloat64FromValue(t *testing.T) {
+	require.Equal(t, 20.5, Float64FromValue(mem.NewValue(0, &commonpb.Int64Proto{Value: 200}), "key", 20.5, nil))
+	require.Equal(t, 123.3, Float64FromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123.3}), "key", 20, nil))
+	require.Equal(t, 20.1, Float64FromValue(nil, "key", 20.1, nil))
+}
+
+func TestInt64FromValue(t *testing.T) {
+	require.Equal(t, int64(200), Int64FromValue(mem.NewValue(0, &commonpb.Int64Proto{Value: 200}), "key", 20, nil))
+	require.Equal(t, int64(20), Int64FromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", 20, nil))
+	require.Equal(t, int64(20), Int64FromValue(nil, "key", 20, nil))
+}
+
+func TestStringArrayFromValue(t *testing.T) {
+	defaultValue := []string{"d1", "d2"}
+	v1 := []string{"s1", "s2"}
+
+	require.Equal(t, v1, StringArrayFromValue(mem.NewValue(0, &commonpb.StringArrayProto{Values: v1}), "key", defaultValue, nil))
+	require.Equal(t, defaultValue, StringArrayFromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", defaultValue, nil))
+	require.Equal(t, defaultValue, StringArrayFromValue(nil, "key", defaultValue, nil))
 }
