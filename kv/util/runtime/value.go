@@ -30,11 +30,6 @@ import (
 	"github.com/m3db/m3x/log"
 )
 
-const (
-	// DefaultVersion is the default version of an uninitialized kv value.
-	DefaultVersion = 0
-)
-
 var (
 	errInitWatchTimeout = errors.New("init watch timeout")
 	errNilValue         = errors.New("nil kv value")
@@ -96,7 +91,7 @@ func NewValue(
 		log:         opts.InstrumentOptions().Logger(),
 		unmarshalFn: opts.UnmarshalFn(),
 		processFn:   opts.ProcessFn(),
-		version:     DefaultVersion,
+		version:     kv.UninitializedVersion,
 	}
 	v.updateWithLockFn = v.updateWithLock
 	return v

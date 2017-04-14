@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/m3db/m3cluster/kv"
-	"github.com/m3db/m3cluster/kv/mem"
 	"github.com/m3db/m3x/instrument"
 )
 
@@ -78,7 +77,6 @@ func NewOptions() Options {
 	return &options{
 		instrumentOpts:   instrument.NewOptions(),
 		initWatchTimeout: defaultInitWatchTimeout,
-		kvStore:          mem.NewStore(),
 	}
 }
 

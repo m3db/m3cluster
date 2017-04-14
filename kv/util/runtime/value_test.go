@@ -26,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/generated/proto/commonpb"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/kv/mem"
@@ -231,7 +230,7 @@ func TestValueUpdateUnmarshalError(t *testing.T) {
 	errUnmarshal := errors.New("error unmarshaling")
 	rv.unmarshalFn = func(v kv.Value) (interface{}, error) { return nil, errUnmarshal }
 
-	require.Error(t, rv.updateWithLockFn(mockValue{version: 3}))
+	require.Error(t, rv.updateWithLockFn(mem.NewValue(3, nil)))
 }
 
 func TestValueUpdateProcessError(t *testing.T) {
@@ -243,24 +242,24 @@ func TestValueUpdateProcessError(t *testing.T) {
 	rv.unmarshalFn = func(v kv.Value) (interface{}, error) { return nil, nil }
 	rv.processFn = func(v interface{}) error { return errProcess }
 
-	require.Error(t, rv.updateWithLockFn(mockValue{version: 3}))
+	require.Error(t, rv.updateWithLockFn(mem.NewValue(3, nil)))
 }
 
 func TestValueUpdateSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	var outputs []mockValue
+	var outputs []kv.Value
 	_, rv := testValueWithMockStore(ctrl)
 	rv.unmarshalFn = func(v kv.Value) (interface{}, error) { return v, nil }
 	rv.processFn = func(v interface{}) error {
-		outputs = append(outputs, v.(mockValue))
+		outputs = append(outputs, v.(kv.Value))
 		return nil
 	}
 
-	input := mockValue{version: 3}
+	input := mem.NewValue(3, nil)
 	require.NoError(t, rv.updateWithLock(input))
-	require.Equal(t, []mockValue{input}, outputs)
+	require.Equal(t, []kv.Value{input}, outputs)
 	require.Equal(t, 3, rv.version)
 }
 
@@ -272,17 +271,9 @@ func TestValueUpdateStaleUpdate(t *testing.T) {
 	rv.version = 3
 	rv.unmarshalFn = func(v kv.Value) (interface{}, error) { return v, nil }
 
-	require.NoError(t, rv.updateWithLock(mockValue{version: 2}))
+	require.NoError(t, rv.updateWithLock(mem.NewValue(2, nil)))
 	require.Equal(t, 3, rv.version)
 }
-
-type mockValue struct {
-	version int
-}
-
-func (v mockValue) Unmarshal(proto.Message) error { return errors.New("unimplemented") }
-func (v mockValue) Version() int                  { return v.version }
-func (v mockValue) IsNewer(other kv.Value) bool   { return v.version > other.Version() }
 
 func testValueOptions(store kv.Store) Options {
 	return NewOptions().
