@@ -20,8 +20,12 @@
 
 package etcd
 
-import "time"
-import "github.com/m3db/m3cluster/client"
+import (
+	"time"
+
+	"github.com/m3db/m3cluster/client"
+	"github.com/m3db/m3x/instrument"
+)
 
 // M3SDConfiguration is the config for service discovery
 type M3SDConfiguration struct {
@@ -45,11 +49,12 @@ type Configuration struct {
 }
 
 // NewClient creates a new config service client
-func (cfg Configuration) NewClient() (client.Client, error) {
-	return NewConfigServiceClient(cfg.options())
+func (cfg Configuration) NewClient(iopts instrument.Options) (client.Client, error) {
+	return NewConfigServiceClient(cfg.NewOptions().SetInstrumentOptions(iopts))
 }
 
-func (cfg Configuration) options() Options {
+// NewOptions retuns a new Options
+func (cfg Configuration) NewOptions() Options {
 	return NewOptions().
 		SetZone(cfg.Zone).
 		SetEnv(cfg.Env).
