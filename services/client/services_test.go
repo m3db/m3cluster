@@ -54,9 +54,6 @@ func TestOptions(t *testing.T) {
 		return nil, nil
 	})
 	require.NoError(t, opts.Validate())
-
-	opts = opts.SetInitTimeout(0)
-	require.Equal(t, errInvalidInitTimeout, opts.Validate())
 }
 
 func TestMetadata(t *testing.T) {
