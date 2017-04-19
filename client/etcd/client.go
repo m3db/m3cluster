@@ -108,20 +108,24 @@ func (c *csclient) Txn() (kv.TxnStore, error) {
 
 func (c *csclient) createServices() {
 	c.sdOnce.Do(func() {
-		c.sd, c.sdErr = sdClient.NewServices(sdClient.NewOptions().
-			SetInitTimeout(c.opts.ServiceInitTimeout()).
+		kvGen := c.kvGen(etcdKV.NewOptions().SetInstrumentsOptions(instrument.NewOptions().
+			SetLogger(c.logger).
+			SetMetricsScope(c.kvScope),
+		))
+
+		sdOpts := sdClient.NewOptions().
 			SetHeartbeatGen(c.heartbeatGen()).
-			SetKVGen(c.kvGen(etcdKV.NewOptions().
-				SetInstrumentsOptions(instrument.NewOptions().
-					SetLogger(c.logger).
-					SetMetricsScope(c.kvScope),
-				)),
-			).
+			SetKVGen(kvGen).
 			SetInstrumentsOptions(instrument.NewOptions().
 				SetLogger(c.logger).
 				SetMetricsScope(c.sdScope),
-			),
-		)
+			)
+
+		if c.opts.ServiceInitTimeout() > 0 {
+			sdOpts = sdOpts.SetInitTimeout(c.opts.ServiceInitTimeout())
+		}
+
+		c.sd, c.sdErr = sdClient.NewServices(sdOpts)
 	})
 }
 
