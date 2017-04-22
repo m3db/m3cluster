@@ -175,7 +175,7 @@ type Metadata interface {
 // all write or update operations will persist the generated placement before returning success
 type PlacementService interface {
 	// BuildInitialPlacement initialize a placement
-	BuildInitialPlacement(instances []PlacementInstance, numShards int, rf int) (ServicePlacement, error)
+	BuildInitialPlacement(instances []PlacementInstance, numShards int, rf int, setPlacement bool) (ServicePlacement, error)
 
 	// AddReplica up the replica factor by 1 in the placement
 	AddReplica() (ServicePlacement, error)

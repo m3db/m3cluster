@@ -62,6 +62,7 @@ func (ps placementService) BuildInitialPlacement(
 	instances []services.PlacementInstance,
 	numShards int,
 	rf int,
+	setPlacement bool,
 ) (services.ServicePlacement, error) {
 	if numShards < 0 {
 		return nil, fmt.Errorf("could not build initial placement, invalid numShards %d", numShards)
@@ -99,6 +100,10 @@ func (ps placementService) BuildInitialPlacement(
 	if ps.opts.Dryrun() {
 		ps.logger.Info("this is a dryrun, the operation is not persisted")
 		return p, err
+	}
+
+	if !setPlacement {
+		return p, nil
 	}
 
 	return p, ps.ss.SetIfNotExist(ps.service, p)
