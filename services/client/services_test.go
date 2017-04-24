@@ -40,6 +40,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	emptyLdGen LeaderGen = func(sid services.ServiceID) (services.LeaderService, error) {
+		return nil, nil
+	}
+)
+
 func TestOptions(t *testing.T) {
 	opts := NewOptions()
 	require.Equal(t, errNoKVGen, opts.Validate())
@@ -52,6 +58,9 @@ func TestOptions(t *testing.T) {
 	opts = opts.SetHeartbeatGen(func(sid services.ServiceID) (services.HeartbeatService, error) {
 		return nil, nil
 	})
+	require.Error(t, opts.Validate())
+
+	opts = opts.SetLeaderGen(emptyLdGen)
 	require.NoError(t, opts.Validate())
 
 	opts = opts.SetInitTimeout(0)
@@ -795,6 +804,7 @@ func TestWatch_GetAfterTimeout(t *testing.T) {
 	opts := NewOptions().
 		SetKVGen(kvGen).
 		SetHeartbeatGen(hbGen).
+		SetLeaderGen(emptyLdGen).
 		SetInitTimeout(1 * time.Millisecond).
 		SetInstrumentsOptions(instrument.NewOptions())
 
@@ -984,6 +994,7 @@ func testSetup(t *testing.T) (Options, func(), *mockHBGen) {
 	return NewOptions().
 		SetKVGen(kvGen).
 		SetHeartbeatGen(hbGen).
+		SetLeaderGen(emptyLdGen).
 		SetInitTimeout(100 * time.Millisecond).
 		SetInstrumentsOptions(instrument.NewOptions()), closer, m
 }

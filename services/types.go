@@ -55,6 +55,10 @@ type Services interface {
 
 	// HeartbeatService returns a heartbeat store for the given service.
 	HeartbeatService(service ServiceID) (HeartbeatService, error)
+
+	// LeaderService returns an instance of a leader service for the given
+	// service ID.
+	LeaderService(service ServiceID) (LeaderService, error)
 }
 
 // Service describes the metadata and instances of a service
@@ -453,4 +457,23 @@ type HeartbeatService interface {
 
 	// Watch watches the heartbeats for a service
 	Watch() (xwatch.Watch, error)
+}
+
+// LeaderService provides access to etcd-backed leader elections.
+type LeaderService interface {
+	// Close closes the election service client entirely. No more campaigns can be
+	// started and any outstanding campaigns are closed.
+	Close() error
+
+	// Campaign proposes that the caller become the leader, blocking until it is
+	// elected.
+	Campaign() error
+
+	// Resign gives up the leadership if the caller is the current leader (if
+	// the caller is not the leader an error is returned).
+	Resign() error
+
+	// Leader returns the current leader (if there is no leader an empty string
+	// is returned).
+	Leader() (string, error)
 }

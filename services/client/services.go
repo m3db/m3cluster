@@ -67,6 +67,7 @@ type client struct {
 	opts       Options
 	kvManagers map[string]*kvManager
 	hbStores   map[string]services.HeartbeatService
+	ldSvcs     map[string]services.LeaderService
 	adDoneChs  map[string]chan struct{}
 	logger     xlog.Logger
 	m          tally.Scope
@@ -351,6 +352,30 @@ func (c *client) getHeartbeatService(sid services.ServiceID) (services.Heartbeat
 
 	c.hbStores[sid.String()] = hb
 	return hb, nil
+}
+
+func (c *client) LeaderService(sid services.ServiceID) (services.LeaderService, error) {
+	c.RLock()
+	if ld, ok := c.ldSvcs[sid.String()]; ok {
+		c.RUnlock()
+		return ld, nil
+	}
+	c.RUnlock()
+
+	c.Lock()
+	defer c.Unlock()
+
+	if ld, ok := c.ldSvcs[sid.String()]; ok {
+		return ld, nil
+	}
+
+	ld, err := c.opts.LeaderGen()(sid)
+	if err != nil {
+		return nil, err
+	}
+
+	c.ldSvcs[sid.String()] = ld
+	return ld, nil
 }
 
 func (c *client) getKVManager(zone string) (*kvManager, error) {

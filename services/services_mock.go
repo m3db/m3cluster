@@ -139,6 +139,17 @@ func (_mr *_MockServicesRecorder) HeartbeatService(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "HeartbeatService", arg0)
 }
 
+func (_m *MockServices) LeaderService(service ServiceID) (LeaderService, error) {
+	ret := _m.ctrl.Call(_m, "LeaderService", service)
+	ret0, _ := ret[0].(LeaderService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockServicesRecorder) LeaderService(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LeaderService", arg0)
+}
+
 // Mock of Service interface
 type MockService struct {
 	ctrl     *gomock.Controller
@@ -1833,4 +1844,66 @@ func (_m *MockHeartbeatService) Watch() (watch.Watch, error) {
 
 func (_mr *_MockHeartbeatServiceRecorder) Watch() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Watch")
+}
+
+// Mock of LeaderService interface
+type MockLeaderService struct {
+	ctrl     *gomock.Controller
+	recorder *_MockLeaderServiceRecorder
+}
+
+// Recorder for MockLeaderService (not exported)
+type _MockLeaderServiceRecorder struct {
+	mock *MockLeaderService
+}
+
+func NewMockLeaderService(ctrl *gomock.Controller) *MockLeaderService {
+	mock := &MockLeaderService{ctrl: ctrl}
+	mock.recorder = &_MockLeaderServiceRecorder{mock}
+	return mock
+}
+
+func (_m *MockLeaderService) EXPECT() *_MockLeaderServiceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockLeaderService) Close() error {
+	ret := _m.ctrl.Call(_m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLeaderServiceRecorder) Close() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Close")
+}
+
+func (_m *MockLeaderService) Campaign() error {
+	ret := _m.ctrl.Call(_m, "Campaign")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLeaderServiceRecorder) Campaign() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Campaign")
+}
+
+func (_m *MockLeaderService) Resign() error {
+	ret := _m.ctrl.Call(_m, "Resign")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLeaderServiceRecorder) Resign() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Resign")
+}
+
+func (_m *MockLeaderService) Leader() (string, error) {
+	ret := _m.ctrl.Call(_m, "Leader")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockLeaderServiceRecorder) Leader() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Leader")
 }
