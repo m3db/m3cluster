@@ -47,6 +47,19 @@ func TestGoodWorkflow(t *testing.T) {
 	testGoodWorkflow(t, p)
 }
 
+func assertPlacementInstanceEqualExceptShards(
+	t *testing.T,
+	expected services.PlacementInstance,
+	observed services.PlacementInstance,
+) {
+	assert.Equal(t, expected.ID(), observed.ID())
+	assert.Equal(t, expected.Rack(), observed.Rack())
+	assert.Equal(t, expected.Zone(), observed.Zone())
+	assert.Equal(t, expected.Weight(), observed.Weight())
+	assert.Equal(t, expected.Endpoint(), observed.Endpoint())
+	assert.True(t, len(observed.Shards().All()) > 0)
+}
+
 func testGoodWorkflow(t *testing.T, p services.PlacementService) {
 	i1 := placement.NewEmptyInstance("i1", "r1", "z1", "endpoint", 2)
 	i2 := placement.NewEmptyInstance("i2", "r2", "z1", "endpoint", 2)
@@ -63,7 +76,7 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService) {
 	}
 	_, ai, err := p.AddInstance([]services.PlacementInstance{i3})
 	assert.NoError(t, err)
-	assert.Equal(t, i3, ai)
+	assertPlacementInstanceEqualExceptShards(t, i3, ai)
 
 	err = p.MarkInstanceAvailable(i3.ID())
 	assert.NoError(t, err)
@@ -86,8 +99,8 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService) {
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(usedInstances))
-	assert.Equal(t, i21, usedInstances[0])
-	assert.Equal(t, i4, usedInstances[1])
+	assertPlacementInstanceEqualExceptShards(t, i21, usedInstances[0])
+	assertPlacementInstanceEqualExceptShards(t, i4, usedInstances[1])
 
 	for _, id := range []string{"i21", "i4"} {
 		err = p.MarkInstanceAvailable(id)
@@ -104,22 +117,22 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService) {
 
 	_, ai, err = p.AddInstance([]services.PlacementInstance{i1})
 	assert.NoError(t, err)
-	assert.Equal(t, i1, ai)
+	assertPlacementInstanceEqualExceptShards(t, i1, ai)
 
 	i24 := placement.NewEmptyInstance("i24", "r2", "z1", "endpoint", 1)
 	_, ai, err = p.AddInstance([]services.PlacementInstance{i24})
 	assert.NoError(t, err)
-	assert.Equal(t, i24, ai)
+	assertPlacementInstanceEqualExceptShards(t, i24, ai)
 
 	i34 := placement.NewEmptyInstance("i34", "r3", "z1", "endpoint", 1)
 	_, ai, err = p.AddInstance([]services.PlacementInstance{i34})
 	assert.NoError(t, err)
-	assert.Equal(t, i34, ai)
+	assertPlacementInstanceEqualExceptShards(t, i34, ai)
 
 	i35 := placement.NewEmptyInstance("i35", "r3", "z1", "endpoint", 1)
 	_, ai, err = p.AddInstance([]services.PlacementInstance{i35})
 	assert.NoError(t, err)
-	assert.Equal(t, i35, ai)
+	assertPlacementInstanceEqualExceptShards(t, i35, ai)
 
 	i41 := placement.NewEmptyInstance("i41", "r4", "z1", "endpoint", 1)
 	instances := []services.PlacementInstance{
@@ -132,7 +145,7 @@ func testGoodWorkflow(t *testing.T, p services.PlacementService) {
 	}
 	_, ai, err = p.AddInstance(instances)
 	assert.NoError(t, err)
-	assert.Equal(t, i41, ai)
+	assertPlacementInstanceEqualExceptShards(t, i41, ai)
 	s, _, err = p.Placement()
 	assert.NoError(t, err)
 	_, exist = s.Instance("i41") // instance added from least weighted rack
@@ -224,14 +237,14 @@ func TestDryrun(t *testing.T) {
 
 	_, ai, err := dryrunPS.AddInstance([]services.PlacementInstance{i3})
 	assert.NoError(t, err)
-	assert.Equal(t, i3, ai)
+	assertPlacementInstanceEqualExceptShards(t, i3, ai)
 
 	_, v, _ = m.Placement(sid)
 	assert.Equal(t, 1, v)
 
 	_, ai, err = ps.AddInstance([]services.PlacementInstance{i3})
 	assert.NoError(t, err)
-	assert.Equal(t, i3, ai)
+	assertPlacementInstanceEqualExceptShards(t, i3, ai)
 
 	_, v, _ = m.Placement(sid)
 	assert.Equal(t, 2, v)
@@ -251,7 +264,7 @@ func TestDryrun(t *testing.T) {
 	_, usedInstances, err := dryrunPS.ReplaceInstance("i2", []services.PlacementInstance{i3})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(usedInstances))
-	assert.Equal(t, i3, usedInstances[0])
+	assertPlacementInstanceEqualExceptShards(t, i3, usedInstances[0])
 
 	_, v, _ = m.Placement(sid)
 	assert.Equal(t, 3, v)
@@ -259,7 +272,7 @@ func TestDryrun(t *testing.T) {
 	_, usedInstances, err = ps.ReplaceInstance("i2", []services.PlacementInstance{i3})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(usedInstances))
-	assert.Equal(t, i3, usedInstances[0])
+	assertPlacementInstanceEqualExceptShards(t, i3, usedInstances[0])
 
 	p, v, _ := m.Placement(sid)
 	assert.Equal(t, 4, v)
@@ -519,7 +532,7 @@ func TestReplaceInstanceWithLooseRackCheck(t *testing.T) {
 	_, usedInstances, err := p.ReplaceInstance("i4", []services.PlacementInstance{i12})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(usedInstances))
-	assert.Equal(t, i12, usedInstances[0])
+	assertPlacementInstanceEqualExceptShards(t, i12, usedInstances[0])
 
 	// could not find placement for service
 	p = NewPlacementService(NewMockStorage(), testServiceID(), placement.NewOptions())
