@@ -167,7 +167,7 @@ func (ps placementService) AddInstance(
 
 	addingInstance, ok := p.Instance(addingInstance.ID())
 	if !ok {
-		return nil, nil, fmt.Errorf("unable to find added instance in new placement")
+		return nil, nil, fmt.Errorf("unable to find added instance [%s] in new placement", addingInstance.ID())
 	}
 
 	if ps.opts.Dryrun() {
