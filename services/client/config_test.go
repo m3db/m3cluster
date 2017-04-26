@@ -11,7 +11,6 @@ func TestConfig(t *testing.T) {
 	cf := Configuration{}
 	require.Equal(t, defaultInitTimeout, cf.NewOptions().InitTimeout())
 
-	timeout := time.Second
-	cf = Configuration{InitTimeout: &timeout}
-	require.Equal(t, timeout, cf.NewOptions().InitTimeout())
+	cf = Configuration{InitTimeout: time.Second}
+	require.Equal(t, time.Second, cf.NewOptions().InitTimeout())
 }
