@@ -55,6 +55,8 @@ func TestETCDClientGen(t *testing.T) {
 }
 
 func TestKVAndHeartbeatServiceSharingETCDClient(t *testing.T) {
+	namespace := "kv"
+
 	sid := services.NewServiceID().SetName("s1")
 
 	cs, err := NewConfigServiceClient(testOptions().SetZone("zone1"))
@@ -62,7 +64,7 @@ func TestKVAndHeartbeatServiceSharingETCDClient(t *testing.T) {
 
 	c := cs.(*csclient)
 
-	_, err = c.KV()
+	_, err = c.KV(namespace)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(c.clis))
 
@@ -80,12 +82,14 @@ func TestKVAndHeartbeatServiceSharingETCDClient(t *testing.T) {
 }
 
 func TestClient(t *testing.T) {
+	namespace := "kv"
+
 	_, err := NewConfigServiceClient(NewOptions())
 	assert.Error(t, err)
 
 	cs, err := NewConfigServiceClient(testOptions())
 	assert.NoError(t, err)
-	_, err = cs.KV()
+	_, err = cs.KV(namespace)
 	assert.Error(t, err)
 
 	cs, err = NewConfigServiceClient(testOptions().SetZone("zone1"))
@@ -95,14 +99,14 @@ func TestClient(t *testing.T) {
 	defer closer()
 	c.newFn = fn
 
-	txn, err := c.Txn()
+	txn, err := c.Txn(namespace)
 	assert.NoError(t, err)
 
-	kv1, err := c.KV()
+	kv1, err := c.KV(namespace)
 	assert.NoError(t, err)
 	assert.Equal(t, kv1, txn)
 
-	kv2, err := c.KV()
+	kv2, err := c.KV(namespace)
 	assert.NoError(t, err)
 	assert.Equal(t, kv1, kv2)
 	// KV store will create an etcd cli for local zone only
@@ -152,9 +156,9 @@ func TestCacheFileForZone(t *testing.T) {
 	assert.Equal(t, "/dir/a_b-c_d.json", cacheFileForZone("/dir", "a/b", "c/d"))
 }
 
-func TestPrefix(t *testing.T) {
-	assert.Equal(t, "_kv/test/", prefix("test"))
-	assert.Equal(t, "_kv/", prefix(""))
+func TestFullPrefix(t *testing.T) {
+	assert.Equal(t, "/kv/test/", fullPrefix("kv", "test"))
+	assert.Equal(t, "/kv/", fullPrefix("kv", ""))
 }
 
 func testOptions() Options {

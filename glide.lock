@@ -1,5 +1,5 @@
 hash: d9cb6ee29dac603de41eb9300dcf470b753c369d325f2118f5f954bbd66dc76a
-updated: 2017-04-17T11:58:28.32863138-04:00
+updated: 2017-04-26T18:20:35.913933005-04:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -134,7 +134,7 @@ imports:
   subpackages:
   - go
 - name: github.com/prometheus/common
-  version: 195bde7883f7c39ea62b0d92ab7359b5327065cb
+  version: 9e0844febd9e2856f839c9cb974fbd676d1755a8
   subpackages:
   - expfmt
   - internal/bitbucket.org/ww/goautoneg

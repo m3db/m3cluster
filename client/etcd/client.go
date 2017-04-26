@@ -42,7 +42,6 @@ import (
 const (
 	keySeparator    = "/"
 	cacheFileFormat = "%s-%s.json"
-	kvPrefix        = "_kv/"
 )
 
 type newClientFn func(endpoints []string) (*clientv3.Client, error)
@@ -94,14 +93,14 @@ func (c *csclient) Services() (services.Services, error) {
 	return c.sd, c.sdErr
 }
 
-func (c *csclient) KV() (kv.Store, error) {
-	c.createTxnStore()
+func (c *csclient) KV(namespace string) (kv.Store, error) {
+	c.createTxnStore(namespace)
 
 	return c.kv, c.kvErr
 }
 
-func (c *csclient) Txn() (kv.TxnStore, error) {
-	c.createTxnStore()
+func (c *csclient) Txn(namespace string) (kv.TxnStore, error) {
+	c.createTxnStore(namespace)
 
 	return c.kv, c.kvErr
 }
@@ -124,13 +123,13 @@ func (c *csclient) createServices() {
 	})
 }
 
-func (c *csclient) createTxnStore() {
+func (c *csclient) createTxnStore(namespace string) {
 	c.kvOnce.Do(func() {
 		opts := etcdkv.NewOptions().
 			SetInstrumentsOptions(instrument.NewOptions().
 				SetLogger(c.logger).
 				SetMetricsScope(c.kvScope)).
-			SetPrefix(prefix(c.opts.Env()))
+			SetPrefix(fullPrefix(namespace, c.opts.Env()))
 		c.kv, c.kvErr = c.txnGen(opts, c.opts.Zone())
 	})
 }
@@ -212,12 +211,13 @@ func fileName(service, zone string) string {
 	return strings.Replace(cacheFileName, string(os.PathSeparator), "_", -1)
 }
 
-func prefix(env string) string {
-	res := kvPrefix
+func fullPrefix(namespace string, env string) string {
+	prefix := concat(keySeparator, concat(namespace, keySeparator))
 	if env != "" {
-		res = concat(res, concat(env, keySeparator))
+		prefix = concat(prefix, concat(env, keySeparator))
 	}
-	return res
+
+	return prefix
 }
 
 func concat(a, b string) string {
