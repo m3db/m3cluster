@@ -42,7 +42,7 @@ import (
 
 const (
 	internalPrefix     = "_"
-	cacheFileSeparater = "_"
+	cacheFileSeparator = "_"
 	cacheFileSuffix    = ".json"
 	// TODO deprecate this once all keys are migrated to per service namespace
 	kvPrefix = "_kv"
@@ -222,7 +222,7 @@ func newClient(endpoints []string) (*clientv3.Client, error) {
 
 func (c *csclient) cacheFileFn(zone string) etcdkv.CacheFileFn {
 	return etcdkv.CacheFileFn(func(namespace string) string {
-		if c.opts.CacheDir() == "" || c.opts.Service() == "" {
+		if c.opts.CacheDir() == "" {
 			return ""
 		}
 		return filepath.Join(c.opts.CacheDir(), fileName(namespace, c.opts.Service(), zone))
@@ -232,16 +232,18 @@ func (c *csclient) cacheFileFn(zone string) etcdkv.CacheFileFn {
 func fileName(parts ...string) string {
 	// get non-empty parts
 	idx := 0
-	for _, part := range parts {
+	for i, part := range parts {
 		if part == "" {
 			continue
 		}
-		parts[idx] = part
+		if i != idx {
+			parts[idx] = part
+		}
 		idx++
 	}
 	parts = parts[:idx]
-	s := strings.Join(parts, cacheFileSeparater)
-	return strings.Replace(s, string(os.PathSeparator), cacheFileSeparater, -1) + cacheFileSuffix
+	s := strings.Join(parts, cacheFileSeparator)
+	return strings.Replace(s, string(os.PathSeparator), cacheFileSeparator, -1) + cacheFileSuffix
 }
 
 func validateTopLevelNamespace(namespace string) error {
