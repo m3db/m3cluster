@@ -35,7 +35,7 @@ var (
 	defaultWatchChanResetInterval = 10 * time.Second
 	defaultWatchChanInitTimeout   = 10 * time.Second
 	defaultRetryOptions           = xretry.NewOptions().SetMaxRetries(5)
-	defaultCacheFileFn            = func(namespace string) string { return "" }
+	defaultCacheFileFn            = func(string) string { return "" }
 )
 
 // CacheFileFn is a function to generate cache file path

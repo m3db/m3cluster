@@ -23,9 +23,10 @@ package etcd
 import (
 	"testing"
 
+	"github.com/m3db/m3cluster/services"
+
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
-	"github.com/m3db/m3cluster/services"
 	"github.com/stretchr/testify/require"
 )
 

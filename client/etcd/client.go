@@ -28,7 +28,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3cluster/client"
 	"github.com/m3db/m3cluster/kv"
 	etcdkv "github.com/m3db/m3cluster/kv/etcd"
@@ -37,6 +36,8 @@ import (
 	etcdheartbeat "github.com/m3db/m3cluster/services/heartbeat/etcd"
 	"github.com/m3db/m3x/instrument"
 	"github.com/m3db/m3x/log"
+
+	"github.com/coreos/etcd/clientv3"
 	"github.com/uber-go/tally"
 )
 
