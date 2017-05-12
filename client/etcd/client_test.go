@@ -106,6 +106,11 @@ func TestClient(t *testing.T) {
 	kv2, err := c.KV()
 	require.NoError(t, err)
 	require.Equal(t, kv1, kv2)
+
+	kv3, err := c.Store("ns")
+	require.NoError(t, err)
+	require.NotEqual(t, kv1, kv3)
+
 	// KV store will create an etcd cli for local zone only
 	require.Equal(t, 1, len(c.clis))
 	_, ok := c.clis["zone1"]
