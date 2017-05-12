@@ -258,7 +258,7 @@ func validateTopLevelNamespace(namespace string) (string, error) {
 		return "", errInvalidNamespace
 	}
 	if strings.HasPrefix(namespace, hierarchySeparator) {
-		if strings.Compare(internalPrefix, string(namespace[1])) == 0 {
+		if internalPrefix == string(namespace[1]) {
 			return "", errInvalidNamespace
 		}
 		return namespace, nil
