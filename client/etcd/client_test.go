@@ -166,10 +166,61 @@ func TestCacheFileForZone(t *testing.T) {
 }
 
 func TestValidateNamespace(t *testing.T) {
-	require.Equal(t, "/ns", validateNamespace("ns"))
-	require.Equal(t, "/ns", validateNamespace("/ns"))
-	require.Equal(t, "/ns/ab", validateNamespace("ns/ab"))
-	require.Equal(t, "/ns/ab", validateNamespace("/ns/ab"))
+	inputs := []struct {
+		ns        string
+		result    string
+		expectErr bool
+	}{
+		{
+			ns:        "ns",
+			result:    "/ns",
+			expectErr: false,
+		},
+		{
+			ns:        "/ns",
+			result:    "/ns",
+			expectErr: false,
+		},
+		{
+			ns:        "/ns/ab",
+			result:    "/ns/ab",
+			expectErr: false,
+		},
+		{
+			ns:        "ns/ab",
+			result:    "/ns/ab",
+			expectErr: false,
+		},
+		{
+			ns:        "_ns",
+			result:    "",
+			expectErr: true,
+		},
+		{
+			ns:        "/_ns",
+			result:    "",
+			expectErr: true,
+		},
+		{
+			ns:        "",
+			result:    "",
+			expectErr: true,
+		},
+		{
+			ns:        "/",
+			result:    "",
+			expectErr: true,
+		},
+	}
+
+	for _, input := range inputs {
+		rs, err := validateTopLevelNamespace(input.ns)
+		if input.expectErr {
+			require.Error(t, err)
+			continue
+		}
+		require.Equal(t, input.result, rs)
+	}
 }
 
 func testOptions() Options {

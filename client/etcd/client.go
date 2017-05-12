@@ -114,11 +114,12 @@ func (c *csclient) Txn() (kv.TxnStore, error) {
 }
 
 func (c *csclient) TxnStore(namespace string) (kv.TxnStore, error) {
-	if err := validateTopLevelNamespace(namespace); err != nil {
+	namespace, err := validateTopLevelNamespace(namespace)
+	if err != nil {
 		return nil, err
 	}
 
-	return c.createTxnStore(validateNamespace(namespace))
+	return c.createTxnStore(namespace)
 }
 
 func (c *csclient) Store(namespace string) (kv.Store, error) {
@@ -136,13 +137,6 @@ func (c *csclient) createServices() {
 			),
 		)
 	})
-}
-
-func validateNamespace(ns string) string {
-	if strings.HasPrefix(ns, hierarchySeparator) {
-		return ns
-	}
-	return hierarchySeparator + ns
 }
 
 func (c *csclient) createTxnStore(namespace string) (kv.TxnStore, error) {
@@ -255,9 +249,19 @@ func fileName(parts ...string) string {
 	return strings.Replace(s, string(os.PathSeparator), cacheFileSeparator, -1) + cacheFileSuffix
 }
 
-func validateTopLevelNamespace(namespace string) error {
-	if strings.HasPrefix(namespace, internalPrefix) {
-		return errInvalidNamespace
+func validateTopLevelNamespace(namespace string) (string, error) {
+	if namespace == "" || namespace == hierarchySeparator {
+		return "", errInvalidNamespace
 	}
-	return nil
+	if strings.HasPrefix(namespace, internalPrefix) {
+		// start with _
+		return "", errInvalidNamespace
+	}
+	if strings.HasPrefix(namespace, hierarchySeparator) {
+		if strings.Compare(internalPrefix, string(namespace[1])) == 0 {
+			return "", errInvalidNamespace
+		}
+		return namespace, nil
+	}
+	return hierarchySeparator + namespace, nil
 }
