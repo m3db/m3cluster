@@ -160,6 +160,13 @@ func TestCacheFileForZone(t *testing.T) {
 	require.Equal(t, "/cacheDir/namespace_env_test_app_z1.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 }
 
+func TestValidateNamespace(t *testing.T) {
+	require.Equal(t, "/ns", validateNamespace("ns"))
+	require.Equal(t, "/ns", validateNamespace("/ns"))
+	require.Equal(t, "/ns/ab", validateNamespace("ns/ab"))
+	require.Equal(t, "/ns/ab", validateNamespace("/ns/ab"))
+}
+
 func testOptions() Options {
 	return NewOptions().SetClusters([]Cluster{
 		NewCluster().SetZone("zone1").SetEndpoints([]string{"i1"}),

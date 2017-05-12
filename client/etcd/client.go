@@ -42,6 +42,7 @@ import (
 )
 
 const (
+	hierarchySeparator = "/"
 	internalPrefix     = "_"
 	cacheFileSeparator = "_"
 	cacheFileSuffix    = ".json"
@@ -101,12 +102,15 @@ func (c *csclient) Services() (services.Services, error) {
 }
 
 func (c *csclient) KV() (kv.Store, error) {
-	return c.createTxnStore(kvPrefix)
+	return c.Txn()
 }
 
 func (c *csclient) Txn() (kv.TxnStore, error) {
-	return c.createTxnStore(kvPrefix)
+	c.txnOnce.Do(func() {
+		c.txn, c.txnErr = c.createTxnStore(kvPrefix)
+	})
 
+	return c.txn, c.txnErr
 }
 
 func (c *csclient) TxnStore(namespace string) (kv.TxnStore, error) {
@@ -114,7 +118,7 @@ func (c *csclient) TxnStore(namespace string) (kv.TxnStore, error) {
 		return nil, err
 	}
 
-	return c.createTxnStore(namespace)
+	return c.createTxnStore(validateNamespace(namespace))
 }
 
 func (c *csclient) Store(namespace string) (kv.Store, error) {
@@ -134,11 +138,15 @@ func (c *csclient) createServices() {
 	})
 }
 
+func validateNamespace(ns string) string {
+	if strings.HasPrefix(ns, hierarchySeparator) {
+		return ns
+	}
+	return hierarchySeparator + ns
+}
+
 func (c *csclient) createTxnStore(namespace string) (kv.TxnStore, error) {
-	c.txnOnce.Do(func() {
-		c.txn, c.txnErr = c.txnGen(c.opts.Zone(), namespace, c.opts.Env())
-	})
-	return c.txn, c.txnErr
+	return c.txnGen(c.opts.Zone(), namespace, c.opts.Env())
 }
 
 func (c *csclient) kvGen() sdclient.KVGen {
