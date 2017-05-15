@@ -49,19 +49,6 @@ func States() []State {
 	}
 }
 
-// String returns the string representation of the state
-func (s State) String() string {
-	switch s {
-	case Initializing:
-		return "Initializing"
-	case Available:
-		return "Available"
-	case Leaving:
-		return "Leaving"
-	}
-	return "Unknown"
-}
-
 // A Shard represents a piece of data owned by the service
 type Shard interface {
 	// ID returns the ID of the shard
