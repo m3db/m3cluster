@@ -30,8 +30,10 @@ import (
 type State int
 
 const (
+	// Unknown represents a shard in unknown state
+	Unknown State = iota
 	// Initializing represents a shard newly assigned to an instance
-	Initializing State = iota
+	Initializing
 	// Available represents a shard bootstraped and ready to serve
 	Available
 	// Leaving represents a shard that is intending to be removed
@@ -79,7 +81,7 @@ type Shard interface {
 }
 
 // NewShard returns a new Shard
-func NewShard(id uint32) Shard { return &shard{id: id, state: Initializing} }
+func NewShard(id uint32) Shard { return &shard{id: id, state: Unknown} }
 
 type shard struct {
 	id       uint32
