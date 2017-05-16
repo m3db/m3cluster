@@ -4,11 +4,10 @@ package etcdcluster
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"sync"
 	"time"
-
-	"fmt"
 
 	"github.com/coreos/etcd/clientv3"
 )
@@ -37,7 +36,7 @@ func New(opts Options) (*Cluster, error) {
 }
 
 func commandCtxTimeout(timeout time.Duration, command string, args ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	cmd := exec.CommandContext(ctx, command, args...)
 	_, err := cmd.Output() // using Output will populate err.Stderr
 	cancel()
