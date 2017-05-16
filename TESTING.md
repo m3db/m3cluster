@@ -25,3 +25,6 @@ run `make test-integration`.
   did not fully mirror behavior observed with regard to killing instances when
   using clusters that were spread across multiple servers or multiple processes
   on a single server.
+- Integration tests must have a build constraint (`// +build integration`) so
+  that they are not run as part of default test target. This is standard for
+  `m3db` repos leveraging `m3db/ci-scripts`.

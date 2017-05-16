@@ -5,7 +5,7 @@ SHELL=/bin/bash -o pipefail
 
 html_report := coverage.html
 test := .ci/test-cover.sh
-test_integration := ./test-integration.sh
+test_integration := .ci/test-integration.sh
 convert-test-data := .ci/convert-test-data.sh
 coverfile := cover.out
 coverage_xml := coverage.xml

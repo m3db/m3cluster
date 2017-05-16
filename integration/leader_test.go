@@ -1,6 +1,6 @@
 // +build integration
 
-package leader
+package integration
 
 import (
 	"testing"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/m3db/m3cluster/internal/etcdcluster"
 	"github.com/m3db/m3cluster/services"
+	"github.com/m3db/m3cluster/services/leader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +39,7 @@ func (tc *testIntegrationCluster) service(override string, ttl int) services.Lea
 	client, err := tc.Client()
 	require.NoError(tc.t, err)
 
-	svc, err := NewService(client, opts)
+	svc, err := leader.NewService(client, opts)
 	require.NoError(tc.t, err)
 
 	return svc
@@ -52,13 +53,13 @@ func (tc *testIntegrationCluster) startAndWait(timeout time.Duration) {
 	require.NoError(tc.t, err)
 }
 
-func newTestOptions(override string, ttl int) Options {
+func newTestOptions(override string, ttl int) leader.Options {
 	sid := services.NewServiceID().
 		SetEnvironment("e1").
 		SetZone("z1").
 		SetName("s1")
 
-	return NewOptions().
+	return leader.NewOptions().
 		SetServiceID(sid).
 		SetOverrideValue(override).
 		SetTTL(ttl)
