@@ -40,7 +40,7 @@ const (
 type optimizeType int
 
 const (
-	// safe optimizes the load distribution without violatin
+	// safe optimizes the load distribution without violating
 	// minimal shard movemoment.
 	safe optimizeType = iota
 	// unsafe optimizes the load distribution with the potential of violating
@@ -315,7 +315,9 @@ func (ph *placementHelper) GeneratePlacement(t includeInstanceType) services.Ser
 	for _, instance := range instances {
 		shards := instance.Shards()
 		for _, s := range shards.ShardsForState(shard.Unknown) {
-			shards.Add(shard.NewShard(s.ID()).SetSourceID(s.SourceID()).SetState(shard.Initializing))
+			shards.Add(shard.NewShard(s.ID()).
+				SetSourceID(s.SourceID()).
+				SetState(shard.Initializing))
 		}
 	}
 
@@ -336,7 +338,9 @@ func (ph *placementHelper) PlaceShards(
 		// NB(cw) when removing an adding instance that has not finished bootstrapping its
 		// Initializing shards, prefer to return those Initializing shards back to the leaving instance
 		// to reduce some bootstrapping work in the cluster.
-		ph.returnInitializingShardsToSource(shardSet, from, candidates)
+		if err := ph.returnInitializingShardsToSource(shardSet, from, candidates); err != nil {
+			return err
+		}
 		// prefer to distribute "some" of the load to other racks first
 		// because the load from a leaving instance can always get assigned to a instance on the same rack
 		if err := ph.placeToRacksOtherThanOrigin(shardSet, from, candidates); err != nil {
@@ -378,10 +382,10 @@ func (ph *placementHelper) PlaceShards(
 func (ph *placementHelper) returnInitializingShardsToSource(
 	shardSet map[uint32]shard.Shard,
 	from services.PlacementInstance,
-	candidaes []services.PlacementInstance,
-) {
-	candidateMap := make(map[string]services.PlacementInstance, len(candidaes))
-	for _, candidate := range candidaes {
+	candidates []services.PlacementInstance,
+) error {
+	candidateMap := make(map[string]services.PlacementInstance, len(candidates))
+	for _, candidate := range candidates {
 		candidateMap[candidate.ID()] = candidate
 	}
 	for _, s := range shardSet {
@@ -394,7 +398,7 @@ func (ph *placementHelper) returnInitializingShardsToSource(
 		}
 		sourceInstance, ok := candidateMap[sourceID]
 		if !ok {
-			continue
+			return fmt.Errorf("could not find sourceID %s in the placement", sourceID)
 		}
 		if placement.IsInstanceLeaving(sourceInstance) {
 			continue
@@ -403,6 +407,7 @@ func (ph *placementHelper) returnInitializingShardsToSource(
 			delete(shardSet, s.ID())
 		}
 	}
+	return nil
 }
 
 // placeToRacksOtherThanOrigin move shards from a instance to the rest of the cluster
@@ -423,7 +428,7 @@ func (ph *placementHelper) placeToRacksOtherThanOrigin(
 
 	instanceHeap, err := ph.buildInstanceHeap(nonLeavingInstances(otherRack), true)
 	if err != nil {
-		return nil
+		return err
 	}
 	var triedInstances []services.PlacementInstance
 	for shardID, s := range shardsSet {
@@ -457,7 +462,7 @@ func (ph *placementHelper) mostUnderLoadedInstance() (services.PlacementInstance
 
 	for id, instance := range ph.instances {
 		loadGap := ph.targetLoad[id] - loadOnInstance(instance)
-		if loadGap > 0 && loadGap > maxLoadGap {
+		if loadGap > maxLoadGap {
 			maxLoadGap = loadGap
 			res = instance
 		}
