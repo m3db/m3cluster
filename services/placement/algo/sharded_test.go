@@ -542,30 +542,30 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids)
 	assert.NoError(t, err)
-	markAllShardsAsAvailable(t, p)
+	p = markAllShardsAsAvailable(t, p)
 	assert.NoError(t, placement.Validate(p))
 
 	p, err = a.AddReplica(p)
 	assert.NoError(t, err)
-	markAllShardsAsAvailable(t, p)
+	p = markAllShardsAsAvailable(t, p)
 	assert.NoError(t, placement.Validate(p))
 
 	p1, err := a.AddReplica(p)
 	assert.Equal(t, errNotEnoughRacks, err)
 	assert.Nil(t, p1)
-	markAllShardsAsAvailable(t, p)
+	p = markAllShardsAsAvailable(t, p)
 	assert.NoError(t, placement.Validate(p))
 
 	i4 := placement.NewEmptyInstance("i4", "r2", "z1", "endpoint", 1)
 	p, err = a.AddInstance(p, i4)
 	assert.NoError(t, err)
-	markAllShardsAsAvailable(t, p)
+	p = markAllShardsAsAvailable(t, p)
 	assert.NoError(t, placement.Validate(p))
 
 	p1, err = a.AddReplica(p)
 	assert.Equal(t, errNotEnoughRacks, err)
 	assert.Nil(t, p1)
-	markAllShardsAsAvailable(t, p)
+	p = markAllShardsAsAvailable(t, p)
 	assert.NoError(t, placement.Validate(p))
 
 	b := newShardedAlgorithm(placement.NewOptions().SetLooseRackCheck(true))
@@ -580,12 +580,12 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 	assert.Nil(t, p1)
 	assert.NoError(t, placement.Validate(p))
 
-	markAllShardsAsAvailable(t, p)
+	p = markAllShardsAsAvailable(t, p)
 	p, err = b.RemoveInstance(p, i3.ID())
 	assert.NoError(t, err)
 	assert.NoError(t, placement.Validate(p))
 
-	markAllShardsAsAvailable(t, p)
+	p = markAllShardsAsAvailable(t, p)
 	i5 := placement.NewEmptyInstance("i5", "r3", "z1", "endpoint", 1)
 	p, err = b.AddInstance(p, i5)
 	assert.NoError(t, err)
@@ -593,7 +593,7 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 
 	p, err = b.AddReplica(p)
 	assert.NoError(t, err)
-	markAllShardsAsAvailable(t, p)
+	p = markAllShardsAsAvailable(t, p)
 	assert.NoError(t, placement.Validate(p))
 }
 

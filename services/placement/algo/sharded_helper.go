@@ -243,7 +243,8 @@ func (ph *placementHelper) moveOneShardInState(from, to services.PlacementInstan
 }
 
 func (ph *placementHelper) moveShard(candidateShard shard.Shard, from, to services.PlacementInstance) bool {
-	if !ph.canAssignInstance(candidateShard.ID(), from, to) {
+	shardID := candidateShard.ID()
+	if !ph.canAssignInstance(shardID, from, to) {
 		return false
 	}
 
@@ -253,26 +254,36 @@ func (ph *placementHelper) moveShard(candidateShard shard.Shard, from, to servic
 		return false
 	}
 
-	newShard := shard.NewShard(candidateShard.ID())
+	newShard := shard.NewShard(shardID)
 
 	if from != nil {
 		switch candidateShard.State() {
 		case shard.Unknown, shard.Initializing:
-			from.Shards().Remove(candidateShard.ID())
+			from.Shards().Remove(shardID)
 			newShard.SetSourceID(candidateShard.SourceID())
 		case shard.Available:
 			candidateShard.SetState(shard.Leaving)
 			newShard.SetSourceID(from.ID())
 		}
 
-		delete(ph.shardToInstanceMap[candidateShard.ID()], from)
+		delete(ph.shardToInstanceMap[shardID], from)
 	}
 
-	curShard, ok := to.Shards().Shard(candidateShard.ID())
+	curShard, ok := to.Shards().Shard(shardID)
 	if ok && curShard.State() == shard.Leaving {
 		// NB(cw): if the instance already owns the shard in Leaving state,
 		// simply mark it as Available
-		newShard = shard.NewShard(newShard.ID()).SetState(shard.Available)
+		newShard = shard.NewShard(shardID).SetState(shard.Available)
+		// NB(cw): Break the link between new owner of this shard with this Leaving instance
+		instances := ph.shardToInstanceMap[shardID]
+		for instance := range instances {
+			shards := instance.Shards()
+			initShard, ok := shards.Shard(shardID)
+			if ok && initShard.SourceID() == to.ID() {
+				initShard.SetSourceID("")
+			}
+		}
+
 	}
 
 	ph.assignShardToInstance(newShard, to)
