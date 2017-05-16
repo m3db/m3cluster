@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	leaderKeyPrefix = "_ld"
-	keySeparator    = "/"
-	keyFormat       = "%s/%s"
-	defaultHostname = "default_hostname"
+	leaderKeyPrefix   = "_ld"
+	keySeparator      = "/"
+	keyFormat         = "%s/%s"
+	defaultHostname   = "default_hostname"
+	leaderCallTimeout = 30 * time.Second
 )
 
 var (
@@ -101,9 +102,7 @@ func (c *client) Resign() error {
 }
 
 func (c *client) Leader() (string, error) {
-	// TODO(mschalle): make configurable. need greater than client's DialTimeout
-	// to be resilient to node failures
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), leaderCallTimeout)
 	defer cancel()
 	return c.election.Leader(ctx)
 }
