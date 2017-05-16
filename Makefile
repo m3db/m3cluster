@@ -5,6 +5,7 @@ SHELL=/bin/bash -o pipefail
 
 html_report := coverage.html
 test := .ci/test-cover.sh
+test_integration := ./test-integration.sh
 convert-test-data := .ci/convert-test-data.sh
 coverfile := cover.out
 coverage_xml := coverage.xml
@@ -41,6 +42,9 @@ lint:
 test-internal:
 	@which go-junit-report > /dev/null || go get -u github.com/sectioneight/go-junit-report
 	@$(VENDOR_ENV) $(test) $(coverfile) | tee $(test_log)
+
+test-integration:
+	@$(VENDOR_ENV) $(test_integration)
 
 test-xml: test-internal
 	go-junit-report < $(test_log) > $(junit_xml)
