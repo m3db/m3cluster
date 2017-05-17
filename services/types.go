@@ -245,16 +245,19 @@ type PlacementOptions interface {
 
 // ServicePlacement describes how instances are placed in a service
 type ServicePlacement interface {
-	// Instances returns all Instances in the placement
+	// InstancesForShard returns the instances for a given shard id.
+	InstancesForShard(shard uint32) []PlacementInstance
+
+	// Instances returns all instances in the placement
 	Instances() []PlacementInstance
 
-	// SetInstances sets the Instances
+	// SetInstances sets the instances
 	SetInstances(instances []PlacementInstance) ServicePlacement
 
 	// NumInstances returns the number of instances in the placement
 	NumInstances() int
 
-	// Instance returns the Instance for the requested id
+	// Instance returns the instance for the requested id
 	Instance(id string) (PlacementInstance, bool)
 
 	// ReplicaFactor returns the replica factor in the placement
@@ -277,6 +280,12 @@ type ServicePlacement interface {
 
 	// SetIsSharded() sets IsSharded
 	SetIsSharded(v bool) ServicePlacement
+
+	// CutoverNanos returns the cutover time in nanoseconds.
+	CutoverNanos() int64
+
+	// SetCutoverNanos sets the cutover time in nanoseconds.
+	SetCutoverNanos(cutoverNanos int64) ServicePlacement
 
 	// String returns a description of the placement
 	String() string

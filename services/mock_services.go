@@ -1028,6 +1028,16 @@ func (_m *MockServicePlacement) EXPECT() *_MockServicePlacementRecorder {
 	return _m.recorder
 }
 
+func (_m *MockServicePlacement) InstancesForShard(shard uint32) []PlacementInstance {
+	ret := _m.ctrl.Call(_m, "InstancesForShard", shard)
+	ret0, _ := ret[0].([]PlacementInstance)
+	return ret0
+}
+
+func (_mr *_MockServicePlacementRecorder) InstancesForShard(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InstancesForShard", arg0)
+}
+
 func (_m *MockServicePlacement) Instances() []PlacementInstance {
 	ret := _m.ctrl.Call(_m, "Instances")
 	ret0, _ := ret[0].([]PlacementInstance)
@@ -1137,6 +1147,26 @@ func (_m *MockServicePlacement) SetIsSharded(v bool) ServicePlacement {
 
 func (_mr *_MockServicePlacementRecorder) SetIsSharded(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetIsSharded", arg0)
+}
+
+func (_m *MockServicePlacement) CutoverNanos() int64 {
+	ret := _m.ctrl.Call(_m, "CutoverNanos")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+func (_mr *_MockServicePlacementRecorder) CutoverNanos() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CutoverNanos")
+}
+
+func (_m *MockServicePlacement) SetCutoverNanos(cutoverNanos int64) ServicePlacement {
+	ret := _m.ctrl.Call(_m, "SetCutoverNanos", cutoverNanos)
+	ret0, _ := ret[0].(ServicePlacement)
+	return ret0
+}
+
+func (_mr *_MockServicePlacementRecorder) SetCutoverNanos(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetCutoverNanos", arg0)
 }
 
 func (_m *MockServicePlacement) String() string {

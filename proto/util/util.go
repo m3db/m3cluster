@@ -84,7 +84,8 @@ func PlacementFromProto(p placementproto.Placement) (services.ServicePlacement, 
 		SetInstances(instances).
 		SetShards(shards).
 		SetReplicaFactor(int(p.ReplicaFactor)).
-		SetIsSharded(p.IsSharded), nil
+		SetIsSharded(p.IsSharded).
+		SetCutoverNanos(p.CutoverTime), nil
 }
 
 // PlacementToProto converts a ServicePlacement to a placement proto
@@ -103,6 +104,7 @@ func PlacementToProto(p services.ServicePlacement) (placementproto.Placement, er
 		ReplicaFactor: uint32(p.ReplicaFactor()),
 		NumShards:     uint32(p.NumShards()),
 		IsSharded:     p.IsSharded(),
+		CutoverTime:   p.CutoverNanos(),
 	}, nil
 }
 

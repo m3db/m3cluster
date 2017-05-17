@@ -69,6 +69,8 @@ func TestPlacement(t *testing.T) {
 	assert.False(t, p.IsSharded())
 	p = p.SetIsSharded(true)
 	assert.True(t, p.IsSharded())
+	p = p.SetCutoverNanos(1234)
+	assert.Equal(t, int64(1234), p.CutoverNanos())
 	assert.NoError(t, Validate(p))
 
 	i, exist := p.Instance("i6")
@@ -84,6 +86,18 @@ func TestPlacement(t *testing.T) {
 	is := p.Instances()
 	sort.Sort(ByIDAscending(is))
 	assert.Equal(t, instances, is)
+
+	expectedInstancesByShard := map[uint32][]services.PlacementInstance{
+		1: {i1, i3, i5},
+		2: {i1, i4, i6},
+		3: {i1, i3, i6},
+		4: {i2, i4, i6},
+		5: {i2, i3, i5},
+		6: {i2, i4, i5},
+	}
+	for _, shard := range ids {
+		assert.Equal(t, expectedInstancesByShard[shard], p.InstancesForShard(shard))
+	}
 }
 
 func TestValidateGood(t *testing.T) {

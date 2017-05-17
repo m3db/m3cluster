@@ -111,6 +111,7 @@ func TestConvertBetweenProtoAndPlacement(t *testing.T) {
 		ReplicaFactor: 2,
 		NumShards:     3,
 		IsSharded:     true,
+		CutoverTime:   1234,
 	}
 
 	p, err := PlacementFromProto(placementProto)
@@ -119,11 +120,13 @@ func TestConvertBetweenProtoAndPlacement(t *testing.T) {
 	assert.Equal(t, 2, p.ReplicaFactor())
 	assert.True(t, p.IsSharded())
 	assert.Equal(t, []uint32{0, 1, 2}, p.Shards())
+	assert.Equal(t, int64(1234), p.CutoverNanos())
 
 	placementProtoNew, err := PlacementToProto(p)
 	assert.NoError(t, err)
 	assert.Equal(t, placementProto.ReplicaFactor, placementProtoNew.ReplicaFactor)
 	assert.Equal(t, placementProto.NumShards, placementProtoNew.NumShards)
+	assert.Equal(t, placementProto.CutoverTime, placementProtoNew.CutoverTime)
 	for id, h := range placementProto.Instances {
 		i1 := placementProtoNew.Instances[id]
 		assert.Equal(t, h.Id, i1.Id)

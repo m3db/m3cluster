@@ -23,6 +23,7 @@ package placement
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/m3db/m3cluster/services"
@@ -42,11 +43,20 @@ func NewPlacement() services.ServicePlacement {
 }
 
 type placement struct {
-	instances map[string]services.PlacementInstance
-	rf        int
-	shards    []uint32
-	isSharded bool
-	version   int
+	instances        map[string]services.PlacementInstance
+	instancesByShard map[uint32][]services.PlacementInstance
+	rf               int
+	shards           []uint32
+	isSharded        bool
+	cutoverNanos     int64
+	version          int
+}
+
+func (p *placement) InstancesForShard(shard uint32) []services.PlacementInstance {
+	if len(p.instancesByShard) == 0 {
+		return nil
+	}
+	return p.instancesByShard[shard]
 }
 
 func (p *placement) Instances() []services.PlacementInstance {
@@ -59,10 +69,20 @@ func (p *placement) Instances() []services.PlacementInstance {
 
 func (p *placement) SetInstances(instances []services.PlacementInstance) services.ServicePlacement {
 	instancesMap := make(map[string]services.PlacementInstance, len(instances))
+	instancesByShard := make(map[uint32][]services.PlacementInstance)
 	for _, instance := range instances {
 		instancesMap[instance.ID()] = instance
+		for _, shard := range instance.Shards().AllIDs() {
+			instancesByShard[shard] = append(instancesByShard[shard], instance)
+		}
 	}
 
+	// Sort the instances by their ids for deterministic ordering.
+	for _, instances := range instancesByShard {
+		sort.Sort(ByIDAscending(instances))
+	}
+
+	p.instancesByShard = instancesByShard
 	p.instances = instancesMap
 	return p
 }
@@ -104,6 +124,15 @@ func (p *placement) IsSharded() bool {
 
 func (p *placement) SetIsSharded(v bool) services.ServicePlacement {
 	p.isSharded = v
+	return p
+}
+
+func (p *placement) CutoverNanos() int64 {
+	return p.cutoverNanos
+}
+
+func (p *placement) SetCutoverNanos(cutoverNanos int64) services.ServicePlacement {
+	p.cutoverNanos = cutoverNanos
 	return p
 }
 
