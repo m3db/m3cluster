@@ -31,8 +31,8 @@ import (
 	"github.com/m3db/m3cluster/etcd/watchmanager"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/kv"
-	"github.com/m3db/m3cluster/proto/util"
 	"github.com/m3db/m3cluster/services"
+	"github.com/m3db/m3cluster/services/placement"
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
 	"github.com/m3db/m3x/watch"
@@ -159,7 +159,7 @@ func (c *client) Heartbeat(instance services.PlacementInstance, ttl time.Duratio
 	ctx, cancel = c.context()
 	defer cancel()
 
-	instanceProto, err := util.PlacementInstanceToProto(instance)
+	instanceProto, err := instance.Proto()
 	if err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func (c *client) getInstances(key string) ([]services.PlacementInstance, error) 
 			return nil, err
 		}
 
-		pi, err := util.PlacementInstanceFromProto(p)
+		pi, err := placement.NewInstanceFromProto(&p)
 		if err != nil {
 			return nil, err
 		}

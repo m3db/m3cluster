@@ -26,21 +26,19 @@ import (
 	"sort"
 	"strings"
 
+	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/shard"
 )
 
 var (
-	errInvalidInstance    = errors.New("invalid shards assigned to an instance")
-	errDuplicatedShards   = errors.New("invalid placement, there are duplicated shards in one replica")
-	errUnexpectedShards   = errors.New("invalid placement, there are unexpected shard ids on instance")
-	errInvalidShardsCount = errors.New("invalid placement, the count for a shard does not match replica factor")
+	errNilPlacementProto         = errors.New("nil placement proto")
+	errNilPlacementInstanceProto = errors.New("nil placement instance proto")
+	errInvalidInstance           = errors.New("invalid shards assigned to an instance")
+	errDuplicatedShards          = errors.New("invalid placement, there are duplicated shards in one replica")
+	errUnexpectedShards          = errors.New("invalid placement, there are unexpected shard ids on instance")
+	errInvalidShardsCount        = errors.New("invalid placement, the count for a shard does not match replica factor")
 )
-
-// NewPlacement returns a ServicePlacement
-func NewPlacement() services.ServicePlacement {
-	return &placement{}
-}
 
 type placement struct {
 	instances        map[string]services.PlacementInstance
@@ -50,6 +48,37 @@ type placement struct {
 	isSharded        bool
 	cutoverNanos     int64
 	version          int
+}
+
+// NewPlacement returns a ServicePlacement
+func NewPlacement() services.ServicePlacement {
+	return &placement{}
+}
+
+// NewPlacementFromProto creates a new placement from proto.
+func NewPlacementFromProto(p *placementproto.Placement) (services.ServicePlacement, error) {
+	if p == nil {
+		return nil, errNilPlacementProto
+	}
+	shards := make([]uint32, p.NumShards)
+	for i := uint32(0); i < p.NumShards; i++ {
+		shards[i] = i
+	}
+	instances := make([]services.PlacementInstance, 0, len(p.Instances))
+	for _, instance := range p.Instances {
+		pi, err := NewInstanceFromProto(instance)
+		if err != nil {
+			return nil, err
+		}
+		instances = append(instances, pi)
+	}
+
+	return NewPlacement().
+		SetInstances(instances).
+		SetShards(shards).
+		SetReplicaFactor(int(p.ReplicaFactor)).
+		SetIsSharded(p.IsSharded).
+		SetCutoverNanos(p.CutoverTime), nil
 }
 
 func (p *placement) InstancesForShard(shard uint32) []services.PlacementInstance {
@@ -143,6 +172,25 @@ func (p *placement) GetVersion() int {
 func (p *placement) SetVersion(v int) services.ServicePlacement {
 	p.version = v
 	return p
+}
+
+func (p *placement) Proto() (*placementproto.Placement, error) {
+	instances := make(map[string]*placementproto.Instance, p.NumInstances())
+	for _, instance := range p.Instances() {
+		pi, err := instance.Proto()
+		if err != nil {
+			return nil, err
+		}
+		instances[instance.ID()] = pi
+	}
+
+	return &placementproto.Placement{
+		Instances:     instances,
+		ReplicaFactor: uint32(p.ReplicaFactor()),
+		NumShards:     uint32(p.NumShards()),
+		IsSharded:     p.IsSharded(),
+		CutoverTime:   p.CutoverNanos(),
+	}, nil
 }
 
 func (p *placement) String() string {
@@ -286,6 +334,25 @@ func NewEmptyInstance(id, rack, zone, endpoint string, weight uint32) services.P
 	}
 }
 
+// NewInstanceFromProto creates a new placement instance from proto.
+func NewInstanceFromProto(instance *placementproto.Instance) (services.PlacementInstance, error) {
+	if instance == nil {
+		return nil, errNilPlacementInstanceProto
+	}
+	shards, err := shard.NewShardsFromProto(instance.Shards)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewInstance().
+		SetID(instance.Id).
+		SetRack(instance.Rack).
+		SetWeight(instance.Weight).
+		SetZone(instance.Zone).
+		SetEndpoint(instance.Endpoint).
+		SetShards(shards), nil
+}
+
 type instance struct {
 	id       string
 	rack     string
@@ -293,6 +360,23 @@ type instance struct {
 	weight   uint32
 	endpoint string
 	shards   shard.Shards
+}
+
+func (i *instance) Proto() (*placementproto.Instance, error) {
+	ss, err := i.Shards().Proto()
+	if err != nil {
+		return nil, err
+	}
+	sort.Sort(shard.ShardsByIDAscending(ss))
+
+	return &placementproto.Instance{
+		Id:       i.ID(),
+		Rack:     i.Rack(),
+		Zone:     i.Zone(),
+		Weight:   i.Weight(),
+		Endpoint: i.Endpoint(),
+		Shards:   ss,
+	}, nil
 }
 
 func (i *instance) String() string {

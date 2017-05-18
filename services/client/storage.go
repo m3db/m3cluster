@@ -22,7 +22,6 @@ package client
 
 import (
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
-	"github.com/m3db/m3cluster/proto/util"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement"
 )
@@ -43,7 +42,7 @@ func (s *client) Set(sid services.ServiceID, p services.ServicePlacement) error 
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
-	placementProto, err := util.PlacementToProto(p)
+	placementProto, err := p.Proto()
 	if err != nil {
 		return err
 	}
@@ -51,7 +50,7 @@ func (s *client) Set(sid services.ServiceID, p services.ServicePlacement) error 
 	if err != nil {
 		return err
 	}
-	_, err = kvm.kv.Set(placementKey(sid), &placementProto)
+	_, err = kvm.kv.Set(placementKey(sid), placementProto)
 	return err
 }
 
@@ -60,7 +59,7 @@ func (s *client) CheckAndSet(sid services.ServiceID, p services.ServicePlacement
 		return err
 	}
 
-	placementProto, err := util.PlacementToProto(p)
+	placementProto, err := p.Proto()
 	if err != nil {
 		return err
 	}
@@ -73,7 +72,7 @@ func (s *client) CheckAndSet(sid services.ServiceID, p services.ServicePlacement
 	_, err = kvm.kv.CheckAndSet(
 		placementKey(sid),
 		version,
-		&placementProto,
+		placementProto,
 	)
 	return err
 }
@@ -83,7 +82,7 @@ func (s *client) SetIfNotExist(sid services.ServiceID, p services.ServicePlaceme
 		return err
 	}
 
-	placementProto, err := util.PlacementToProto(p)
+	placementProto, err := p.Proto()
 	if err != nil {
 		return err
 	}
@@ -95,7 +94,7 @@ func (s *client) SetIfNotExist(sid services.ServiceID, p services.ServicePlaceme
 
 	_, err = kvm.kv.SetIfNotExists(
 		placementKey(sid),
-		&placementProto,
+		placementProto,
 	)
 	return err
 }
@@ -129,7 +128,7 @@ func (s *client) Placement(sid services.ServiceID) (services.ServicePlacement, i
 		return nil, 0, err
 	}
 
-	p, err := util.PlacementFromProto(placementProto)
+	p, err := placement.NewPlacementFromProto(&placementProto)
 	if p != nil {
 		p.SetVersion(v.Version())
 	}

@@ -21,9 +21,21 @@
 package shard
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
+
+	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
+)
+
+var (
+	errNilShardProto          = errors.New("nil shard proto")
+	errInvalidShardState      = errors.New("invalid shard state")
+	errInvalidProtoShardState = errors.New("invalid proto shard state")
+
+	defaultShardState      State
+	defaultProtoShardState placementproto.ShardState
 )
 
 // State represents the state of a shard
@@ -39,6 +51,34 @@ const (
 	// Leaving represents a shard that is intending to be removed
 	Leaving
 )
+
+// NewShardStateFromProto creates new shard state from proto.
+func NewShardStateFromProto(state placementproto.ShardState) (State, error) {
+	switch state {
+	case placementproto.ShardState_INITIALIZING:
+		return Initializing, nil
+	case placementproto.ShardState_AVAILABLE:
+		return Available, nil
+	case placementproto.ShardState_LEAVING:
+		return Leaving, nil
+	default:
+		return defaultShardState, errInvalidProtoShardState
+	}
+}
+
+// Proto generates a state proto.
+func (s State) Proto() (placementproto.ShardState, error) {
+	switch s {
+	case Initializing:
+		return placementproto.ShardState_INITIALIZING, nil
+	case Available:
+		return placementproto.ShardState_AVAILABLE, nil
+	case Leaving:
+		return placementproto.ShardState_LEAVING, nil
+	default:
+		return defaultProtoShardState, errInvalidShardState
+	}
+}
 
 // States returns all the possible states
 func States() []State {
@@ -65,10 +105,25 @@ type Shard interface {
 
 	// SetSource sets the source of the shard
 	SetSourceID(sourceID string) Shard
+
+	// Proto generates a shard proto.
+	Proto() (*placementproto.Shard, error)
 }
 
 // NewShard returns a new Shard
 func NewShard(id uint32) Shard { return &shard{id: id, state: Unknown} }
+
+// NewShardFromProto create a new shard from proto.
+func NewShardFromProto(shard *placementproto.Shard) (Shard, error) {
+	state, err := NewShardStateFromProto(shard.State)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewShard(shard.Id).
+		SetState(state).
+		SetSourceID(shard.SourceId), nil
+}
 
 type shard struct {
 	id       uint32
@@ -81,6 +136,18 @@ func (s *shard) State() State                      { return s.state }
 func (s *shard) SetState(state State) Shard        { s.state = state; return s }
 func (s *shard) SourceID() string                  { return s.sourceID }
 func (s *shard) SetSourceID(sourceID string) Shard { s.sourceID = sourceID; return s }
+
+func (s *shard) Proto() (*placementproto.Shard, error) {
+	state, err := s.State().Proto()
+	if err != nil {
+		return nil, err
+	}
+	return &placementproto.Shard{
+		Id:       s.ID(),
+		State:    state,
+		SourceId: s.SourceID(),
+	}, nil
+}
 
 // SortableShardsByIDAsc are sortable shards by ID in ascending order
 type SortableShardsByIDAsc []Shard
@@ -129,6 +196,9 @@ type Shards interface {
 	// Shard returns the shard for the id
 	Shard(id uint32) (Shard, bool)
 
+	// Proto generates a shards proto.
+	Proto() ([]*placementproto.Shard, error)
+
 	// String returns the string representation of the shards
 	String() string
 }
@@ -140,6 +210,19 @@ func NewShards(ss []Shard) Shards {
 		shardMap[s.ID()] = s
 	}
 	return shards{shardsMap: shardMap}
+}
+
+// NewShardsFromProto creates a new set of shards from proto.
+func NewShardsFromProto(shards []*placementproto.Shard) (Shards, error) {
+	allShards := make([]Shard, 0, len(shards))
+	for _, s := range shards {
+		shard, err := NewShardFromProto(s)
+		if err != nil {
+			return nil, err
+		}
+		allShards = append(allShards, shard)
+	}
+	return NewShards(allShards), nil
 }
 
 type shards struct {
@@ -206,6 +289,18 @@ func (s shards) ShardsForState(state State) []Shard {
 	return r
 }
 
+func (s shards) Proto() ([]*placementproto.Shard, error) {
+	ss := make([]*placementproto.Shard, s.NumShards())
+	for i, shard := range s.All() {
+		s, err := shard.Proto()
+		if err != nil {
+			return nil, err
+		}
+		ss[i] = s
+	}
+	return ss, nil
+}
+
 func (s shards) String() string {
 	var strs []string
 	for _, state := range States() {
@@ -215,3 +310,10 @@ func (s shards) String() string {
 	}
 	return fmt.Sprintf("[%s]", strings.Join(strs, ", "))
 }
+
+// ShardsByIDAscending sorts shards by their ids in ascending order.
+type ShardsByIDAscending []*placementproto.Shard
+
+func (su ShardsByIDAscending) Len() int           { return len(su) }
+func (su ShardsByIDAscending) Less(i, j int) bool { return su[i].Id < su[j].Id }
+func (su ShardsByIDAscending) Swap(i, j int)      { su[i], su[j] = su[j], su[i] }
