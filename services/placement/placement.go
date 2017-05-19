@@ -51,12 +51,12 @@ type placement struct {
 }
 
 // NewPlacement returns a ServicePlacement
-func NewPlacement() services.ServicePlacement {
+func NewPlacement() services.Placement {
 	return &placement{}
 }
 
 // NewPlacementFromProto creates a new placement from proto.
-func NewPlacementFromProto(p *placementproto.Placement) (services.ServicePlacement, error) {
+func NewPlacementFromProto(p *placementproto.Placement) (services.Placement, error) {
 	if p == nil {
 		return nil, errNilPlacementProto
 	}
@@ -97,7 +97,7 @@ func (p *placement) Instances() []services.PlacementInstance {
 	return result
 }
 
-func (p *placement) SetInstances(instances []services.PlacementInstance) services.ServicePlacement {
+func (p *placement) SetInstances(instances []services.PlacementInstance) services.Placement {
 	instancesMap := make(map[string]services.PlacementInstance, len(instances))
 	instancesByShard := make(map[uint32][]services.PlacementInstance)
 	for _, instance := range instances {
@@ -130,7 +130,7 @@ func (p *placement) ReplicaFactor() int {
 	return p.rf
 }
 
-func (p *placement) SetReplicaFactor(rf int) services.ServicePlacement {
+func (p *placement) SetReplicaFactor(rf int) services.Placement {
 	p.rf = rf
 	return p
 }
@@ -139,7 +139,7 @@ func (p *placement) Shards() []uint32 {
 	return p.shards
 }
 
-func (p *placement) SetShards(shards []uint32) services.ServicePlacement {
+func (p *placement) SetShards(shards []uint32) services.Placement {
 	p.shards = shards
 	return p
 }
@@ -152,7 +152,7 @@ func (p *placement) IsSharded() bool {
 	return p.isSharded
 }
 
-func (p *placement) SetIsSharded(v bool) services.ServicePlacement {
+func (p *placement) SetIsSharded(v bool) services.Placement {
 	p.isSharded = v
 	return p
 }
@@ -161,7 +161,7 @@ func (p *placement) CutoverNanos() int64 {
 	return p.cutoverNanos
 }
 
-func (p *placement) SetCutoverNanos(cutoverNanos int64) services.ServicePlacement {
+func (p *placement) SetCutoverNanos(cutoverNanos int64) services.Placement {
 	p.cutoverNanos = cutoverNanos
 	return p
 }
@@ -170,7 +170,7 @@ func (p *placement) GetVersion() int {
 	return p.version
 }
 
-func (p *placement) SetVersion(v int) services.ServicePlacement {
+func (p *placement) SetVersion(v int) services.Placement {
 	p.version = v
 	return p
 }
@@ -212,7 +212,7 @@ func CloneInstances(instances []services.PlacementInstance) []services.Placement
 }
 
 // ClonePlacement creates a copy of a given placment
-func ClonePlacement(p services.ServicePlacement) services.ServicePlacement {
+func ClonePlacement(p services.Placement) services.Placement {
 	return NewPlacement().
 		SetInstances(CloneInstances(p.Instances())).
 		SetShards(p.Shards()).
@@ -221,7 +221,7 @@ func ClonePlacement(p services.ServicePlacement) services.ServicePlacement {
 }
 
 // Validate validates a placement
-func Validate(p services.ServicePlacement) error {
+func Validate(p services.Placement) error {
 	shardCountMap := convertShardSliceToMap(p.Shards())
 	if len(shardCountMap) != len(p.Shards()) {
 		return errDuplicatedShards
@@ -444,12 +444,12 @@ func RemoveInstance(list []services.PlacementInstance, instanceID string) []serv
 }
 
 // MarkShardAvailable marks a shard available on a clone of the placement
-func MarkShardAvailable(p services.ServicePlacement, instanceID string, shardID uint32) (services.ServicePlacement, error) {
+func MarkShardAvailable(p services.Placement, instanceID string, shardID uint32) (services.Placement, error) {
 	p = ClonePlacement(p)
 	return markShardAvailable(p, instanceID, shardID)
 }
 
-func markShardAvailable(p services.ServicePlacement, instanceID string, shardID uint32) (services.ServicePlacement, error) {
+func markShardAvailable(p services.Placement, instanceID string, shardID uint32) (services.Placement, error) {
 	instance, exist := p.Instance(instanceID)
 	if !exist {
 		return nil, fmt.Errorf("instance %s does not exist in placement", instanceID)
@@ -498,7 +498,7 @@ func markShardAvailable(p services.ServicePlacement, instanceID string, shardID 
 }
 
 // MarkAllShardsAsAvailable marks all shard available
-func MarkAllShardsAsAvailable(p services.ServicePlacement) (services.ServicePlacement, error) {
+func MarkAllShardsAsAvailable(p services.Placement) (services.Placement, error) {
 	var err error
 	p = ClonePlacement(p)
 	for _, instance := range p.Instances() {

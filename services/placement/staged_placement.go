@@ -40,7 +40,7 @@ var (
 type activeStagedPlacement struct {
 	sync.RWMutex
 
-	placements            []services.ServicePlacement
+	placements            []services.Placement
 	nowFn                 clock.NowFn
 	onPlacementsAddedFn   services.OnPlacementsAddedFn
 	onPlacementsRemovedFn services.OnPlacementsRemovedFn
@@ -51,7 +51,7 @@ type activeStagedPlacement struct {
 }
 
 func newActiveStagedPlacement(
-	placements []services.ServicePlacement,
+	placements []services.Placement,
 	opts services.ActiveStagedPlacementOptions,
 ) services.ActiveStagedPlacement {
 	p := &activeStagedPlacement{
@@ -69,7 +69,7 @@ func newActiveStagedPlacement(
 	return p
 }
 
-func (p *activeStagedPlacement) ActivePlacement() (services.ServicePlacement, services.DoneFn, error) {
+func (p *activeStagedPlacement) ActivePlacement() (services.Placement, services.DoneFn, error) {
 	p.RLock()
 	placement, err := p.activePlacementWithLock(p.nowFn().UnixNano())
 	if err != nil {
@@ -95,7 +95,7 @@ func (p *activeStagedPlacement) Close() error {
 
 func (p *activeStagedPlacement) onPlacementDone() { p.RUnlock() }
 
-func (p *activeStagedPlacement) activePlacementWithLock(timeNanos int64) (services.ServicePlacement, error) {
+func (p *activeStagedPlacement) activePlacementWithLock(timeNanos int64) (services.Placement, error) {
 	if p.closed {
 		return nil, errActiveStagedPlacementClosed
 	}
@@ -152,7 +152,7 @@ func (p *activeStagedPlacement) expire() {
 
 type stagedPlacement struct {
 	version    int
-	placements []services.ServicePlacement
+	placements []services.Placement
 	opts       services.ActiveStagedPlacementOptions
 }
 
@@ -165,7 +165,7 @@ func NewStagedPlacement(
 	if p == nil {
 		return nil, errNilPlacementSnapshotsProto
 	}
-	placements := make([]services.ServicePlacement, 0, len(p.Snapshots))
+	placements := make([]services.Placement, 0, len(p.Snapshots))
 	for _, snapshot := range p.Snapshots {
 		placement, err := NewPlacementFromProto(snapshot)
 		if err != nil {
@@ -195,7 +195,7 @@ func (sp *stagedPlacement) ActiveStagedPlacement(timeNanos int64) services.Activ
 	return newActiveStagedPlacement(sp.placements[idx:], sp.opts)
 }
 
-type placementsByCutoverAsc []services.ServicePlacement
+type placementsByCutoverAsc []services.Placement
 
 func (s placementsByCutoverAsc) Len() int { return len(s) }
 

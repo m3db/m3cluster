@@ -122,7 +122,7 @@ func TestStagedPlacementWatcherProcessSuccess(t *testing.T) {
 		numCloses    int
 	)
 	opts := NewActiveStagedPlacementOptions().
-		SetOnPlacementsAddedFn(func(placements []services.ServicePlacement) {
+		SetOnPlacementsAddedFn(func(placements []services.Placement) {
 			for _, placement := range placements {
 				allInstances = append(allInstances, placement.Instances())
 			}
@@ -165,7 +165,7 @@ type mockPlacement struct {
 	closeFn closeFn
 }
 
-func (mp *mockPlacement) ActivePlacement() (services.ServicePlacement, services.DoneFn, error) {
+func (mp *mockPlacement) ActivePlacement() (services.Placement, services.DoneFn, error) {
 	return nil, func() {}, nil
 }
 

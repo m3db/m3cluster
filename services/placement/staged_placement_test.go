@@ -92,7 +92,7 @@ var (
 	testStagedPlacementProto = &placementproto.PlacementSnapshots{
 		Snapshots: testPlacementsProto,
 	}
-	testActivePlacements = []services.ServicePlacement{
+	testActivePlacements = []services.Placement{
 		&placement{
 			shards:       []uint32{0, 1, 2, 3},
 			cutoverNanos: 12345,
@@ -260,7 +260,7 @@ var (
 func TestNewActiveStagedPlacement(t *testing.T) {
 	var allInstances [][]services.PlacementInstance
 	opts := NewActiveStagedPlacementOptions().SetOnPlacementsAddedFn(
-		func(placements []services.ServicePlacement) {
+		func(placements []services.Placement) {
 			for _, placement := range placements {
 				allInstances = append(allInstances, placement.Instances())
 			}
@@ -277,7 +277,7 @@ func TestNewActiveStagedPlacement(t *testing.T) {
 
 func TestActiveStagedPlacementActivePlacementClosed(t *testing.T) {
 	p := &activeStagedPlacement{
-		placements: append([]services.ServicePlacement{}, testActivePlacements...),
+		placements: append([]services.Placement{}, testActivePlacements...),
 		nowFn:      time.Now,
 		closed:     true,
 	}
@@ -287,7 +287,7 @@ func TestActiveStagedPlacementActivePlacementClosed(t *testing.T) {
 
 func TestActiveStagedPlacementNoApplicablePlacementFound(t *testing.T) {
 	p := &activeStagedPlacement{
-		placements: append([]services.ServicePlacement{}, testActivePlacements...),
+		placements: append([]services.Placement{}, testActivePlacements...),
 		nowFn:      func() time.Time { return time.Unix(0, 0) },
 	}
 	_, _, err := p.ActivePlacement()
@@ -297,9 +297,9 @@ func TestActiveStagedPlacementNoApplicablePlacementFound(t *testing.T) {
 func TestActiveStagedPlacementActivePlacementFoundWithExpiry(t *testing.T) {
 	var removedInstances [][]services.PlacementInstance
 	p := &activeStagedPlacement{
-		placements: append([]services.ServicePlacement{}, testActivePlacements...),
+		placements: append([]services.Placement{}, testActivePlacements...),
 		nowFn:      func() time.Time { return time.Unix(0, 99999) },
-		onPlacementsRemovedFn: func(placements []services.ServicePlacement) {
+		onPlacementsRemovedFn: func(placements []services.Placement) {
 			for _, placement := range placements {
 				removedInstances = append(removedInstances, placement.Instances())
 			}
@@ -327,7 +327,7 @@ func TestActiveStagedPlacementActivePlacementFoundWithExpiry(t *testing.T) {
 
 func TestActiveStagedPlacementCloseAlreadyClosed(t *testing.T) {
 	p := &activeStagedPlacement{
-		placements: append([]services.ServicePlacement{}, testActivePlacements...),
+		placements: append([]services.Placement{}, testActivePlacements...),
 		nowFn:      time.Now,
 		closed:     true,
 	}
@@ -340,12 +340,12 @@ func TestActiveStagedPlacementCloseSuccess(t *testing.T) {
 		removedInstances [][]services.PlacementInstance
 	)
 	opts := NewActiveStagedPlacementOptions().
-		SetOnPlacementsAddedFn(func(placements []services.ServicePlacement) {
+		SetOnPlacementsAddedFn(func(placements []services.Placement) {
 			for _, placement := range placements {
 				addedInstances = append(addedInstances, placement.Instances())
 			}
 		}).
-		SetOnPlacementsRemovedFn(func(placements []services.ServicePlacement) {
+		SetOnPlacementsRemovedFn(func(placements []services.Placement) {
 			for _, placement := range placements {
 				removedInstances = append(removedInstances, placement.Instances())
 			}
@@ -363,11 +363,11 @@ func TestActiveStagedPlacementCloseSuccess(t *testing.T) {
 func TestActiveStagedPlacementExpireAlreadyClosed(t *testing.T) {
 	var removedInstances [][]services.PlacementInstance
 	p := &activeStagedPlacement{
-		placements: append([]services.ServicePlacement{}, testActivePlacements...),
+		placements: append([]services.Placement{}, testActivePlacements...),
 		nowFn:      func() time.Time { return time.Unix(0, 99999) },
 		expiring:   1,
 		closed:     true,
-		onPlacementsRemovedFn: func(placements []services.ServicePlacement) {
+		onPlacementsRemovedFn: func(placements []services.Placement) {
 			for _, placement := range placements {
 				removedInstances = append(removedInstances, placement.Instances())
 			}
@@ -381,10 +381,10 @@ func TestActiveStagedPlacementExpireAlreadyClosed(t *testing.T) {
 func TestActiveStagedPlacementExpireAlreadyExpired(t *testing.T) {
 	var removedInstances [][]services.PlacementInstance
 	p := &activeStagedPlacement{
-		placements: append([]services.ServicePlacement{}, testActivePlacements...),
+		placements: append([]services.Placement{}, testActivePlacements...),
 		nowFn:      func() time.Time { return time.Unix(0, 0) },
 		expiring:   1,
-		onPlacementsRemovedFn: func(placements []services.ServicePlacement) {
+		onPlacementsRemovedFn: func(placements []services.Placement) {
 			for _, placement := range placements {
 				removedInstances = append(removedInstances, placement.Instances())
 			}
@@ -398,10 +398,10 @@ func TestActiveStagedPlacementExpireAlreadyExpired(t *testing.T) {
 func TestActiveStagedPlacementExpireSuccess(t *testing.T) {
 	var removedInstances [][]services.PlacementInstance
 	p := &activeStagedPlacement{
-		placements: append([]services.ServicePlacement{}, testActivePlacements...),
+		placements: append([]services.Placement{}, testActivePlacements...),
 		nowFn:      func() time.Time { return time.Unix(0, 99999) },
 		expiring:   1,
-		onPlacementsRemovedFn: func(placements []services.ServicePlacement) {
+		onPlacementsRemovedFn: func(placements []services.Placement) {
 			for _, placement := range placements {
 				removedInstances = append(removedInstances, placement.Instances())
 			}
@@ -438,7 +438,7 @@ func TestStagedPlacementActiveStagedPlacement(t *testing.T) {
 
 	for _, input := range []struct {
 		t          int64
-		placements []services.ServicePlacement
+		placements []services.Placement
 	}{
 		{t: 0, placements: pss.placements[:]},
 		{t: 20000, placements: pss.placements[:]},
@@ -451,8 +451,8 @@ func TestStagedPlacementActiveStagedPlacement(t *testing.T) {
 
 func validateSnapshot(
 	t *testing.T,
-	expected services.ServicePlacement,
-	actual services.ServicePlacement,
+	expected services.Placement,
+	actual services.Placement,
 ) {
 	require.Equal(t, expected.CutoverNanos(), actual.CutoverNanos())
 	require.Equal(t, expected.NumShards(), actual.NumShards())

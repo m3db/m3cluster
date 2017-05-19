@@ -177,20 +177,20 @@ type Metadata interface {
 // all write or update operations will persist the generated placement before returning success
 type PlacementService interface {
 	// BuildInitialPlacement initialize a placement
-	BuildInitialPlacement(instances []PlacementInstance, numShards int, rf int) (ServicePlacement, error)
+	BuildInitialPlacement(instances []PlacementInstance, numShards int, rf int) (Placement, error)
 
 	// AddReplica up the replica factor by 1 in the placement
-	AddReplica() (ServicePlacement, error)
+	AddReplica() (Placement, error)
 
 	// AddInstance picks an instance from the candidate list to the placement
-	AddInstance(candidates []PlacementInstance) (newPlacement ServicePlacement, usedInstance PlacementInstance, err error)
+	AddInstance(candidates []PlacementInstance) (newPlacement Placement, usedInstance PlacementInstance, err error)
 
 	// RemoveInstance removes an instance from the placement
-	RemoveInstance(leavingInstanceID string) (ServicePlacement, error)
+	RemoveInstance(leavingInstanceID string) (Placement, error)
 
 	// ReplaceInstance picks instances from the candidate list to replace an instance in current placement
 	ReplaceInstance(leavingInstanceID string, candidates []PlacementInstance) (
-		newPlacement ServicePlacement, usedInstances []PlacementInstance, err error)
+		newPlacement Placement, usedInstances []PlacementInstance, err error)
 
 	// MarkShardAvailable marks the state of a shard as available
 	MarkShardAvailable(instanceID string, shardID uint32) error
@@ -199,10 +199,10 @@ type PlacementService interface {
 	MarkInstanceAvailable(instanceID string) error
 
 	// Placement returns the persisted placement with version
-	Placement() (ServicePlacement, int, error)
+	Placement() (Placement, int, error)
 
 	// SetPlacement persists the placement
-	SetPlacement(p ServicePlacement) error
+	SetPlacement(p Placement) error
 
 	// Delete deletes the placement
 	Delete() error
@@ -305,17 +305,17 @@ type StagedPlacementWatcherOptions interface {
 type ActiveStagedPlacement interface {
 	// ActivePlacement returns the currently active placement for a given time, the callback
 	// function when the caller is done using the placement, and any errors encountered.
-	ActivePlacement() (ServicePlacement, DoneFn, error)
+	ActivePlacement() (Placement, DoneFn, error)
 
 	// Close closes the active staged placement.
 	Close() error
 }
 
 // OnPlacementsAddedFn is called when placements are added.
-type OnPlacementsAddedFn func(placements []ServicePlacement)
+type OnPlacementsAddedFn func(placements []Placement)
 
 // OnPlacementsRemovedFn is called when placements are removed.
-type OnPlacementsRemovedFn func(placements []ServicePlacement)
+type OnPlacementsRemovedFn func(placements []Placement)
 
 // ActiveStagedPlacementOptions provide a set of options for active staged placement.
 type ActiveStagedPlacementOptions interface {
@@ -347,8 +347,8 @@ type StagedPlacement interface {
 	ActiveStagedPlacement(timeNanos int64) ActiveStagedPlacement
 }
 
-// ServicePlacement describes how instances are placed in a service
-type ServicePlacement interface {
+// Placement describes how instances are placed in a service
+type Placement interface {
 	// InstancesForShard returns the instances for a given shard id.
 	InstancesForShard(shard uint32) []PlacementInstance
 
@@ -356,7 +356,7 @@ type ServicePlacement interface {
 	Instances() []PlacementInstance
 
 	// SetInstances sets the instances
-	SetInstances(instances []PlacementInstance) ServicePlacement
+	SetInstances(instances []PlacementInstance) Placement
 
 	// NumInstances returns the number of instances in the placement
 	NumInstances() int
@@ -368,13 +368,13 @@ type ServicePlacement interface {
 	ReplicaFactor() int
 
 	// SetReplicaFactor sets the ReplicaFactor
-	SetReplicaFactor(rf int) ServicePlacement
+	SetReplicaFactor(rf int) Placement
 
 	// Shards returns all the unique shard ids for a replica
 	Shards() []uint32
 
 	// SetShards sets the unique shard ids for a replica
-	SetShards(s []uint32) ServicePlacement
+	SetShards(s []uint32) Placement
 
 	// ShardsLen returns the number of shards in a replica
 	NumShards() int
@@ -383,13 +383,13 @@ type ServicePlacement interface {
 	IsSharded() bool
 
 	// SetIsSharded() sets IsSharded
-	SetIsSharded(v bool) ServicePlacement
+	SetIsSharded(v bool) Placement
 
 	// CutoverNanos returns the cutover time in nanoseconds.
 	CutoverNanos() int64
 
 	// SetCutoverNanos sets the cutover time in nanoseconds.
-	SetCutoverNanos(cutoverNanos int64) ServicePlacement
+	SetCutoverNanos(cutoverNanos int64) Placement
 
 	// String returns a description of the placement
 	String() string
@@ -402,7 +402,7 @@ type ServicePlacement interface {
 	// is determined by the backing MVCC store, calling this method has no
 	// effect in terms of the updated ServicePlacement that is written back
 	// to the MVCC store.
-	SetVersion(v int) ServicePlacement
+	SetVersion(v int) Placement
 }
 
 // PlacementInstance represents an instance in a service placement

@@ -33,7 +33,7 @@ import (
 )
 
 // PlacementToProto converts a ServicePlacement to a placement proto
-func PlacementToProto(p services.ServicePlacement) (placementproto.Placement, error) {
+func PlacementToProto(p services.Placement) (placementproto.Placement, error) {
 	instances := make(map[string]*placementproto.Instance, p.NumInstances())
 	for _, instance := range p.Instances() {
 		pi, err := PlacementInstanceToProto(instance)
