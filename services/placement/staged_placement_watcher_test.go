@@ -127,7 +127,7 @@ func TestStagedPlacementWatcherProcessSuccess(t *testing.T) {
 				allInstances = append(allInstances, placement.Instances())
 			}
 		})
-	pss, err := NewStagedPlacement(1, testStagedPlacementProto, opts)
+	pss, err := NewStagedPlacementFromProto(1, testStagedPlacementProto, opts)
 	require.NoError(t, err)
 	watcher, _ := testStagedPlacementWatcher(t)
 	watcher.state = placementWatcherWatching

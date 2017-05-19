@@ -25,6 +25,7 @@ import (
 	"time"
 
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
+	"github.com/m3db/m3cluster/proto/util"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/shard"
 
@@ -415,12 +416,12 @@ func TestActiveStagedPlacementExpireSuccess(t *testing.T) {
 }
 
 func TestStagedPlacementNilProto(t *testing.T) {
-	_, err := NewStagedPlacement(1, nil, NewActiveStagedPlacementOptions())
+	_, err := NewStagedPlacementFromProto(1, nil, NewActiveStagedPlacementOptions())
 	require.Equal(t, errNilPlacementSnapshotsProto, err)
 }
 
 func TestStagedPlacementValidProto(t *testing.T) {
-	sp, err := NewStagedPlacement(1, testStagedPlacementProto, NewActiveStagedPlacementOptions())
+	sp, err := NewStagedPlacementFromProto(1, testStagedPlacementProto, NewActiveStagedPlacementOptions())
 	require.NoError(t, err)
 	pss := sp.(*stagedPlacement)
 	require.Equal(t, 1, pss.Version())
@@ -430,9 +431,17 @@ func TestStagedPlacementValidProto(t *testing.T) {
 	}
 }
 
+func TestStagedPlacementRoundtrip(t *testing.T) {
+	sp, err := NewStagedPlacementFromProto(1, testStagedPlacementProto, nil)
+	require.NoError(t, err)
+	actual, err := util.StagedPlacementToProto(sp)
+	require.NoError(t, err)
+	require.Equal(t, testStagedPlacementProto, actual)
+}
+
 func TestStagedPlacementActiveStagedPlacement(t *testing.T) {
 	opts := NewActiveStagedPlacementOptions()
-	sp, err := NewStagedPlacement(1, testStagedPlacementProto, opts)
+	sp, err := NewStagedPlacementFromProto(1, testStagedPlacementProto, opts)
 	require.NoError(t, err)
 	pss := sp.(*stagedPlacement)
 

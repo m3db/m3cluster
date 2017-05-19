@@ -32,6 +32,22 @@ import (
 	"github.com/m3db/m3cluster/shard"
 )
 
+// StagedPlacementToProto converts a staged placement to a proto.
+func StagedPlacementToProto(sp services.StagedPlacement) (*placementproto.PlacementSnapshots, error) {
+	placements := sp.Placements()
+	snapshots := make([]*placementproto.Placement, 0, len(placements))
+	for _, p := range placements {
+		placementProto, err := PlacementToProto(p)
+		if err != nil {
+			return nil, err
+		}
+		snapshots = append(snapshots, &placementProto)
+	}
+	return &placementproto.PlacementSnapshots{
+		Snapshots: snapshots,
+	}, nil
+}
+
 // PlacementToProto converts a ServicePlacement to a placement proto
 func PlacementToProto(p services.Placement) (placementproto.Placement, error) {
 	instances := make(map[string]*placementproto.Instance, p.NumInstances())

@@ -343,6 +343,9 @@ type StagedPlacement interface {
 	// Version returns the version of the staged placement.
 	Version() int
 
+	// Placements return the placements in the staged placement.
+	Placements() []Placement
+
 	// ActiveStagedPlacement returns the active staged placement for a given time.
 	ActiveStagedPlacement(timeNanos int64) ActiveStagedPlacement
 }

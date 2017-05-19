@@ -235,14 +235,6 @@ func (m *metadata) SetHeartbeatInterval(l time.Duration) Metadata {
 	return m
 }
 
-func (m *metadata) Proto() *metadataproto.Metadata {
-	return &metadataproto.Metadata{
-		Port:              m.Port(),
-		LivenessInterval:  int64(m.LivenessInterval()),
-		HeartbeatInterval: int64(m.HeartbeatInterval()),
-	}
-}
-
 func (m *metadata) String() string {
 	return fmt.Sprintf("[port: %d, livenessInterval: %v, heartbeatInterval: %v]",
 		m.port,

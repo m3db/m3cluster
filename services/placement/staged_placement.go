@@ -156,8 +156,8 @@ type stagedPlacement struct {
 	opts       services.ActiveStagedPlacementOptions
 }
 
-// NewStagedPlacement creates a new staged placement.
-func NewStagedPlacement(
+// NewStagedPlacementFromProto creates a new staged placement from proto.
+func NewStagedPlacementFromProto(
 	version int,
 	p *placementproto.PlacementSnapshots,
 	opts services.ActiveStagedPlacementOptions,
@@ -183,6 +183,8 @@ func NewStagedPlacement(
 }
 
 func (sp *stagedPlacement) Version() int { return sp.version }
+
+func (sp *stagedPlacement) Placements() []services.Placement { return sp.placements }
 
 func (sp *stagedPlacement) ActiveStagedPlacement(timeNanos int64) services.ActiveStagedPlacement {
 	idx := len(sp.placements) - 1

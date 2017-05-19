@@ -137,7 +137,7 @@ func (t *stagedPlacementWatcher) toStagedPlacement(value kv.Value) (interface{},
 		return nil, err
 	}
 	version := value.Version()
-	return NewStagedPlacement(version, t.proto, t.placementOpts)
+	return NewStagedPlacementFromProto(version, t.proto, t.placementOpts)
 }
 
 func (t *stagedPlacementWatcher) process(value interface{}) error {
