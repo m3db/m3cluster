@@ -175,25 +175,6 @@ func (p *placement) SetVersion(v int) services.ServicePlacement {
 	return p
 }
 
-func (p *placement) Proto() (*placementproto.Placement, error) {
-	instances := make(map[string]*placementproto.Instance, p.NumInstances())
-	for _, instance := range p.Instances() {
-		pi, err := instance.Proto()
-		if err != nil {
-			return nil, err
-		}
-		instances[instance.ID()] = pi
-	}
-
-	return &placementproto.Placement{
-		Instances:     instances,
-		ReplicaFactor: uint32(p.ReplicaFactor()),
-		NumShards:     uint32(p.NumShards()),
-		IsSharded:     p.IsSharded(),
-		CutoverTime:   p.CutoverNanos(),
-	}, nil
-}
-
 func (p *placement) String() string {
 	return fmt.Sprintf(
 		"Placement[Instances=%s, NumShards=%d, ReplicaFactor=%d, IsSharded=%v]",
@@ -361,23 +342,6 @@ type instance struct {
 	weight   uint32
 	endpoint string
 	shards   shard.Shards
-}
-
-func (i *instance) Proto() (*placementproto.Instance, error) {
-	ss, err := i.Shards().Proto()
-	if err != nil {
-		return nil, err
-	}
-	sort.Sort(shard.ShardsByIDAscending(ss))
-
-	return &placementproto.Instance{
-		Id:       i.ID(),
-		Rack:     i.Rack(),
-		Zone:     i.Zone(),
-		Weight:   i.Weight(),
-		Endpoint: i.Endpoint(),
-		Shards:   ss,
-	}, nil
 }
 
 func (i *instance) String() string {

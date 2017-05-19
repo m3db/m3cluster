@@ -66,20 +66,6 @@ func NewShardStateFromProto(state placementproto.ShardState) (State, error) {
 	}
 }
 
-// Proto generates a state proto.
-func (s State) Proto() (placementproto.ShardState, error) {
-	switch s {
-	case Initializing:
-		return placementproto.ShardState_INITIALIZING, nil
-	case Available:
-		return placementproto.ShardState_AVAILABLE, nil
-	case Leaving:
-		return placementproto.ShardState_LEAVING, nil
-	default:
-		return defaultProtoShardState, errInvalidShardState
-	}
-}
-
 // States returns all the possible states
 func States() []State {
 	return []State{
@@ -105,9 +91,6 @@ type Shard interface {
 
 	// SetSource sets the source of the shard
 	SetSourceID(sourceID string) Shard
-
-	// Proto generates a shard proto.
-	Proto() (*placementproto.Shard, error)
 }
 
 // NewShard returns a new Shard
@@ -136,18 +119,6 @@ func (s *shard) State() State                      { return s.state }
 func (s *shard) SetState(state State) Shard        { s.state = state; return s }
 func (s *shard) SourceID() string                  { return s.sourceID }
 func (s *shard) SetSourceID(sourceID string) Shard { s.sourceID = sourceID; return s }
-
-func (s *shard) Proto() (*placementproto.Shard, error) {
-	state, err := s.State().Proto()
-	if err != nil {
-		return nil, err
-	}
-	return &placementproto.Shard{
-		Id:       s.ID(),
-		State:    state,
-		SourceId: s.SourceID(),
-	}, nil
-}
 
 // SortableShardsByIDAsc are sortable shards by ID in ascending order
 type SortableShardsByIDAsc []Shard
@@ -195,9 +166,6 @@ type Shards interface {
 
 	// Shard returns the shard for the id
 	Shard(id uint32) (Shard, bool)
-
-	// Proto generates a shards proto.
-	Proto() ([]*placementproto.Shard, error)
 
 	// String returns the string representation of the shards
 	String() string
@@ -287,18 +255,6 @@ func (s shards) ShardsForState(state State) []Shard {
 		}
 	}
 	return r
-}
-
-func (s shards) Proto() ([]*placementproto.Shard, error) {
-	ss := make([]*placementproto.Shard, s.NumShards())
-	for i, shard := range s.All() {
-		s, err := shard.Proto()
-		if err != nil {
-			return nil, err
-		}
-		ss[i] = s
-	}
-	return ss, nil
 }
 
 func (s shards) String() string {

@@ -29,6 +29,7 @@ import (
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/kv"
+	"github.com/m3db/m3cluster/proto/util"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement/service"
 	"github.com/m3db/m3x/log"
@@ -104,8 +105,8 @@ func (c *client) SetMetadata(sid services.ServiceID, meta services.Metadata) err
 		return err
 	}
 
-	mp := meta.Proto()
-	_, err = m.kv.Set(metadataKey(sid), mp)
+	mp := util.MetadataToProto(meta)
+	_, err = m.kv.Set(metadataKey(sid), &mp)
 	return err
 }
 

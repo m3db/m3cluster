@@ -23,8 +23,6 @@ package services
 import (
 	"time"
 
-	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
-	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/clock"
@@ -153,9 +151,6 @@ type QueryOptions interface {
 
 // Metadata contains the metadata for a service
 type Metadata interface {
-	// Proto generates a metadata proto.
-	Proto() *metadataproto.Metadata
-
 	// String returns a description of the metadata
 	String() string
 
@@ -396,9 +391,6 @@ type ServicePlacement interface {
 	// SetCutoverNanos sets the cutover time in nanoseconds.
 	SetCutoverNanos(cutoverNanos int64) ServicePlacement
 
-	// Proto generates a placement proto.
-	Proto() (*placementproto.Placement, error)
-
 	// String returns a description of the placement
 	String() string
 
@@ -415,7 +407,6 @@ type ServicePlacement interface {
 
 // PlacementInstance represents an instance in a service placement
 type PlacementInstance interface {
-	Proto() (*placementproto.Instance, error)   // Proto generates a instance proto.
 	String() string                             // String is for debugging
 	ID() string                                 // ID is the id of the instance
 	SetID(id string) PlacementInstance          // SetID sets the id of the instance
