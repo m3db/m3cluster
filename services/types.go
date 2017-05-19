@@ -25,7 +25,9 @@ import (
 
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
+	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/shard"
+	"github.com/m3db/m3x/clock"
 	"github.com/m3db/m3x/instrument"
 	xwatch "github.com/m3db/m3x/watch"
 )
@@ -246,6 +248,108 @@ type PlacementOptions interface {
 	// it is necessary to specify the valid zone when adding the first
 	// instance.
 	SetValidZone(z string) PlacementOptions
+}
+
+// DoneFn is called when caller is done using the resource.
+type DoneFn func()
+
+// StagedPlacementWatcher watches for updates to staged placement.
+type StagedPlacementWatcher interface {
+	// Watch starts watching the updates.
+	Watch() error
+
+	// ActiveStagedPlacement returns the currently active staged placement, the
+	// callback function when the caller is done using the active staged placement,
+	// and any errors encountered.
+	ActiveStagedPlacement() (ActiveStagedPlacement, DoneFn, error)
+
+	// Unwatch stops watching the updates.
+	Unwatch() error
+}
+
+// StagedPlacementWatcherOptions provide a set of staged placement watcher options.
+type StagedPlacementWatcherOptions interface {
+	// SetClockOptions sets the clock options.
+	SetClockOptions(value clock.Options) StagedPlacementWatcherOptions
+
+	// ClockOptions returns the clock options.
+	ClockOptions() clock.Options
+
+	// SetInstrumentOptions sets the instrument options.
+	SetInstrumentOptions(value instrument.Options) StagedPlacementWatcherOptions
+
+	// InstrumentOptions returns the instrument options.
+	InstrumentOptions() instrument.Options
+
+	// SetActiveStagedPlacementOptions sets the active staged placement options.
+	SetActiveStagedPlacementOptions(value ActiveStagedPlacementOptions) StagedPlacementWatcherOptions
+
+	// ActiveStagedPlacementOptions returns the active staged placement options.
+	ActiveStagedPlacementOptions() ActiveStagedPlacementOptions
+
+	// SetStagedPlacementKey sets the kv key to watch for staged placement.
+	SetStagedPlacementKey(value string) StagedPlacementWatcherOptions
+
+	// StagedPlacementKey returns the kv key to watch for staged placement.
+	StagedPlacementKey() string
+
+	// SetStagedPlacementStore sets the staged placement store.
+	SetStagedPlacementStore(store kv.Store) StagedPlacementWatcherOptions
+
+	// StagedPlacementStore returns the staged placement store.
+	StagedPlacementStore() kv.Store
+
+	// SetInitWatchTimeout sets the initial watch timeout.
+	SetInitWatchTimeout(value time.Duration) StagedPlacementWatcherOptions
+
+	// InitWatchTimeout returns the initial watch timeout.
+	InitWatchTimeout() time.Duration
+}
+
+// ActiveStagedPlacement describes active staged placement.
+type ActiveStagedPlacement interface {
+	// ActivePlacement returns the currently active placement for a given time, the callback
+	// function when the caller is done using the placement, and any errors encountered.
+	ActivePlacement() (ServicePlacement, DoneFn, error)
+
+	// Close closes the active staged placement.
+	Close() error
+}
+
+// OnPlacementsAddedFn is called when placements are added.
+type OnPlacementsAddedFn func(placements []ServicePlacement)
+
+// OnPlacementsRemovedFn is called when placements are removed.
+type OnPlacementsRemovedFn func(placements []ServicePlacement)
+
+// ActiveStagedPlacementOptions provide a set of options for active staged placement.
+type ActiveStagedPlacementOptions interface {
+	// SetClockOptions sets the clock options.
+	SetClockOptions(value clock.Options) ActiveStagedPlacementOptions
+
+	// ClockOptions returns the clock options.
+	ClockOptions() clock.Options
+
+	// SetOnPlacementsAddedFn sets the callback function for adding placement.
+	SetOnPlacementsAddedFn(value OnPlacementsAddedFn) ActiveStagedPlacementOptions
+
+	// OnPlacementsAddedFn returns the callback function for adding placement.
+	OnPlacementsAddedFn() OnPlacementsAddedFn
+
+	// SetOnPlacementsRemovedFn sets the callback function for removing placement.
+	SetOnPlacementsRemovedFn(value OnPlacementsRemovedFn) ActiveStagedPlacementOptions
+
+	// OnPlacementsRemovedFn returns the callback function for removing placement.
+	OnPlacementsRemovedFn() OnPlacementsRemovedFn
+}
+
+// StagedPlacement describes a series of placements applied in staged fashion.
+type StagedPlacement interface {
+	// Version returns the version of the staged placement.
+	Version() int
+
+	// ActiveStagedPlacement returns the active staged placement for a given time.
+	ActiveStagedPlacement(timeNanos int64) ActiveStagedPlacement
 }
 
 // ServicePlacement describes how instances are placed in a service

@@ -93,6 +93,7 @@ func (p *placement) Instances() []services.PlacementInstance {
 	for _, instance := range p.instances {
 		result = append(result, instance)
 	}
+	sort.Sort(ByIDAscending(result))
 	return result
 }
 
