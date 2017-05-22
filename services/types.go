@@ -340,14 +340,26 @@ type ActiveStagedPlacementOptions interface {
 
 // StagedPlacement describes a series of placements applied in staged fashion.
 type StagedPlacement interface {
+	// ActiveStagedPlacement returns the active staged placement for a given time.
+	ActiveStagedPlacement(timeNanos int64) ActiveStagedPlacement
+
 	// Version returns the version of the staged placement.
 	Version() int
+
+	// SetVersion sets the version of the staged placement.
+	SetVersion(version int) StagedPlacement
 
 	// Placements return the placements in the staged placement.
 	Placements() []Placement
 
-	// ActiveStagedPlacement returns the active staged placement for a given time.
-	ActiveStagedPlacement(timeNanos int64) ActiveStagedPlacement
+	// SetPlacements sets the placements in the staged placement.
+	SetPlacements(placements []Placement) StagedPlacement
+
+	// ActiveStagedPlacementOptions returns the active staged placement options.
+	ActiveStagedPlacementOptions() ActiveStagedPlacementOptions
+
+	// SetActiveStagedPlacementOptions sets the active staged placement options.
+	SetActiveStagedPlacementOptions(opts ActiveStagedPlacementOptions) StagedPlacement
 }
 
 // Placement describes how instances are placed in a service

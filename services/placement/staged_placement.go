@@ -54,6 +54,9 @@ func newActiveStagedPlacement(
 	placements []services.Placement,
 	opts services.ActiveStagedPlacementOptions,
 ) services.ActiveStagedPlacement {
+	if opts == nil {
+		opts = NewActiveStagedPlacementOptions()
+	}
 	p := &activeStagedPlacement{
 		placements:            placements,
 		nowFn:                 opts.ClockOptions().NowFn(),
@@ -156,6 +159,11 @@ type stagedPlacement struct {
 	opts       services.ActiveStagedPlacementOptions
 }
 
+// NewStagedPlacement creates an empty staged placement.
+func NewStagedPlacement() services.StagedPlacement {
+	return &stagedPlacement{}
+}
+
 // NewStagedPlacementFromProto creates a new staged placement from proto.
 func NewStagedPlacementFromProto(
 	version int,
@@ -182,10 +190,6 @@ func NewStagedPlacementFromProto(
 	}, nil
 }
 
-func (sp *stagedPlacement) Version() int { return sp.version }
-
-func (sp *stagedPlacement) Placements() []services.Placement { return sp.placements }
-
 func (sp *stagedPlacement) ActiveStagedPlacement(timeNanos int64) services.ActiveStagedPlacement {
 	idx := len(sp.placements) - 1
 	for idx >= 0 && sp.placements[idx].CutoverNanos() > timeNanos {
@@ -195,6 +199,32 @@ func (sp *stagedPlacement) ActiveStagedPlacement(timeNanos int64) services.Activ
 		return newActiveStagedPlacement(sp.placements, sp.opts)
 	}
 	return newActiveStagedPlacement(sp.placements[idx:], sp.opts)
+}
+
+func (sp *stagedPlacement) Version() int { return sp.version }
+
+func (sp *stagedPlacement) SetVersion(version int) services.StagedPlacement {
+	sp.version = version
+	return sp
+}
+
+func (sp *stagedPlacement) Placements() []services.Placement { return sp.placements }
+
+func (sp *stagedPlacement) SetPlacements(placements []services.Placement) services.StagedPlacement {
+	sort.Sort(placementsByCutoverAsc(placements))
+	sp.placements = placements
+	return sp
+}
+
+func (sp *stagedPlacement) ActiveStagedPlacementOptions() services.ActiveStagedPlacementOptions {
+	return sp.opts
+}
+
+func (sp *stagedPlacement) SetActiveStagedPlacementOptions(
+	opts services.ActiveStagedPlacementOptions,
+) services.StagedPlacement {
+	sp.opts = opts
+	return sp
 }
 
 type placementsByCutoverAsc []services.Placement
