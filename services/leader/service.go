@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
-
-	"os"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
@@ -24,7 +23,8 @@ const (
 )
 
 var (
-	errNilElection = errors.New("nil election was returned")
+	errClientClosed       = errors.New("election client is closed")
+	errCampaignInProgress = errors.New("a campaign is already in progress")
 )
 
 // NewService creates a new leader service client based on an etcd client.
@@ -33,7 +33,7 @@ func NewService(cli *clientv3.Client, opts Options) (services.LeaderService, err
 		return nil, err
 	}
 
-	sessionOpts := []concurrency.SessionOption{}
+	var sessionOpts []concurrency.SessionOption
 	if ttl := opts.TTL(); ttl != 0 {
 		sessionOpts = append(sessionOpts, concurrency.WithTTL(ttl))
 	}
@@ -44,34 +44,32 @@ func NewService(cli *clientv3.Client, opts Options) (services.LeaderService, err
 	}
 
 	election := concurrency.NewElection(session, servicePrefix(opts.ServiceID()))
-	if election == nil {
-		return nil, errNilElection
-	}
 
-	c := &client{
+	return &client{
 		election: election,
 		session:  session,
-		val:      electionValue(opts),
-	}
-
-	return c, nil
+		val:      opts.OverrideValue(),
+	}, nil
 }
 
 type client struct {
 	sync.Mutex
 
-	ctx       context.Context
 	ctxCancel context.CancelFunc
 	election  *concurrency.Election
 	session   *concurrency.Session
 	val       string
+	closed    uint32
 }
 
 func (c *client) Campaign() error {
+	if c.isClosed() {
+		return errClientClosed
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c.Lock()
-	c.ctx = ctx
 	c.ctxCancel = cancel
 	c.Unlock()
 
@@ -79,7 +77,6 @@ func (c *client) Campaign() error {
 	err := c.election.Campaign(ctx, c.val)
 
 	c.Lock()
-	c.ctx = nil
 	c.ctxCancel = nil
 	c.Unlock()
 
@@ -87,16 +84,16 @@ func (c *client) Campaign() error {
 }
 
 func (c *client) Resign() error {
+	if c.isClosed() {
+		return errClientClosed
+	}
+
 	c.Lock()
 	defer c.Unlock()
 
 	// if we're not the leader but still campaigning, cancelling the context
 	// will stop the campaign
-	if c.ctx != nil && c.ctxCancel != nil {
-		c.ctxCancel()
-		c.ctx = nil
-		c.ctxCancel = nil
-	}
+	c.cancelWithLock()
 
 	return c.election.Resign(context.Background())
 }
@@ -110,7 +107,33 @@ func (c *client) Leader() (string, error) {
 // Close closes the election service client entirely. No more campaigns can be
 // started and any outstanding campaigns are closed.
 func (c *client) Close() error {
-	return c.session.Close()
+	if c.close() {
+		c.Lock()
+		c.cancelWithLock()
+		c.Unlock()
+		return c.session.Close()
+	}
+
+	return nil
+}
+
+// close atomically sets c.closed to 1 and returns if the call was the first to
+// close the client
+func (c *client) close() bool {
+	return atomic.CompareAndSwapUint32(&c.closed, 0, 1)
+}
+
+func (c *client) isClosed() bool {
+	return atomic.LoadUint32(&c.closed) == 1
+}
+
+// cancelWithLocks calls and resets to nil the underlying context cancellation
+// func if it is not nil. the client's lock must be held.
+func (c *client) cancelWithLock() {
+	if c.ctxCancel != nil {
+		c.ctxCancel()
+		c.ctxCancel = nil
+	}
 }
 
 // elections for a service "svc" in env "test" should be stored under
@@ -126,19 +149,4 @@ func servicePrefix(sid services.ServiceID) string {
 		keyFormat,
 		leaderKeyPrefix,
 		fmt.Sprintf(keyFormat, env, sid.Name()))
-}
-
-// electionValue returns the OverrideValue from opts if it is non-empty,
-// otherwise returns the current hostname by default.
-func electionValue(opts Options) string {
-	if o := opts.OverrideValue(); o != "" {
-		return o
-	}
-
-	h, err := os.Hostname()
-	if err != nil {
-		return defaultHostname
-	}
-
-	return h
 }
