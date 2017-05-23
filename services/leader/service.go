@@ -20,6 +20,14 @@ const (
 	keyFormat         = "%s/%s"
 	defaultHostname   = "default_hostname"
 	leaderCallTimeout = 30 * time.Second
+
+	// NB(mschalle): etcd's election API is based on prefixes, so if we have a
+	// service-wide election and don't append some suffix, then a service-wide
+	// election key would be a substring of a scoped sub-election (i.e. one with
+	// an election ID). So we need to append a suffix to service-wide election
+	// keys. We also want one that probably wouldn't conflict with a
+	// sub-election ID
+	svcElectionSuffix = "SVC_WIDE_ELECTION"
 )
 
 var (
@@ -149,4 +157,16 @@ func servicePrefix(sid services.ServiceID) string {
 		keyFormat,
 		leaderKeyPrefix,
 		fmt.Sprintf(keyFormat, env, sid.Name()))
+}
+
+func electionPrefix(opts Options) string {
+	eid := opts.ElectionOpts().ElectionID()
+	if eid == "" {
+		eid = svcElectionSuffix
+	}
+
+	return fmt.Sprintf(
+		keyFormat,
+		servicePrefix(opts.ServiceID()),
+		eid)
 }

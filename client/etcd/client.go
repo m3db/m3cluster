@@ -200,13 +200,16 @@ func (c *csclient) heartbeatGen() sdclient.HeartbeatGen {
 
 func (c *csclient) leaderGen() sdclient.LeaderGen {
 	return sdclient.LeaderGen(
-		func(sid services.ServiceID) (services.LeaderService, error) {
+		func(sid services.ServiceID, eo services.ElectionOptions) (services.LeaderService, error) {
 			cli, err := c.etcdClientGen(sid.Zone())
 			if err != nil {
 				return nil, err
 			}
 
-			opts := leader.NewOptions().SetServiceID(sid)
+			opts := leader.NewOptions().
+				SetServiceID(sid).
+				SetElectionOpts(eo)
+
 			return leader.NewService(cli, opts)
 		},
 	)

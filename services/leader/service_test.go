@@ -212,3 +212,29 @@ func newTestCluster(t *testing.T) *testCluster {
 		}),
 	}
 }
+
+func TestElectionPrefix(t *testing.T) {
+	for args, exp := range map[*struct {
+		env, name, eid string
+	}]string{
+		{"", "svc", ""}:       "_ld/svc/SVC_WIDE_ELECTION",
+		{"env", "svc", ""}:    "_ld/env/svc/SVC_WIDE_ELECTION",
+		{"", "svc", "foo"}:    "_ld/svc/foo",
+		{"env", "svc", "foo"}: "_ld/env/svc/foo",
+	} {
+		sid := services.NewServiceID().
+			SetEnvironment(args.env).
+			SetName(args.name)
+
+		eo := services.NewElectionOptions().
+			SetElectionID(args.eid)
+
+		opts := NewOptions().
+			SetServiceID(sid).
+			SetElectionOpts(eo)
+
+		pfx := electionPrefix(opts)
+
+		assert.Equal(t, exp, pfx)
+	}
+}

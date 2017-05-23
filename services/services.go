@@ -258,3 +258,15 @@ func (i PlacementInstances) String() string {
 	strs = append(strs, "]")
 	return strings.Join(strs, "")
 }
+
+// NewElectionOptions returns an empty ElectionOptions.
+func NewElectionOptions() ElectionOptions {
+	return &electionOpts{}
+}
+
+type electionOpts struct {
+	id string
+}
+
+func (e *electionOpts) ElectionID() string                      { return e.id }
+func (e *electionOpts) SetElectionID(id string) ElectionOptions { e.id = id; return e }

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/coreos/etcd/integration"
+	"github.com/golang/mock/gomock"
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	"github.com/m3db/m3cluster/kv"
 	etcdKV "github.com/m3db/m3cluster/kv/etcd"
@@ -41,7 +42,7 @@ import (
 )
 
 var (
-	emptyLdGen LeaderGen = func(sid services.ServiceID) (services.LeaderService, error) {
+	emptyLdGen LeaderGen = func(sid services.ServiceID, eo services.ElectionOptions) (services.LeaderService, error) {
 		return nil, nil
 	}
 )
@@ -963,6 +964,42 @@ func TestCacheCollisions_Watchables(t *testing.T) {
 		kvm, err := sd.(*client).getKVManager(z)
 		require.NoError(t, err)
 		assert.Equal(t, 2, len(kvm.serviceWatchables), "each zone should have 2 unique watchable entries")
+	}
+}
+
+func TestLeaderService(t *testing.T) {
+	mc := gomock.NewController(t)
+	defer mc.Finish()
+
+	ld := newTestLeaderGen(mc)
+
+	opts, closer, _ := testSetup(t)
+	defer closer()
+
+	opts = opts.SetLeaderGen(ld)
+	cl, err := NewServices(opts)
+	require.NoError(t, err)
+
+	sid1 := services.NewServiceID().SetName("s1")
+	sid2 := services.NewServiceID().SetName("s2")
+	eo1 := services.NewElectionOptions()
+	eo2 := services.NewElectionOptions().SetElectionID("e1")
+
+	for _, sid := range []services.ServiceID{sid1, sid2} {
+		for _, eo := range []services.ElectionOptions{eo1, eo2} {
+			_, err := cl.LeaderService(sid, eo)
+			assert.NoError(t, err)
+		}
+	}
+
+	assert.Equal(t, 4, len(cl.(*client).ldSvcs),
+		"should cache 4 unique client entries")
+}
+
+func newTestLeaderGen(mc *gomock.Controller) LeaderGen {
+	svc := services.NewMockLeaderService(mc)
+	return func(sid services.ServiceID, eo services.ElectionOptions) (services.LeaderService, error) {
+		return svc, nil
 	}
 }
 

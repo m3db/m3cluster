@@ -22,6 +22,9 @@ type Options interface {
 	SetTTL(seconds int) Options
 	TTL() int
 
+	ElectionOpts() services.ElectionOptions
+	SetElectionOpts(e services.ElectionOptions) Options
+
 	Validate() error
 }
 
@@ -32,6 +35,7 @@ func NewOptions() Options {
 
 type options struct {
 	sid services.ServiceID
+	eo  services.ElectionOptions
 	val string
 	ttl int
 }
@@ -68,6 +72,15 @@ func (o options) TTL() int {
 
 func (o options) SetTTL(seconds int) Options {
 	o.ttl = seconds
+	return o
+}
+
+func (o options) ElectionOpts() services.ElectionOptions {
+	return o.eo
+}
+
+func (o options) SetElectionOpts(eo services.ElectionOptions) Options {
+	o.eo = eo
 	return o
 }
 

@@ -139,15 +139,15 @@ func (_mr *_MockServicesRecorder) HeartbeatService(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "HeartbeatService", arg0)
 }
 
-func (_m *MockServices) LeaderService(service ServiceID) (LeaderService, error) {
-	ret := _m.ctrl.Call(_m, "LeaderService", service)
+func (_m *MockServices) LeaderService(service ServiceID, opts ElectionOptions) (LeaderService, error) {
+	ret := _m.ctrl.Call(_m, "LeaderService", service, opts)
 	ret0, _ := ret[0].(LeaderService)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockServicesRecorder) LeaderService(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "LeaderService", arg0)
+func (_mr *_MockServicesRecorder) LeaderService(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LeaderService", arg0, arg1)
 }
 
 // Mock of Service interface
@@ -1844,6 +1844,47 @@ func (_m *MockHeartbeatService) Watch() (watch.Watch, error) {
 
 func (_mr *_MockHeartbeatServiceRecorder) Watch() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Watch")
+}
+
+// Mock of ElectionOptions interface
+type MockElectionOptions struct {
+	ctrl     *gomock.Controller
+	recorder *_MockElectionOptionsRecorder
+}
+
+// Recorder for MockElectionOptions (not exported)
+type _MockElectionOptionsRecorder struct {
+	mock *MockElectionOptions
+}
+
+func NewMockElectionOptions(ctrl *gomock.Controller) *MockElectionOptions {
+	mock := &MockElectionOptions{ctrl: ctrl}
+	mock.recorder = &_MockElectionOptionsRecorder{mock}
+	return mock
+}
+
+func (_m *MockElectionOptions) EXPECT() *_MockElectionOptionsRecorder {
+	return _m.recorder
+}
+
+func (_m *MockElectionOptions) ElectionID() string {
+	ret := _m.ctrl.Call(_m, "ElectionID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockElectionOptionsRecorder) ElectionID() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ElectionID")
+}
+
+func (_m *MockElectionOptions) SetElectionID(id string) ElectionOptions {
+	ret := _m.ctrl.Call(_m, "SetElectionID", id)
+	ret0, _ := ret[0].(ElectionOptions)
+	return ret0
+}
+
+func (_mr *_MockElectionOptionsRecorder) SetElectionID(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetElectionID", arg0)
 }
 
 // Mock of LeaderService interface

@@ -58,7 +58,7 @@ type Services interface {
 
 	// LeaderService returns an instance of a leader service for the given
 	// service ID.
-	LeaderService(service ServiceID) (LeaderService, error)
+	LeaderService(service ServiceID, opts ElectionOptions) (LeaderService, error)
 }
 
 // Service describes the metadata and instances of a service
@@ -457,6 +457,16 @@ type HeartbeatService interface {
 
 	// Watch watches the heartbeats for a service
 	Watch() (xwatch.Watch, error)
+}
+
+// ElectionOptions configure specific election-scoped options.
+type ElectionOptions interface {
+	// ElectionID returns the ID of the election. By default an election will be
+	// scoped to the service it was created for, but multiple elections can be
+	// held for a single service by setting different values using
+	// SetElectionID.
+	ElectionID() string
+	SetElectionID(id string) ElectionOptions
 }
 
 // LeaderService provides access to etcd-backed leader elections.

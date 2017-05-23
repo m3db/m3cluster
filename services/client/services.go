@@ -43,6 +43,7 @@ var (
 	errNoServiceID        = errors.New("no service id specified")
 	errNoInstanceID       = errors.New("no instance id specified")
 	errAdPlacementMissing = errors.New("advertisement is missing placement instance")
+	errNilElectionOpts    = errors.New("election opts cannot be nil")
 )
 
 // NewServices returns a client of Services
@@ -55,6 +56,7 @@ func NewServices(opts Options) (services.Services, error) {
 		kvManagers: make(map[string]*kvManager),
 		hbStores:   make(map[string]services.HeartbeatService),
 		adDoneChs:  make(map[string]chan struct{}),
+		ldSvcs:     make(map[string]services.LeaderService),
 		opts:       opts,
 		logger:     opts.InstrumentsOptions().Logger(),
 		m:          opts.InstrumentsOptions().MetricsScope(),
@@ -354,9 +356,19 @@ func (c *client) getHeartbeatService(sid services.ServiceID) (services.Heartbeat
 	return hb, nil
 }
 
-func (c *client) LeaderService(sid services.ServiceID) (services.LeaderService, error) {
+func (c *client) LeaderService(sid services.ServiceID, opts services.ElectionOptions) (services.LeaderService, error) {
+	if sid == nil {
+		return nil, errNoServiceID
+	}
+
+	if opts == nil {
+		return nil, errNilElectionOpts
+	}
+
+	key := leaderCacheKey(sid, opts)
+
 	c.RLock()
-	if ld, ok := c.ldSvcs[sid.String()]; ok {
+	if ld, ok := c.ldSvcs[key]; ok {
 		c.RUnlock()
 		return ld, nil
 	}
@@ -365,16 +377,16 @@ func (c *client) LeaderService(sid services.ServiceID) (services.LeaderService, 
 	c.Lock()
 	defer c.Unlock()
 
-	if ld, ok := c.ldSvcs[sid.String()]; ok {
+	if ld, ok := c.ldSvcs[key]; ok {
 		return ld, nil
 	}
 
-	ld, err := c.opts.LeaderGen()(sid)
+	ld, err := c.opts.LeaderGen()(sid, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	c.ldSvcs[sid.String()] = ld
+	c.ldSvcs[key] = ld
 	return ld, nil
 }
 
@@ -565,6 +577,10 @@ func validateAdvertisement(sid services.ServiceID, id string) error {
 	}
 
 	return nil
+}
+
+func leaderCacheKey(sid services.ServiceID, opts services.ElectionOptions) string {
+	return sid.String() + "_" + opts.ElectionID()
 }
 
 type kvManager struct {
