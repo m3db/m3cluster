@@ -355,22 +355,28 @@ func (c *client) Watch(key string) (kv.ValueWatch, error) {
 	return w, err
 }
 
-func (c *client) update(key string) error {
+func (c *client) update(key string, events []*clientv3.Event) error {
 	var (
-		newValue kv.Value
-		err      error
+		nv        kv.Value
+		err       error
+		lastEvent *clientv3.Event
 	)
-	// we need retry here because if Get() failed on an watch update,
-	// it has to wait 10 mins to be notified to try again
-	if execErr := c.retrier.Attempt(func() error {
-		newValue, err = c.get(key)
-		if err == kv.ErrNotFound {
-			// do not retry on ErrNotFound
-			return xretry.NonRetryableError(err)
+
+	noEvents := events == nil || len(events) == 0
+	// Just do a get if events are nil
+	if noEvents {
+		// we need retry here because if Get() failed on an watch update,
+		// it has to wait 10 mins to be notified to try again
+		if execErr := c.retrier.Attempt(func() error {
+			nv, err = c.get(key)
+			if err == kv.ErrNotFound {
+				// do not retry on ErrNotFound
+				return xretry.NonRetryableError(err)
+			}
+			return err
+		}); execErr != nil && xerrors.GetInnerNonRetryableError(execErr) != kv.ErrNotFound {
+			return execErr
 		}
-		return err
-	}); execErr != nil && xerrors.GetInnerNonRetryableError(execErr) != kv.ErrNotFound {
-		return execErr
 	}
 
 	c.RLock()
@@ -381,19 +387,26 @@ func (c *client) update(key string) error {
 	}
 
 	curValue := w.Get()
-	if curValue == nil && newValue == nil {
-		// nothing to update
-		return nil
-	}
 
-	if curValue == nil || newValue == nil {
-		// got the first value or received a delete update
-		return w.Update(newValue)
+	if !noEvents {
+		lastEvent = events[len(events)-1]
+		nv = newValue(lastEvent.Kv.Value, lastEvent.Kv.Version, lastEvent.Kv.ModRevision)
+	}
+	defer c.mergeCache(key, nv.(*value))
+
+	if curValue == nil {
+		// At watch creation or at key creation, just update the watch to current value.
+		if noEvents || lastEvent.IsCreate() {
+			return w.Update(nv)
+		}
 	}
 
 	// now both curValue and newValue are valid, compare version
-	if newValue.IsNewer(curValue) {
-		return w.Update(newValue)
+	if nv.IsNewer(curValue) {
+		if lastEvent.Type == clientv3.EventTypeDelete {
+			return w.Update(nil)
+		}
+		return w.Update(nv)
 	}
 
 	return nil
