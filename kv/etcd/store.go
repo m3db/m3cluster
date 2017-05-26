@@ -392,16 +392,18 @@ func (c *client) update(key string, events []*clientv3.Event) error {
 		lastEvent = events[len(events)-1]
 		nv = newValue(lastEvent.Kv.Value, lastEvent.Kv.Version, lastEvent.Kv.ModRevision)
 	}
-	defer c.mergeCache(key, nv.(*value))
+
+	if nv != nil {
+		defer c.mergeCache(key, nv.(*value))
+	}
 
 	if curValue == nil {
 		// At watch creation or at key creation, just update the watch to current value.
-		if noEvents || lastEvent.IsCreate() {
+		if noEvents || lastEvent.Type != clientv3.EventTypeDelete {
 			return w.Update(nv)
 		}
 	}
 
-	// now both curValue and newValue are valid, compare version
 	if nv.IsNewer(curValue) {
 		if lastEvent.Type == clientv3.EventTypeDelete {
 			return w.Update(nil)
