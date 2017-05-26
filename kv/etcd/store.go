@@ -377,6 +377,10 @@ func (c *client) update(key string, events []*clientv3.Event) error {
 		}); execErr != nil && xerrors.GetInnerNonRetryableError(execErr) != kv.ErrNotFound {
 			return execErr
 		}
+	} else {
+		lastEvent = events[len(events)-1]
+		nv = newValue(lastEvent.Kv.Value, lastEvent.Kv.Version, lastEvent.Kv.ModRevision)
+		c.mergeCache(key, nv.(*value))
 	}
 
 	c.RLock()
@@ -388,24 +392,18 @@ func (c *client) update(key string, events []*clientv3.Event) error {
 
 	curValue := w.Get()
 
-	if !noEvents {
-		lastEvent = events[len(events)-1]
-		nv = newValue(lastEvent.Kv.Value, lastEvent.Kv.Version, lastEvent.Kv.ModRevision)
-	}
-
-	if nv != nil {
-		defer c.mergeCache(key, nv.(*value))
+	// They have the same values, or both are nil. There is nothing to do.
+	if curValue == nv {
+		return nil
 	}
 
 	if curValue == nil {
 		// At watch creation or at key creation, just update the watch to current value.
-		if noEvents || lastEvent.Type != clientv3.EventTypeDelete {
-			return w.Update(nv)
-		}
+		return w.Update(nv)
 	}
 
 	if nv.IsNewer(curValue) {
-		if lastEvent.Type == clientv3.EventTypeDelete {
+		if lastEvent != nil && lastEvent.Type == clientv3.EventTypeDelete {
 			return w.Update(nil)
 		}
 		return w.Update(nv)
