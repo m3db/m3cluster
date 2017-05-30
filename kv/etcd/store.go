@@ -355,32 +355,51 @@ func (c *client) Watch(key string) (kv.ValueWatch, error) {
 	return w, err
 }
 
+func (c *client) getFromKVStore(key string) (kv.Value, error) {
+	var (
+		nv  kv.Value
+		err error
+	)
+	if execErr := c.retrier.Attempt(func() error {
+		nv, err = c.get(key)
+		if err == kv.ErrNotFound {
+			// do not retry on ErrNotFound
+			return xretry.NonRetryableError(err)
+		}
+		return err
+	}); execErr != nil && xerrors.GetInnerNonRetryableError(execErr) != kv.ErrNotFound {
+		return nil, execErr
+	}
+
+	return nv, nil
+}
+
+func (c *client) getFromEtcdEvents(key string, events []*clientv3.Event) kv.Value {
+	lastEvent := events[len(events)-1]
+	if lastEvent.Type == clientv3.EventTypeDelete {
+		return nil
+	}
+	nv := newValue(lastEvent.Kv.Value, lastEvent.Kv.Version, lastEvent.Kv.ModRevision)
+
+	c.mergeCache(key, nv)
+	return nv
+}
+
 func (c *client) update(key string, events []*clientv3.Event) error {
 	var (
-		nv        kv.Value
-		err       error
-		lastEvent *clientv3.Event
+		nv  kv.Value
+		err error
 	)
 
 	noEvents := events == nil || len(events) == 0
-	// Just do a get if events are nil
 	if noEvents {
-		// we need retry here because if Get() failed on an watch update,
-		// it has to wait 10 mins to be notified to try again
-		if execErr := c.retrier.Attempt(func() error {
-			nv, err = c.get(key)
-			if err == kv.ErrNotFound {
-				// do not retry on ErrNotFound
-				return xretry.NonRetryableError(err)
-			}
-			return err
-		}); execErr != nil && xerrors.GetInnerNonRetryableError(execErr) != kv.ErrNotFound {
-			return execErr
-		}
+		nv, err = c.getFromKVStore(key)
 	} else {
-		lastEvent = events[len(events)-1]
-		nv = newValue(lastEvent.Kv.Value, lastEvent.Kv.Version, lastEvent.Kv.ModRevision)
-		c.mergeCache(key, nv.(*value))
+		nv = c.getFromEtcdEvents(key, events)
+	}
+
+	if err != nil {
+		return nil
 	}
 
 	c.RLock()
@@ -392,20 +411,17 @@ func (c *client) update(key string, events []*clientv3.Event) error {
 
 	curValue := w.Get()
 
-	// They have the same values, or both are nil. There is nothing to do.
-	if curValue == nv {
+	// Both current and new are nil.
+	if curValue == nil && nv == nil {
 		return nil
 	}
 
-	if curValue == nil {
-		// At watch creation or at key creation, just update the watch to current value.
+	if curValue == nil || nv == nil {
+		// At creation or deletion, just update the watch to current value.
 		return w.Update(nv)
 	}
 
 	if nv.IsNewer(curValue) {
-		if lastEvent != nil && lastEvent.Type == clientv3.EventTypeDelete {
-			return w.Update(nil)
-		}
 		return w.Update(nv)
 	}
 
