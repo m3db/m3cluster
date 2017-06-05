@@ -1918,33 +1918,34 @@ func (_mr *_MockLeaderServiceRecorder) Close() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Close")
 }
 
-func (_m *MockLeaderService) Campaign() error {
-	ret := _m.ctrl.Call(_m, "Campaign")
+func (_m *MockLeaderService) Campaign(electionID string) (watch.Watch, error) {
+	ret := _m.ctrl.Call(_m, "Campaign", electionID)
+	ret0, _ := ret[0].(watch.Watch)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockLeaderServiceRecorder) Campaign(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Campaign", arg0)
+}
+
+func (_m *MockLeaderService) Resign(electionID string) error {
+	ret := _m.ctrl.Call(_m, "Resign", electionID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLeaderServiceRecorder) Campaign() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Campaign")
+func (_mr *_MockLeaderServiceRecorder) Resign(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Resign", arg0)
 }
 
-func (_m *MockLeaderService) Resign() error {
-	ret := _m.ctrl.Call(_m, "Resign")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockLeaderServiceRecorder) Resign() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Resign")
-}
-
-func (_m *MockLeaderService) Leader() (string, error) {
-	ret := _m.ctrl.Call(_m, "Leader")
+func (_m *MockLeaderService) Leader(electionID string) (string, error) {
+	ret := _m.ctrl.Call(_m, "Leader", electionID)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockLeaderServiceRecorder) Leader() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Leader")
+func (_mr *_MockLeaderServiceRecorder) Leader(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Leader", arg0)
 }

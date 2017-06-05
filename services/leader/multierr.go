@@ -1,14 +1,15 @@
 package leader
 
-import (
-	"strings"
-)
+import "strings"
 
 type multiErr struct {
 	errs []error
 }
 
-func newMultiError(errs []error) error {
+func newMultiError(errs ...error) error {
+	if len(errs) == 0 {
+		return nil
+	}
 	return multiErr{errs: errs}
 }
 

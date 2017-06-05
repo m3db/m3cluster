@@ -36,6 +36,10 @@ const (
 	CampaignClosed
 )
 
+// appended to elections with an empty string for electionID to make it easier
+// for user to debug etcd keys
+const defaultElectionSuffix = "default"
+
 var (
 	// ErrSessionExpired is returned when a client's session (etcd lease) is no
 	// longer being refreshed for any reason (due to expiration, error state,
@@ -49,16 +53,20 @@ var (
 type client struct {
 	sync.Mutex
 
-	ctxCancel context.CancelFunc
-	election  *concurrency.Election
-	session   *concurrency.Session
-	val       string
-	closed    uint32
-	wb        xwatch.Watchable
+	ctxCancel   context.CancelFunc
+	election    *concurrency.Election
+	session     *concurrency.Session
+	val         string
+	closed      uint32
+	campaigning uint32
+	wb          xwatch.Watchable
 }
 
 // newClient returns an instance of an client client bound to a single election.
-func newClient(cli *clientv3.Client, opts Options) (*client, error) {
+//
+// TODO(mschalle): condense all the places options can be passed + allow caller
+// to set TTL opts
+func newClient(cli *clientv3.Client, opts Options, electionID string) (*client, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
@@ -73,7 +81,7 @@ func newClient(cli *clientv3.Client, opts Options) (*client, error) {
 		return nil, err
 	}
 
-	election := concurrency.NewElection(session, servicePrefix(opts.ServiceID()))
+	election := concurrency.NewElection(session, electionPrefix(opts.ServiceID(), electionID))
 
 	wb := xwatch.NewWatchable()
 	wb.Update(CampaignUnstarted)
@@ -89,6 +97,10 @@ func newClient(cli *clientv3.Client, opts Options) (*client, error) {
 func (c *client) Campaign() (xwatch.Watch, error) {
 	if c.isClosed() {
 		return nil, ErrClientClosed
+	}
+
+	if !atomic.CompareAndSwapUint32(&c.campaigning, 0, 1) {
+		return nil, ErrCampaignInProgress
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -112,6 +124,7 @@ func (c *client) Campaign() (xwatch.Watch, error) {
 			c.wb.Update(CampaignLeader)
 		}
 
+		cancel()
 		c.Lock()
 		c.ctxCancel = nil
 		c.Unlock()
@@ -203,14 +216,14 @@ func servicePrefix(sid services.ServiceID) string {
 		fmt.Sprintf(keyFormat, env, sid.Name()))
 }
 
-func electionPrefix(opts Options) string {
-	eid := opts.ElectionOpts().ElectionID()
+func electionPrefix(sid services.ServiceID, electionID string) string {
+	eid := electionID
 	if eid == "" {
-		eid = svcElectionSuffix
+		eid = defaultElectionSuffix
 	}
 
 	return fmt.Sprintf(
 		keyFormat,
-		servicePrefix(opts.ServiceID()),
+		servicePrefix(sid),
 		eid)
 }

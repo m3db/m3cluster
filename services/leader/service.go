@@ -7,6 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"fmt"
+
 	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3x/watch"
@@ -18,14 +20,6 @@ const (
 	keyFormat         = "%s/%s"
 	defaultHostname   = "default_hostname"
 	leaderCallTimeout = 30 * time.Second
-
-	// NB(mschalle): etcd's election API is based on prefixes, so if we have a
-	// service-wide election and don't append some suffix, then a service-wide
-	// election key would be a substring of a scoped sub-election (i.e. one with
-	// an election ID). So we need to append a suffix to service-wide election
-	// keys. We also want one that probably wouldn't conflict with a
-	// sub-election ID
-	svcElectionSuffix = "SVC_WIDE_ELECTION"
 )
 
 var (
@@ -41,9 +35,10 @@ var (
 type service struct {
 	sync.RWMutex
 
-	closed  uint32
-	clients map[string]*client
-	opts    Options
+	closed     uint32
+	clients    map[string]*client
+	opts       Options
+	etcdClient *clientv3.Client
 }
 
 // NewService creates a new leader service client based on an etcd client.
@@ -53,8 +48,9 @@ func NewService(cli *clientv3.Client, opts Options) (services.LeaderService, err
 	}
 
 	return &service{
-		clients: make(map[string]*client),
-		opts:    opts,
+		clients:    make(map[string]*client),
+		opts:       opts,
+		etcdClient: cli,
 	}, nil
 }
 
@@ -101,20 +97,79 @@ func (s *service) closeClients() error {
 	}
 
 	if len(errs) > 0 {
-		return newMultiError(errs)
+		return newMultiError(errs...)
 	}
 
 	return nil
 }
 
+func (s *service) getOrCreateClient(electionID string) (*client, error) {
+	s.RLock()
+	client, ok := s.clients[electionID]
+	s.RUnlock()
+	if ok {
+		return client, nil
+	}
+
+	clientNew, err := newClient(s.etcdClient, s.opts, electionID)
+	if err != nil {
+		return nil, err
+	}
+
+	s.Lock()
+	defer s.Unlock()
+
+	client, ok = s.clients[electionID]
+	if ok {
+		// another client was created between RLock and now, close new one
+		go clientNew.Close()
+		return client, nil
+	}
+
+	s.clients[electionID] = clientNew
+	return clientNew, nil
+}
+
 func (s *service) Campaign(electionID string) (xwatch.Watch, error) {
-	panic("not implemented")
+	if s.isClosed() {
+		return nil, ErrClientClosed
+	}
+
+	client, err := s.getOrCreateClient(electionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.Campaign()
 }
 
 func (s *service) Resign(electionID string) error {
-	panic("not implemented")
+	if s.isClosed() {
+		return ErrClientClosed
+	}
+
+	s.RLock()
+	client, ok := s.clients[electionID]
+	s.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("no election with ID '%s' to resign", electionID)
+	}
+
+	return client.Resign()
 }
 
 func (s *service) Leader(electionID string) (string, error) {
-	panic("not implemented")
+	if s.isClosed() {
+		return "", ErrClientClosed
+	}
+
+	// always create a client so we can check election statuses without
+	// campaigning
+	client, err := s.getOrCreateClient(electionID)
+	if err != nil {
+		return "", err
+	}
+
+	return client.Leader()
 }

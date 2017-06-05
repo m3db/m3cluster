@@ -30,8 +30,8 @@ func waitUntil(timeout time.Duration, fn conditionFn) error {
 	return fmt.Errorf("fn not true within %s", timeout.String())
 }
 
-func waitForState(timeout time.Duration, wb xwatch.Watch, target CampaignState) error {
-	return waitUntil(timeout, func() bool {
+func waitForState(wb xwatch.Watch, target CampaignState) error {
+	return waitUntil(defaultWait, func() bool {
 		if state, ok := wb.Get().(CampaignState); ok {
 			return ok && state == target
 		}
@@ -72,8 +72,15 @@ func (tc *testCluster) options(override string) Options {
 		SetServiceID(sid)
 }
 
-func (tc *testCluster) service(override string) *client {
-	svc, err := newClient(tc.etcdClient(), tc.options(override))
+func (tc *testCluster) client(override string) *client {
+	svc, err := newClient(tc.etcdClient(), tc.options(override), "")
+	require.NoError(tc.t, err)
+
+	return svc
+}
+
+func (tc *testCluster) service(override string) services.LeaderService {
+	svc, err := NewService(tc.etcdClient(), tc.options(override))
 	require.NoError(tc.t, err)
 
 	return svc
@@ -83,7 +90,7 @@ func TestNewClient(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc, err := newClient(tc.etcdClient(), tc.options(""))
+	svc, err := newClient(tc.etcdClient(), tc.options(""), "")
 	assert.NoError(t, err)
 	assert.NotNil(t, svc)
 }
@@ -92,28 +99,31 @@ func TestCampaign(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc := tc.service("")
+	svc := tc.client("")
 
 	wb, err := svc.Campaign()
 	assert.NoError(t, err)
 
-	assert.NoError(t, waitForState(defaultWait, wb, CampaignLeader))
+	assert.NoError(t, waitForState(wb, CampaignLeader))
 
 	ld, err := svc.Leader()
 	assert.NoError(t, err)
 	assert.Equal(t, svc.val, ld)
+
+	_, err = svc.Campaign()
+	assert.Equal(t, ErrCampaignInProgress, err)
 }
 
 func TestResign(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc := tc.service("i1")
+	svc := tc.client("i1")
 
 	wb, err := svc.Campaign()
 	assert.NoError(t, err)
 
-	assert.NoError(t, waitForState(defaultWait, wb, CampaignLeader))
+	assert.NoError(t, waitForState(wb, CampaignLeader))
 
 	ld, err := svc.Leader()
 	assert.NoError(t, err)
@@ -122,7 +132,7 @@ func TestResign(t *testing.T) {
 	err = svc.Resign()
 	assert.NoError(t, err)
 
-	assert.NoError(t, waitForState(defaultWait, wb, CampaignFollower))
+	assert.NoError(t, waitForState(wb, CampaignFollower))
 
 	ld, err = svc.Leader()
 	assert.Equal(t, concurrency.ErrElectionNoLeader, err)
@@ -133,14 +143,14 @@ func testHandoff(t *testing.T, resign bool) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc1, svc2 := tc.service("i1"), tc.service("i2")
+	svc1, svc2 := tc.client("i1"), tc.client("i2")
 
 	wb1, err := svc1.Campaign()
 	assert.NoError(t, err)
-	assert.NoError(t, waitForState(defaultWait, wb1, CampaignLeader))
+	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
 	wb2, err := svc2.Campaign()
-	assert.NoError(t, waitForState(defaultWait, wb2, CampaignFollower))
+	assert.NoError(t, waitForState(wb2, CampaignFollower))
 
 	ld, err := svc1.Leader()
 	assert.NoError(t, err)
@@ -148,14 +158,14 @@ func testHandoff(t *testing.T, resign bool) {
 
 	if resign {
 		err = svc1.Resign()
-		assert.NoError(t, waitForState(defaultWait, wb1, CampaignFollower))
+		assert.NoError(t, waitForState(wb1, CampaignFollower))
 	} else {
 		err = svc1.Close()
-		assert.NoError(t, waitForState(defaultWait, wb1, CampaignClosed))
+		assert.NoError(t, waitForState(wb1, CampaignClosed))
 	}
 	assert.NoError(t, err)
 
-	assert.NoError(t, waitForState(defaultWait, wb2, CampaignLeader))
+	assert.NoError(t, waitForState(wb2, CampaignLeader))
 
 	ld, err = svc2.Leader()
 	assert.NoError(t, err)
@@ -174,14 +184,14 @@ func TestCampaign_Close_NonLeader(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc1, svc2 := tc.service("i1"), tc.service("i2")
+	svc1, svc2 := tc.client("i1"), tc.client("i2")
 
 	wb1, err := svc1.Campaign()
 	assert.NoError(t, err)
-	assert.NoError(t, waitForState(defaultWait, wb1, CampaignLeader))
+	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
 	wb2, err := svc2.Campaign()
-	assert.NoError(t, waitForState(defaultWait, wb2, CampaignFollower))
+	assert.NoError(t, waitForState(wb2, CampaignFollower))
 
 	ld, err := svc1.Leader()
 	assert.NoError(t, err)
@@ -189,10 +199,10 @@ func TestCampaign_Close_NonLeader(t *testing.T) {
 
 	err = svc2.Close()
 	assert.NoError(t, err)
-	assert.NoError(t, waitForState(defaultWait, wb2, CampaignClosed))
+	assert.NoError(t, waitForState(wb2, CampaignClosed))
 
 	err = svc1.Resign()
-	assert.NoError(t, waitForState(defaultWait, wb1, CampaignFollower))
+	assert.NoError(t, waitForState(wb1, CampaignFollower))
 
 	ld, err = svc2.Leader()
 	assert.Equal(t, concurrency.ErrElectionNoLeader, err)
@@ -202,11 +212,11 @@ func TestClose(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc := tc.service("i1")
+	svc := tc.client("i1")
 
 	wb, err := svc.Campaign()
 	assert.NoError(t, err)
-	assert.NoError(t, waitForState(defaultWait, wb, CampaignLeader))
+	assert.NoError(t, waitForState(wb, CampaignLeader))
 
 	ld, err := svc.Leader()
 	assert.NoError(t, err)
@@ -215,7 +225,7 @@ func TestClose(t *testing.T) {
 	err = svc.Close()
 	assert.NoError(t, err)
 	assert.True(t, svc.isClosed())
-	assert.NoError(t, waitForState(defaultWait, wb, CampaignClosed))
+	assert.NoError(t, waitForState(wb, CampaignClosed))
 
 	err = svc.Resign()
 	assert.Equal(t, ErrClientClosed, err)
@@ -228,10 +238,10 @@ func TestLeader(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc1, svc2 := tc.service("i1"), tc.service("i2")
+	svc1, svc2 := tc.client("i1"), tc.client("i2")
 	wb, err := svc1.Campaign()
 	assert.NoError(t, err)
-	assert.NoError(t, waitForState(defaultWait, wb, CampaignLeader))
+	assert.NoError(t, waitForState(wb, CampaignLeader))
 
 	ld, err := svc2.Leader()
 	assert.NoError(t, err)
@@ -243,8 +253,8 @@ func TestElectionPrefix(t *testing.T) {
 	for args, exp := range map[*struct {
 		env, name, eid string
 	}]string{
-		{"", "svc", ""}:       "_ld/svc/SVC_WIDE_ELECTION",
-		{"env", "svc", ""}:    "_ld/env/svc/SVC_WIDE_ELECTION",
+		{"", "svc", ""}:       "_ld/svc/default",
+		{"env", "svc", ""}:    "_ld/env/svc/default",
 		{"", "svc", "foo"}:    "_ld/svc/foo",
 		{"env", "svc", "foo"}: "_ld/env/svc/foo",
 	} {
@@ -252,14 +262,7 @@ func TestElectionPrefix(t *testing.T) {
 			SetEnvironment(args.env).
 			SetName(args.name)
 
-		eo := services.NewElectionOptions().
-			SetElectionID(args.eid)
-
-		opts := NewOptions().
-			SetServiceID(sid).
-			SetElectionOpts(eo)
-
-		pfx := electionPrefix(opts)
+		pfx := electionPrefix(sid, args.eid)
 
 		assert.Equal(t, exp, pfx)
 	}
