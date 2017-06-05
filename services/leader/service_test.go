@@ -184,10 +184,10 @@ func TestClose(t *testing.T) {
 	assert.True(t, svc.(*client).isClosed())
 
 	err = svc.Resign()
-	assert.Equal(t, errClientClosed, err)
+	assert.Equal(t, ErrClientClosed, err)
 
 	err = svc.Campaign()
-	assert.Equal(t, errClientClosed, err)
+	assert.Equal(t, ErrClientClosed, err)
 }
 
 func TestLeader(t *testing.T) {

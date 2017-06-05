@@ -31,8 +31,12 @@ const (
 )
 
 var (
-	errClientClosed       = errors.New("election client is closed")
-	errCampaignInProgress = errors.New("a campaign is already in progress")
+	// ErrClientClosed indicates the election service client has been closed and
+	// no more elections can be started.
+	ErrClientClosed = errors.New("election client is closed")
+	// ErrCampaignInProgress indicates a campaign cannot be started because one
+	// is already in progress.
+	ErrCampaignInProgress = errors.New("a campaign is already in progress")
 )
 
 // NewService creates a new leader service client based on an etcd client.
@@ -72,7 +76,7 @@ type client struct {
 
 func (c *client) Campaign() error {
 	if c.isClosed() {
-		return errClientClosed
+		return ErrClientClosed
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -93,7 +97,7 @@ func (c *client) Campaign() error {
 
 func (c *client) Resign() error {
 	if c.isClosed() {
-		return errClientClosed
+		return ErrClientClosed
 	}
 
 	c.Lock()
