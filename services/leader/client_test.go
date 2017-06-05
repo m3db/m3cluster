@@ -2,25 +2,62 @@ package leader
 
 import (
 	"testing"
+	"time"
+
+	"fmt"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/coreos/etcd/integration"
 	"github.com/m3db/m3cluster/services"
+	"github.com/m3db/m3x/watch"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const defaultWait = 10 * time.Second
+
+type conditionFn func() bool
+
+func waitUntil(timeout time.Duration, fn conditionFn) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if fn() {
+			return nil
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return fmt.Errorf("fn not true within %s", timeout.String())
+}
+
+func waitForState(timeout time.Duration, wb xwatch.Watch, target CampaignState) error {
+	return waitUntil(timeout, func() bool {
+		if state, ok := wb.Get().(CampaignState); ok {
+			return ok && state == target
+		}
+		return false
+	})
+}
 
 type testCluster struct {
 	t       *testing.T
 	cluster *integration.ClusterV3
 }
 
+func newTestCluster(t *testing.T) *testCluster {
+	return &testCluster{
+		t: t,
+		cluster: integration.NewClusterV3(t, &integration.ClusterConfig{
+			Size: 1,
+		}),
+	}
+}
+
 func (tc *testCluster) close() {
 	tc.cluster.Terminate(tc.t)
 }
 
-func (tc *testCluster) client() *clientv3.Client {
+func (tc *testCluster) etcdClient() *clientv3.Client {
 	return tc.cluster.RandClient()
 }
 
@@ -35,18 +72,18 @@ func (tc *testCluster) options(override string) Options {
 		SetServiceID(sid)
 }
 
-func (tc *testCluster) service(override string) services.LeaderService {
-	svc, err := NewService(tc.client(), tc.options(override))
+func (tc *testCluster) service(override string) *client {
+	svc, err := newClient(tc.etcdClient(), tc.options(override))
 	require.NoError(tc.t, err)
 
 	return svc
 }
 
-func TestNewService(t *testing.T) {
+func TestNewClient(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc, err := NewService(tc.client(), tc.options(""))
+	svc, err := newClient(tc.etcdClient(), tc.options(""))
 	assert.NoError(t, err)
 	assert.NotNil(t, svc)
 }
@@ -57,12 +94,14 @@ func TestCampaign(t *testing.T) {
 
 	svc := tc.service("")
 
-	err := svc.Campaign()
+	wb, err := svc.Campaign()
 	assert.NoError(t, err)
+
+	assert.NoError(t, waitForState(defaultWait, wb, CampaignLeader))
 
 	ld, err := svc.Leader()
 	assert.NoError(t, err)
-	assert.Equal(t, svc.(*client).val, ld)
+	assert.Equal(t, svc.val, ld)
 }
 
 func TestResign(t *testing.T) {
@@ -71,8 +110,10 @@ func TestResign(t *testing.T) {
 
 	svc := tc.service("i1")
 
-	err := svc.Campaign()
+	wb, err := svc.Campaign()
 	assert.NoError(t, err)
+
+	assert.NoError(t, waitForState(defaultWait, wb, CampaignLeader))
 
 	ld, err := svc.Leader()
 	assert.NoError(t, err)
@@ -80,6 +121,8 @@ func TestResign(t *testing.T) {
 
 	err = svc.Resign()
 	assert.NoError(t, err)
+
+	assert.NoError(t, waitForState(defaultWait, wb, CampaignFollower))
 
 	ld, err = svc.Leader()
 	assert.Equal(t, concurrency.ErrElectionNoLeader, err)
@@ -90,20 +133,14 @@ func testHandoff(t *testing.T, resign bool) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	// need this channel before in order to make sure we don't close the test
-	// cluster before the svc2 campaign goroutine has an opportunity to complete
-	ld2ch := make(chan struct{})
-
 	svc1, svc2 := tc.service("i1"), tc.service("i2")
 
-	err := svc1.Campaign()
+	wb1, err := svc1.Campaign()
 	assert.NoError(t, err)
+	assert.NoError(t, waitForState(defaultWait, wb1, CampaignLeader))
 
-	go func() {
-		err := svc2.Campaign()
-		ld2ch <- struct{}{}
-		assert.NoError(t, err)
-	}()
+	wb2, err := svc2.Campaign()
+	assert.NoError(t, waitForState(defaultWait, wb2, CampaignFollower))
 
 	ld, err := svc1.Leader()
 	assert.NoError(t, err)
@@ -111,12 +148,14 @@ func testHandoff(t *testing.T, resign bool) {
 
 	if resign {
 		err = svc1.Resign()
+		assert.NoError(t, waitForState(defaultWait, wb1, CampaignFollower))
 	} else {
 		err = svc1.Close()
+		assert.NoError(t, waitForState(defaultWait, wb1, CampaignClosed))
 	}
 	assert.NoError(t, err)
 
-	<-ld2ch
+	assert.NoError(t, waitForState(defaultWait, wb2, CampaignLeader))
 
 	ld, err = svc2.Leader()
 	assert.NoError(t, err)
@@ -135,20 +174,14 @@ func TestCampaign_Close_NonLeader(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	// need this channel before in order to make sure we don't close the test
-	// cluster before the svc2 campaign goroutine has an opportunity to complete
-	ld2ch := make(chan struct{})
-
 	svc1, svc2 := tc.service("i1"), tc.service("i2")
 
-	err := svc1.Campaign()
+	wb1, err := svc1.Campaign()
 	assert.NoError(t, err)
+	assert.NoError(t, waitForState(defaultWait, wb1, CampaignLeader))
 
-	go func() {
-		err := svc2.Campaign()
-		ld2ch <- struct{}{}
-		assert.Error(t, err)
-	}()
+	wb2, err := svc2.Campaign()
+	assert.NoError(t, waitForState(defaultWait, wb2, CampaignFollower))
 
 	ld, err := svc1.Leader()
 	assert.NoError(t, err)
@@ -156,11 +189,10 @@ func TestCampaign_Close_NonLeader(t *testing.T) {
 
 	err = svc2.Close()
 	assert.NoError(t, err)
+	assert.NoError(t, waitForState(defaultWait, wb2, CampaignClosed))
 
 	err = svc1.Resign()
-	assert.NoError(t, err)
-
-	<-ld2ch
+	assert.NoError(t, waitForState(defaultWait, wb1, CampaignFollower))
 
 	ld, err = svc2.Leader()
 	assert.Equal(t, concurrency.ErrElectionNoLeader, err)
@@ -172,8 +204,9 @@ func TestClose(t *testing.T) {
 
 	svc := tc.service("i1")
 
-	err := svc.Campaign()
+	wb, err := svc.Campaign()
 	assert.NoError(t, err)
+	assert.NoError(t, waitForState(defaultWait, wb, CampaignLeader))
 
 	ld, err := svc.Leader()
 	assert.NoError(t, err)
@@ -181,12 +214,13 @@ func TestClose(t *testing.T) {
 
 	err = svc.Close()
 	assert.NoError(t, err)
-	assert.True(t, svc.(*client).isClosed())
+	assert.True(t, svc.isClosed())
+	assert.NoError(t, waitForState(defaultWait, wb, CampaignClosed))
 
 	err = svc.Resign()
 	assert.Equal(t, ErrClientClosed, err)
 
-	err = svc.Campaign()
+	_, err = svc.Campaign()
 	assert.Equal(t, ErrClientClosed, err)
 }
 
@@ -195,22 +229,14 @@ func TestLeader(t *testing.T) {
 	defer tc.close()
 
 	svc1, svc2 := tc.service("i1"), tc.service("i2")
-	err := svc1.Campaign()
+	wb, err := svc1.Campaign()
 	assert.NoError(t, err)
+	assert.NoError(t, waitForState(defaultWait, wb, CampaignLeader))
 
 	ld, err := svc2.Leader()
 	assert.NoError(t, err)
 
 	assert.Equal(t, "i1", ld)
-}
-
-func newTestCluster(t *testing.T) *testCluster {
-	return &testCluster{
-		t: t,
-		cluster: integration.NewClusterV3(t, &integration.ClusterConfig{
-			Size: 1,
-		}),
-	}
 }
 
 func TestElectionPrefix(t *testing.T) {

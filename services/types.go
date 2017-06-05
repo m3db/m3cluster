@@ -475,15 +475,20 @@ type LeaderService interface {
 	// started and any outstanding campaigns are closed.
 	Close() error
 
-	// Campaign proposes that the caller become the leader, blocking until it is
-	// elected.
-	Campaign() error
+	// Campaign proposes that the caller become the leader for a specified
+	// election. It returns a watch which will notify when the state of the
+	// election changes. The watch's value will return either a
+	// leader.CampaignState type or an error type depending on the state of the
+	// campaign. The caller should type-switch accordingly.
+	//
+	// TODO(mschalle): formalize state changes; send specific event types?
+	Campaign(electionID string) (xwatch.Watch, error)
 
-	// Resign gives up the leadership if the caller is the current leader (if
-	// the caller is not the leader an error is returned).
-	Resign() error
+	// Resign gives up leadership of a specified election if the caller is the
+	// current leader (if the caller is not the leader an error is returned).
+	Resign(electionID string) error
 
-	// Leader returns the current leader (if there is no leader an empty string
-	// is returned).
-	Leader() (string, error)
+	// Leader returns the current leader of a specified election (if there is no
+	// leader an empty string is returned).
+	Leader(electionID string) (string, error)
 }
