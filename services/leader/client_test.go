@@ -32,8 +32,8 @@ func waitUntil(timeout time.Duration, fn conditionFn) error {
 
 func waitForState(wb xwatch.Watch, target CampaignState) error {
 	return waitUntil(defaultWait, func() bool {
-		if state, ok := wb.Get().(CampaignState); ok {
-			return ok && state == target
+		if status, ok := wb.Get().(CampaignStatus); ok {
+			return ok && status.State == target
 		}
 		return false
 	})

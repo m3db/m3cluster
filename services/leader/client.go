@@ -14,28 +14,6 @@ import (
 	"golang.org/x/net/context"
 )
 
-// CampaignState describes the state of a campaign as its relates to the
-// caller's leadership.
-type CampaignState int
-
-const (
-	// CampaignUnstarted indicates the caller has not yet called Campaign.
-	CampaignUnstarted CampaignState = iota
-
-	// CampaignFollower indicates the caller has called Campaign but has not yet
-	// been elected.
-	CampaignFollower
-
-	// CampaignLeader indicates the caller has called Campaign and was elected.
-	CampaignLeader
-
-	// CampaignError indicates the call to Campaign returned an error.
-	CampaignError
-
-	// CampaignClosed indicates the campaign has been closed.
-	CampaignClosed
-)
-
 // appended to elections with an empty string for electionID to make it easier
 // for user to debug etcd keys
 const defaultElectionSuffix = "default"
@@ -88,7 +66,7 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 	election := concurrency.NewElection(session, electionPrefix(opts.ServiceID(), electionID))
 
 	wb := xwatch.NewWatchable()
-	wb.Update(CampaignUnstarted)
+	wb.Update(okCampaignStatus(CampaignFollower))
 
 	return &client{
 		election: election,
@@ -115,18 +93,18 @@ func (c *client) Campaign() (xwatch.Watch, error) {
 	c.Unlock()
 
 	go func() {
-		c.wb.Update(CampaignFollower)
+		c.wb.Update(okCampaignStatus(CampaignFollower))
 		// blocks until elected or error
 		err := c.election.Campaign(ctx, c.val)
 		if err != nil {
-			c.wb.Update(err)
+			c.wb.Update(errCampaignStatus(err))
 		}
 
 		select {
 		case <-c.session.Done():
-			c.wb.Update(ErrSessionExpired)
+			c.wb.Update(errCampaignStatus(ErrSessionExpired))
 		default:
-			c.wb.Update(CampaignLeader)
+			c.wb.Update(okCampaignStatus(CampaignLeader))
 		}
 
 		cancel()
@@ -158,11 +136,11 @@ func (c *client) Resign() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.ResignTimeout())
 	defer cancel()
 	if err := c.election.Resign(ctx); err != nil {
-		c.wb.Update(err)
+		c.wb.Update(errCampaignStatus(err))
 		return err
 	}
 
-	c.wb.Update(CampaignFollower)
+	c.wb.Update(okCampaignStatus(CampaignFollower))
 	return nil
 }
 
@@ -184,7 +162,7 @@ func (c *client) Close() error {
 		c.cancelWithLock()
 		c.Unlock()
 
-		c.wb.Update(CampaignClosed)
+		c.wb.Update(okCampaignStatus(CampaignClosed))
 		c.wb.Close()
 		return c.session.Close()
 	}
