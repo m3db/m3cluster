@@ -499,8 +499,8 @@ type LeaderService interface {
 	Resign(electionID string) error
 
 	// Leader returns the current leader of a specified election (if there is no
-	// leader an empty string is returned). A ttl must be passed, for if there
-	// is no active session that has been created with a call to Campaign() then
-	// a new session will be created bound to this ttl.
+	// leader then leader.ErrNoLeader is returned). A ttl must be passed, for if
+	// there is no active session that has been created with a call to
+	// Campaign() then a new session will be created bound to this ttl.
 	Leader(electionID string, ttl int) (string, error)
 }

@@ -47,7 +47,10 @@ var (
 	ErrSessionExpired = errors.New("election client session (lease) expired")
 
 	// ErrNoLeader is returned when a call to Leader() is made to an election
-	// with no leader.
+	// with no leader. We duplicate this error so the user doesn't have to
+	// import etcd's concurrency package in order to check the cause of the
+	// error.
+	ErrNoLeader = concurrency.ErrElectionNoLeader
 )
 
 // NB(mschalle): when an etcd leader failover occurs, all current leases have
@@ -165,8 +168,12 @@ func (c *client) Resign() error {
 
 func (c *client) Leader() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.LeaderTimeout())
-	defer cancel()
-	return c.election.Leader(ctx)
+	ld, err := c.election.Leader(ctx)
+	cancel()
+	if err == concurrency.ErrElectionNoLeader {
+		return ld, ErrNoLeader
+	}
+	return ld, err
 }
 
 // Close closes the election service client entirely. No more campaigns can be

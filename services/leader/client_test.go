@@ -139,6 +139,16 @@ func TestResign(t *testing.T) {
 	assert.Equal(t, "", ld)
 }
 
+func TestResign_Early(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client("i1")
+
+	err := svc.Resign()
+	assert.NoError(t, err)
+}
+
 func testHandoff(t *testing.T, resign bool) {
 	tc := newTestCluster(t)
 	defer tc.close()
