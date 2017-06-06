@@ -1867,24 +1867,54 @@ func (_m *MockElectionOptions) EXPECT() *_MockElectionOptionsRecorder {
 	return _m.recorder
 }
 
-func (_m *MockElectionOptions) ElectionID() string {
-	ret := _m.ctrl.Call(_m, "ElectionID")
-	ret0, _ := ret[0].(string)
+func (_m *MockElectionOptions) LeaderTimeout() time.Duration {
+	ret := _m.ctrl.Call(_m, "LeaderTimeout")
+	ret0, _ := ret[0].(time.Duration)
 	return ret0
 }
 
-func (_mr *_MockElectionOptionsRecorder) ElectionID() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ElectionID")
+func (_mr *_MockElectionOptionsRecorder) LeaderTimeout() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LeaderTimeout")
 }
 
-func (_m *MockElectionOptions) SetElectionID(id string) ElectionOptions {
-	ret := _m.ctrl.Call(_m, "SetElectionID", id)
+func (_m *MockElectionOptions) SetLeaderTimeout(t time.Duration) ElectionOptions {
+	ret := _m.ctrl.Call(_m, "SetLeaderTimeout", t)
 	ret0, _ := ret[0].(ElectionOptions)
 	return ret0
 }
 
-func (_mr *_MockElectionOptionsRecorder) SetElectionID(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetElectionID", arg0)
+func (_mr *_MockElectionOptionsRecorder) SetLeaderTimeout(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetLeaderTimeout", arg0)
+}
+
+func (_m *MockElectionOptions) ResignTimeout() time.Duration {
+	ret := _m.ctrl.Call(_m, "ResignTimeout")
+	ret0, _ := ret[0].(time.Duration)
+	return ret0
+}
+
+func (_mr *_MockElectionOptionsRecorder) ResignTimeout() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResignTimeout")
+}
+
+func (_m *MockElectionOptions) SetResignTimeout(t time.Duration) ElectionOptions {
+	ret := _m.ctrl.Call(_m, "SetResignTimeout", t)
+	ret0, _ := ret[0].(ElectionOptions)
+	return ret0
+}
+
+func (_mr *_MockElectionOptionsRecorder) SetResignTimeout(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetResignTimeout", arg0)
+}
+
+func (_m *MockElectionOptions) String() string {
+	ret := _m.ctrl.Call(_m, "String")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockElectionOptionsRecorder) String() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "String")
 }
 
 // Mock of LeaderService interface
@@ -1918,15 +1948,15 @@ func (_mr *_MockLeaderServiceRecorder) Close() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Close")
 }
 
-func (_m *MockLeaderService) Campaign(electionID string) (watch.Watch, error) {
-	ret := _m.ctrl.Call(_m, "Campaign", electionID)
+func (_m *MockLeaderService) Campaign(electionID string, ttl int) (watch.Watch, error) {
+	ret := _m.ctrl.Call(_m, "Campaign", electionID, ttl)
 	ret0, _ := ret[0].(watch.Watch)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockLeaderServiceRecorder) Campaign(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Campaign", arg0)
+func (_mr *_MockLeaderServiceRecorder) Campaign(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Campaign", arg0, arg1)
 }
 
 func (_m *MockLeaderService) Resign(electionID string) error {
@@ -1939,13 +1969,13 @@ func (_mr *_MockLeaderServiceRecorder) Resign(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Resign", arg0)
 }
 
-func (_m *MockLeaderService) Leader(electionID string) (string, error) {
-	ret := _m.ctrl.Call(_m, "Leader", electionID)
+func (_m *MockLeaderService) Leader(electionID string, ttl int) (string, error) {
+	ret := _m.ctrl.Call(_m, "Leader", electionID, ttl)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockLeaderServiceRecorder) Leader(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Leader", arg0)
+func (_mr *_MockLeaderServiceRecorder) Leader(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Leader", arg0, arg1)
 }

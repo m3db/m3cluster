@@ -45,6 +45,9 @@ var (
 	// longer being refreshed for any reason (due to expiration, error state,
 	// etc.).
 	ErrSessionExpired = errors.New("election client session (lease) expired")
+
+	// ErrNoLeader is returned when a call to Leader() is made to an election
+	// with no leader.
 )
 
 // NB(mschalle): when an etcd leader failover occurs, all current leases have
@@ -56,6 +59,7 @@ type client struct {
 	ctxCancel   context.CancelFunc
 	election    *concurrency.Election
 	session     *concurrency.Session
+	opts        services.ElectionOptions
 	val         string
 	closed      uint32
 	campaigning uint32
@@ -63,16 +67,13 @@ type client struct {
 }
 
 // newClient returns an instance of an client client bound to a single election.
-//
-// TODO(mschalle): condense all the places options can be passed + allow caller
-// to set TTL opts
-func newClient(cli *clientv3.Client, opts Options, electionID string) (*client, error) {
+func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (*client, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
 
 	var sessionOpts []concurrency.SessionOption
-	if ttl := opts.TTL(); ttl != 0 {
+	if ttl != 0 {
 		sessionOpts = append(sessionOpts, concurrency.WithTTL(ttl))
 	}
 
@@ -89,6 +90,7 @@ func newClient(cli *clientv3.Client, opts Options, electionID string) (*client, 
 	return &client{
 		election: election,
 		session:  session,
+		opts:     opts.ElectionOpts(),
 		val:      opts.OverrideValue(),
 		wb:       wb,
 	}, nil
@@ -150,8 +152,9 @@ func (c *client) Resign() error {
 	// will stop the campaign
 	c.cancelWithLock()
 
-	// TODO(mschalle): resign context timeout?
-	if err := c.election.Resign(context.Background()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), c.opts.ResignTimeout())
+	defer cancel()
+	if err := c.election.Resign(ctx); err != nil {
 		c.wb.Update(err)
 		return err
 	}
@@ -161,7 +164,7 @@ func (c *client) Resign() error {
 }
 
 func (c *client) Leader() (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), leaderCallTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), c.opts.LeaderTimeout())
 	defer cancel()
 	return c.election.Leader(ctx)
 }

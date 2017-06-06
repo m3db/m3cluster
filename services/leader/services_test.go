@@ -22,19 +22,19 @@ func TestService_Campaign(t *testing.T) {
 
 	svc := tc.service("foo1")
 
-	wb, err := svc.Campaign("")
+	wb, err := svc.Campaign("", 5)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
-	_, err = svc.Campaign("")
+	_, err = svc.Campaign("", 5)
 	assert.Error(t, err)
 
-	wb1, err := svc.Campaign("1")
+	wb1, err := svc.Campaign("1", 5)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
 	for _, eid := range []string{"", "1"} {
-		ld, err := svc.Leader(eid)
+		ld, err := svc.Leader(eid, 5)
 		assert.NoError(t, err)
 		assert.Equal(t, "foo1", ld)
 	}
@@ -45,7 +45,7 @@ func TestService_Resign(t *testing.T) {
 	defer tc.close()
 
 	svc := tc.service("foo1")
-	wb, err := svc.Campaign("e")
+	wb, err := svc.Campaign("e", 5)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
@@ -63,14 +63,14 @@ func TestService_Leader(t *testing.T) {
 
 	svc := tc.service("foo1")
 
-	wb, err := svc.Campaign("")
+	wb, err := svc.Campaign("", 5)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
-	_, err = svc.Leader("z")
+	_, err = svc.Leader("z", 5)
 	assert.Equal(t, concurrency.ErrElectionNoLeader, err)
 
-	ld, err := svc.Leader("")
+	ld, err := svc.Leader("", 5)
 	assert.NoError(t, err)
 	assert.Equal(t, "foo1", ld)
 }
@@ -81,11 +81,11 @@ func TestService_Close(t *testing.T) {
 
 	svc := tc.service("foo")
 
-	wb1, err := svc.Campaign("1")
+	wb1, err := svc.Campaign("1", 5)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
-	wb2, err := svc.Campaign("2")
+	wb2, err := svc.Campaign("2", 5)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb2, CampaignLeader))
 
@@ -97,9 +97,9 @@ func TestService_Close(t *testing.T) {
 	assert.NoError(t, svc.Close())
 	assert.Error(t, svc.Resign(""))
 
-	_, err = svc.Campaign("")
+	_, err = svc.Campaign("", 5)
 	assert.Error(t, err)
 
-	_, err = svc.Leader("")
+	_, err = svc.Leader("", 5)
 	assert.Error(t, err)
 }

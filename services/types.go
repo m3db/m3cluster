@@ -461,12 +461,17 @@ type HeartbeatService interface {
 
 // ElectionOptions configure specific election-scoped options.
 type ElectionOptions interface {
-	// ElectionID returns the ID of the election. By default an election will be
-	// scoped to the service it was created for, but multiple elections can be
-	// held for a single service by setting different values using
-	// SetElectionID.
-	ElectionID() string
-	SetElectionID(id string) ElectionOptions
+	// Duration after which a call to Leader() will timeout if no response
+	// returned from etcd. Defaults to 30 seconds.
+	LeaderTimeout() time.Duration
+	SetLeaderTimeout(t time.Duration) ElectionOptions
+
+	// Duration after which a call to Resign() will timeout if no response
+	// returned from etcd. Defaults to 30 seconds.
+	ResignTimeout() time.Duration
+	SetResignTimeout(t time.Duration) ElectionOptions
+
+	String() string
 }
 
 // LeaderService provides access to etcd-backed leader elections.
@@ -476,19 +481,26 @@ type LeaderService interface {
 	Close() error
 
 	// Campaign proposes that the caller become the leader for a specified
-	// election. It returns a watch which will notify when the state of the
-	// election changes. The watch's value will return either a
-	// leader.CampaignState type or an error type depending on the state of the
-	// campaign. The caller should type-switch accordingly.
+	// election, with its leadership being refreshed on an interval of ttl
+	// seconds. If ttl is 0 it will default to etcd's default of 60s. It returns
+	// a watch which will notify events of type leader.CampaignStatus when the
+	// state of the election changes.
+	//
+	// NOTE: Once a campaign for a given electionID has been started, if it is
+	// lost or resigned and restarted it will be bound to the same TTL as the
+	// original due to constraints of etcd TTL sessions. The same applies if a
+	// call to Campaign() is made after a call to Leader() with the same ttl.
 	//
 	// TODO(mschalle): formalize state changes; send specific event types?
-	Campaign(electionID string) (xwatch.Watch, error)
+	Campaign(electionID string, ttl int) (xwatch.Watch, error)
 
 	// Resign gives up leadership of a specified election if the caller is the
 	// current leader (if the caller is not the leader an error is returned).
 	Resign(electionID string) error
 
 	// Leader returns the current leader of a specified election (if there is no
-	// leader an empty string is returned).
-	Leader(electionID string) (string, error)
+	// leader an empty string is returned). A ttl must be passed, for if there
+	// is no active session that has been created with a call to Campaign() then
+	// a new session will be created bound to this ttl.
+	Leader(electionID string, ttl int) (string, error)
 }

@@ -261,12 +261,35 @@ func (i PlacementInstances) String() string {
 
 // NewElectionOptions returns an empty ElectionOptions.
 func NewElectionOptions() ElectionOptions {
-	return &electionOpts{}
+	return electionOpts{
+		leaderTimeout: 30 * time.Second,
+		resignTimeout: 30 * time.Second,
+	}
 }
 
 type electionOpts struct {
-	id string
+	leaderTimeout time.Duration
+	resignTimeout time.Duration
 }
 
-func (e *electionOpts) ElectionID() string                      { return e.id }
-func (e *electionOpts) SetElectionID(id string) ElectionOptions { e.id = id; return e }
+func (e electionOpts) LeaderTimeout() time.Duration {
+	return e.leaderTimeout
+}
+
+func (e electionOpts) SetLeaderTimeout(t time.Duration) ElectionOptions {
+	e.leaderTimeout = t
+	return e
+}
+
+func (e electionOpts) ResignTimeout() time.Duration {
+	return e.resignTimeout
+}
+
+func (e electionOpts) SetResignTimeout(t time.Duration) ElectionOptions {
+	e.resignTimeout = t
+	return e
+}
+
+func (e electionOpts) String() string {
+	return fmt.Sprintf("[leaderTimeout: %s, resignTimeout: %s]", e.LeaderTimeout().String(), e.ResignTimeout().String())
+}

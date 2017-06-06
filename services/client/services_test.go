@@ -983,17 +983,18 @@ func TestLeaderService(t *testing.T) {
 	sid1 := services.NewServiceID().SetName("s1")
 	sid2 := services.NewServiceID().SetName("s2")
 	eo1 := services.NewElectionOptions()
-	eo2 := services.NewElectionOptions().SetElectionID("e1")
+	eo2 := services.NewElectionOptions().SetLeaderTimeout(10 * time.Second)
+	eo3 := services.NewElectionOptions().SetResignTimeout(10 * time.Second)
 
 	for _, sid := range []services.ServiceID{sid1, sid2} {
-		for _, eo := range []services.ElectionOptions{eo1, eo2} {
+		for _, eo := range []services.ElectionOptions{eo1, eo2, eo3} {
 			_, err := cl.LeaderService(sid, eo)
 			assert.NoError(t, err)
 		}
 	}
 
-	assert.Equal(t, 4, len(cl.(*client).ldSvcs),
-		"should cache 4 unique client entries")
+	assert.Equal(t, 6, len(cl.(*client).ldSvcs),
+		"should cache 6 unique client entries")
 }
 
 func newTestLeaderGen(mc *gomock.Controller) LeaderGen {

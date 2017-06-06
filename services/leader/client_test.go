@@ -73,7 +73,7 @@ func (tc *testCluster) options(override string) Options {
 }
 
 func (tc *testCluster) client(override string) *client {
-	svc, err := newClient(tc.etcdClient(), tc.options(override), "")
+	svc, err := newClient(tc.etcdClient(), tc.options(override), "", 5)
 	require.NoError(tc.t, err)
 
 	return svc
@@ -90,7 +90,7 @@ func TestNewClient(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc, err := newClient(tc.etcdClient(), tc.options(""), "")
+	svc, err := newClient(tc.etcdClient(), tc.options(""), "", 5)
 	assert.NoError(t, err)
 	assert.NotNil(t, svc)
 }

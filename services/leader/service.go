@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"fmt"
 
@@ -15,11 +14,10 @@ import (
 )
 
 const (
-	leaderKeyPrefix   = "_ld"
-	keySeparator      = "/"
-	keyFormat         = "%s/%s"
-	defaultHostname   = "default_hostname"
-	leaderCallTimeout = 30 * time.Second
+	leaderKeyPrefix = "_ld"
+	keySeparator    = "/"
+	keyFormat       = "%s/%s"
+	defaultHostname = "default_hostname"
 )
 
 var (
@@ -103,7 +101,7 @@ func (s *service) closeClients() error {
 	return nil
 }
 
-func (s *service) getOrCreateClient(electionID string) (*client, error) {
+func (s *service) getOrCreateClient(electionID string, ttl int) (*client, error) {
 	s.RLock()
 	client, ok := s.clients[electionID]
 	s.RUnlock()
@@ -111,7 +109,7 @@ func (s *service) getOrCreateClient(electionID string) (*client, error) {
 		return client, nil
 	}
 
-	clientNew, err := newClient(s.etcdClient, s.opts, electionID)
+	clientNew, err := newClient(s.etcdClient, s.opts, electionID, ttl)
 	if err != nil {
 		return nil, err
 	}
@@ -130,12 +128,12 @@ func (s *service) getOrCreateClient(electionID string) (*client, error) {
 	return clientNew, nil
 }
 
-func (s *service) Campaign(electionID string) (xwatch.Watch, error) {
+func (s *service) Campaign(electionID string, ttl int) (xwatch.Watch, error) {
 	if s.isClosed() {
 		return nil, ErrClientClosed
 	}
 
-	client, err := s.getOrCreateClient(electionID)
+	client, err := s.getOrCreateClient(electionID, ttl)
 	if err != nil {
 		return nil, err
 	}
@@ -159,14 +157,14 @@ func (s *service) Resign(electionID string) error {
 	return client.Resign()
 }
 
-func (s *service) Leader(electionID string) (string, error) {
+func (s *service) Leader(electionID string, ttl int) (string, error) {
 	if s.isClosed() {
 		return "", ErrClientClosed
 	}
 
 	// always create a client so we can check election statuses without
 	// campaigning
-	client, err := s.getOrCreateClient(electionID)
+	client, err := s.getOrCreateClient(electionID, ttl)
 	if err != nil {
 		return "", err
 	}

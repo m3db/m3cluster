@@ -18,10 +18,6 @@ type Options interface {
 	OverrideValue() string
 	SetOverrideValue(v string) Options
 
-	// TTL for leadership lease.
-	SetTTL(seconds int) Options
-	TTL() int
-
 	ElectionOpts() services.ElectionOptions
 	SetElectionOpts(e services.ElectionOptions) Options
 
@@ -30,7 +26,9 @@ type Options interface {
 
 // NewOptions returns an instance of leader options.
 func NewOptions() Options {
-	return options{}
+	return options{
+		eo: services.NewElectionOptions(),
+	}
 }
 
 type options struct {
@@ -66,15 +64,6 @@ func (o options) SetOverrideValue(v string) Options {
 	return o
 }
 
-func (o options) TTL() int {
-	return o.ttl
-}
-
-func (o options) SetTTL(seconds int) Options {
-	o.ttl = seconds
-	return o
-}
-
 func (o options) ElectionOpts() services.ElectionOptions {
 	return o.eo
 }
@@ -87,6 +76,11 @@ func (o options) SetElectionOpts(eo services.ElectionOptions) Options {
 func (o options) Validate() error {
 	if o.sid == nil {
 		return errors.New("leader options must specify service ID")
+	}
+
+	// this shouldn't happen since we have sane defaults but prevents user error
+	if o.eo == nil {
+		return errors.New("leader options election opts cannot be nil")
 	}
 
 	return nil
