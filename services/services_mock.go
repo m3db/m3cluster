@@ -1348,6 +1348,16 @@ func (_m *MockStagedPlacement) EXPECT() *_MockStagedPlacementRecorder {
 	return _m.recorder
 }
 
+func (_m *MockStagedPlacement) ActiveStagedPlacement(timeNanos int64) ActiveStagedPlacement {
+	ret := _m.ctrl.Call(_m, "ActiveStagedPlacement", timeNanos)
+	ret0, _ := ret[0].(ActiveStagedPlacement)
+	return ret0
+}
+
+func (_mr *_MockStagedPlacementRecorder) ActiveStagedPlacement(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ActiveStagedPlacement", arg0)
+}
+
 func (_m *MockStagedPlacement) Version() int {
 	ret := _m.ctrl.Call(_m, "Version")
 	ret0, _ := ret[0].(int)
@@ -1356,6 +1366,16 @@ func (_m *MockStagedPlacement) Version() int {
 
 func (_mr *_MockStagedPlacementRecorder) Version() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Version")
+}
+
+func (_m *MockStagedPlacement) SetVersion(version int) StagedPlacement {
+	ret := _m.ctrl.Call(_m, "SetVersion", version)
+	ret0, _ := ret[0].(StagedPlacement)
+	return ret0
+}
+
+func (_mr *_MockStagedPlacementRecorder) SetVersion(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVersion", arg0)
 }
 
 func (_m *MockStagedPlacement) Placements() []Placement {
@@ -1368,14 +1388,34 @@ func (_mr *_MockStagedPlacementRecorder) Placements() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Placements")
 }
 
-func (_m *MockStagedPlacement) ActiveStagedPlacement(timeNanos int64) ActiveStagedPlacement {
-	ret := _m.ctrl.Call(_m, "ActiveStagedPlacement", timeNanos)
-	ret0, _ := ret[0].(ActiveStagedPlacement)
+func (_m *MockStagedPlacement) SetPlacements(placements []Placement) StagedPlacement {
+	ret := _m.ctrl.Call(_m, "SetPlacements", placements)
+	ret0, _ := ret[0].(StagedPlacement)
 	return ret0
 }
 
-func (_mr *_MockStagedPlacementRecorder) ActiveStagedPlacement(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ActiveStagedPlacement", arg0)
+func (_mr *_MockStagedPlacementRecorder) SetPlacements(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetPlacements", arg0)
+}
+
+func (_m *MockStagedPlacement) ActiveStagedPlacementOptions() ActiveStagedPlacementOptions {
+	ret := _m.ctrl.Call(_m, "ActiveStagedPlacementOptions")
+	ret0, _ := ret[0].(ActiveStagedPlacementOptions)
+	return ret0
+}
+
+func (_mr *_MockStagedPlacementRecorder) ActiveStagedPlacementOptions() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ActiveStagedPlacementOptions")
+}
+
+func (_m *MockStagedPlacement) SetActiveStagedPlacementOptions(opts ActiveStagedPlacementOptions) StagedPlacement {
+	ret := _m.ctrl.Call(_m, "SetActiveStagedPlacementOptions", opts)
+	ret0, _ := ret[0].(StagedPlacement)
+	return ret0
+}
+
+func (_mr *_MockStagedPlacementRecorder) SetActiveStagedPlacementOptions(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetActiveStagedPlacementOptions", arg0)
 }
 
 // Mock of Placement interface
