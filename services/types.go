@@ -484,7 +484,7 @@ type LeaderService interface {
 	// election, with its leadership being refreshed on an interval of ttl
 	// seconds. If ttl is 0 it will default to etcd's default of 60s. It returns
 	// a watch which will notify events of type leader.CampaignStatus when the
-	// state of the election changes.
+	// status of the election changes.
 	//
 	// NOTE: Once a campaign for a given electionID has been started, if it is
 	// lost or resigned and restarted it will be bound to the same TTL as the

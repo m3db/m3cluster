@@ -100,15 +100,15 @@ func TestCampaign(t *testing.T) {
 
 	svc := tc.client("")
 
-	wb, err := svc.Campaign()
+	wb, err := svc.campaign()
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
-	ld, err := svc.Leader()
+	ld, err := svc.leader()
 	assert.NoError(t, err)
 	assert.Equal(t, svc.val, ld)
 
-	_, err = svc.Campaign()
+	_, err = svc.campaign()
 	assert.Equal(t, ErrCampaignInProgress, err)
 }
 
@@ -117,15 +117,15 @@ func TestCampaign_Renew(t *testing.T) {
 	defer tc.close()
 
 	svc := tc.client("i1")
-	wb, err := svc.Campaign()
+	wb, err := svc.campaign()
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
-	err = svc.Resign()
+	err = svc.resign()
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignFollower))
 
-	wb2, err := svc.Campaign()
+	wb2, err := svc.campaign()
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 	assert.True(t, wb == wb2, "watch should be cached and returned")
@@ -137,21 +137,21 @@ func TestResign(t *testing.T) {
 
 	svc := tc.client("i1")
 
-	wb, err := svc.Campaign()
+	wb, err := svc.campaign()
 	assert.NoError(t, err)
 
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
-	ld, err := svc.Leader()
+	ld, err := svc.leader()
 	assert.NoError(t, err)
 	assert.Equal(t, "i1", ld)
 
-	err = svc.Resign()
+	err = svc.resign()
 	assert.NoError(t, err)
 
 	assert.NoError(t, waitForState(wb, CampaignFollower))
 
-	ld, err = svc.Leader()
+	ld, err = svc.leader()
 	assert.Equal(t, concurrency.ErrElectionNoLeader, err)
 	assert.Equal(t, "", ld)
 }
@@ -162,7 +162,7 @@ func TestResign_Early(t *testing.T) {
 
 	svc := tc.client("i1")
 
-	err := svc.Resign()
+	err := svc.resign()
 	assert.NoError(t, err)
 }
 
@@ -172,29 +172,29 @@ func testHandoff(t *testing.T, resign bool) {
 
 	svc1, svc2 := tc.client("i1"), tc.client("i2")
 
-	wb1, err := svc1.Campaign()
+	wb1, err := svc1.campaign()
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
-	wb2, err := svc2.Campaign()
+	wb2, err := svc2.campaign()
 	assert.NoError(t, waitForState(wb2, CampaignFollower))
 
-	ld, err := svc1.Leader()
+	ld, err := svc1.leader()
 	assert.NoError(t, err)
 	assert.Equal(t, ld, "i1")
 
 	if resign {
-		err = svc1.Resign()
+		err = svc1.resign()
 		assert.NoError(t, waitForState(wb1, CampaignFollower))
 	} else {
-		err = svc1.Close()
+		err = svc1.close()
 		assert.NoError(t, waitForState(wb1, CampaignClosed))
 	}
 	assert.NoError(t, err)
 
 	assert.NoError(t, waitForState(wb2, CampaignLeader))
 
-	ld, err = svc2.Leader()
+	ld, err = svc2.leader()
 	assert.NoError(t, err)
 	assert.Equal(t, ld, "i2")
 }
@@ -213,25 +213,25 @@ func TestCampaign_Close_NonLeader(t *testing.T) {
 
 	svc1, svc2 := tc.client("i1"), tc.client("i2")
 
-	wb1, err := svc1.Campaign()
+	wb1, err := svc1.campaign()
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
-	wb2, err := svc2.Campaign()
+	wb2, err := svc2.campaign()
 	assert.NoError(t, waitForState(wb2, CampaignFollower))
 
-	ld, err := svc1.Leader()
+	ld, err := svc1.leader()
 	assert.NoError(t, err)
 	assert.Equal(t, ld, "i1")
 
-	err = svc2.Close()
+	err = svc2.close()
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb2, CampaignClosed))
 
-	err = svc1.Resign()
+	err = svc1.resign()
 	assert.NoError(t, waitForState(wb1, CampaignFollower))
 
-	ld, err = svc2.Leader()
+	ld, err = svc2.leader()
 	assert.Equal(t, concurrency.ErrElectionNoLeader, err)
 }
 
@@ -241,23 +241,23 @@ func TestClose(t *testing.T) {
 
 	svc := tc.client("i1")
 
-	wb, err := svc.Campaign()
+	wb, err := svc.campaign()
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
-	ld, err := svc.Leader()
+	ld, err := svc.leader()
 	assert.NoError(t, err)
 	assert.Equal(t, "i1", ld)
 
-	err = svc.Close()
+	err = svc.close()
 	assert.NoError(t, err)
 	assert.True(t, svc.isClosed())
 	assert.NoError(t, waitForState(wb, CampaignClosed))
 
-	err = svc.Resign()
+	err = svc.resign()
 	assert.Equal(t, ErrClientClosed, err)
 
-	_, err = svc.Campaign()
+	_, err = svc.campaign()
 	assert.Equal(t, ErrClientClosed, err)
 }
 
@@ -266,11 +266,11 @@ func TestLeader(t *testing.T) {
 	defer tc.close()
 
 	svc1, svc2 := tc.client("i1"), tc.client("i2")
-	wb, err := svc1.Campaign()
+	wb, err := svc1.campaign()
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
-	ld, err := svc2.Leader()
+	ld, err := svc2.leader()
 	assert.NoError(t, err)
 
 	assert.Equal(t, "i1", ld)

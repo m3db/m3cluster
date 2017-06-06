@@ -71,7 +71,7 @@ func (s *service) closeClients() error {
 		wg.Add(1)
 
 		go func(cl *client) {
-			if err := cl.Close(); err != nil {
+			if err := cl.close(); err != nil {
 				errC <- err
 			}
 			wg.Done()
@@ -116,7 +116,7 @@ func (s *service) getOrCreateClient(electionID string, ttl int) (*client, error)
 	client, ok = s.clients[electionID]
 	if ok {
 		// another client was created between RLock and now, close new one
-		go clientNew.Close()
+		go clientNew.close()
 		return client, nil
 	}
 
@@ -134,7 +134,7 @@ func (s *service) Campaign(electionID string, ttl int) (xwatch.Watch, error) {
 		return nil, err
 	}
 
-	return client.Campaign()
+	return client.campaign()
 }
 
 func (s *service) Resign(electionID string) error {
@@ -150,7 +150,7 @@ func (s *service) Resign(electionID string) error {
 		return fmt.Errorf("no election with ID '%s' to resign", electionID)
 	}
 
-	return client.Resign()
+	return client.resign()
 }
 
 func (s *service) Leader(electionID string, ttl int) (string, error) {
@@ -165,5 +165,5 @@ func (s *service) Leader(electionID string, ttl int) (string, error) {
 		return "", err
 	}
 
-	return client.Leader()
+	return client.leader()
 }

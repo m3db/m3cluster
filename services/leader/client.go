@@ -88,7 +88,7 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 	}, nil
 }
 
-func (c *client) Campaign() (xwatch.Watch, error) {
+func (c *client) campaign() (xwatch.Watch, error) {
 	if c.isClosed() {
 		return nil, ErrClientClosed
 	}
@@ -127,7 +127,7 @@ func (c *client) Campaign() (xwatch.Watch, error) {
 	return c.w, nil
 }
 
-func (c *client) Resign() error {
+func (c *client) resign() error {
 	if c.isClosed() {
 		return ErrClientClosed
 	}
@@ -151,7 +151,7 @@ func (c *client) Resign() error {
 	return nil
 }
 
-func (c *client) Leader() (string, error) {
+func (c *client) leader() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.LeaderTimeout())
 	ld, err := c.election.Leader(ctx)
 	cancel()
@@ -163,8 +163,8 @@ func (c *client) Leader() (string, error) {
 
 // Close closes the election service client entirely. No more campaigns can be
 // started and any outstanding campaigns are closed.
-func (c *client) Close() error {
-	if c.close() {
+func (c *client) close() error {
+	if c.setClosed() {
 		c.Lock()
 		c.cancelWithLock()
 		c.Unlock()
@@ -178,9 +178,9 @@ func (c *client) Close() error {
 	return nil
 }
 
-// close atomically sets c.closed to 1 and returns if the call was the first to
-// close the client
-func (c *client) close() bool {
+// setClosed atomically sets c.closed to 1 and returns if the call was the first
+// to close the client
+func (c *client) setClosed() bool {
 	return atomic.CompareAndSwapUint32(&c.closed, 0, 1)
 }
 
