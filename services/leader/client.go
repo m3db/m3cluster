@@ -19,16 +19,20 @@ import (
 const defaultElectionSuffix = "default"
 
 var (
-	// ErrSessionExpired is returned when a client's session (etcd lease) is no
-	// longer being refreshed for any reason (due to expiration, error state,
-	// etc.).
-	ErrSessionExpired = errors.New("election client session (lease) expired")
+	// ErrCampaignInProgress indicates a campaign cannot be started because one
+	// is already in progress.
+	ErrCampaignInProgress = errors.New("a campaign is already in progress")
 
 	// ErrNoLeader is returned when a call to Leader() is made to an election
 	// with no leader. We duplicate this error so the user doesn't have to
 	// import etcd's concurrency package in order to check the cause of the
 	// error.
 	ErrNoLeader = concurrency.ErrElectionNoLeader
+
+	// ErrSessionExpired is returned when a client's session (etcd lease) is no
+	// longer being refreshed for any reason (due to expiration, error state,
+	// etc.).
+	ErrSessionExpired = errors.New("election client session (lease) expired")
 )
 
 // NB(mschalle): when an etcd leader failover occurs, all current leases have
@@ -45,6 +49,7 @@ type client struct {
 	closed      uint32
 	campaigning uint32
 	wb          xwatch.Watchable
+	w           xwatch.Watch
 }
 
 // newClient returns an instance of an client client bound to a single election.
@@ -68,12 +73,18 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 	wb := xwatch.NewWatchable()
 	wb.Update(okCampaignStatus(CampaignFollower))
 
+	_, w, err := wb.Watch()
+	if err != nil {
+		return nil, err
+	}
+
 	return &client{
 		election: election,
 		session:  session,
 		opts:     opts.ElectionOpts(),
 		val:      opts.OverrideValue(),
 		wb:       wb,
+		w:        w,
 	}, nil
 }
 
@@ -113,12 +124,7 @@ func (c *client) Campaign() (xwatch.Watch, error) {
 		c.Unlock()
 	}()
 
-	_, w, err := c.wb.Watch()
-	if err != nil {
-		return nil, err
-	}
-
-	return w, nil
+	return c.w, nil
 }
 
 func (c *client) Resign() error {
@@ -140,6 +146,7 @@ func (c *client) Resign() error {
 		return err
 	}
 
+	atomic.StoreUint32(&c.campaigning, 0)
 	c.wb.Update(okCampaignStatus(CampaignFollower))
 	return nil
 }
@@ -164,6 +171,7 @@ func (c *client) Close() error {
 
 		c.wb.Update(okCampaignStatus(CampaignClosed))
 		c.wb.Close()
+		c.w.Close()
 		return c.session.Close()
 	}
 

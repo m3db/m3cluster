@@ -1,10 +1,9 @@
 package leader
 
 import (
+	"fmt"
 	"testing"
 	"time"
-
-	"fmt"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
@@ -103,7 +102,6 @@ func TestCampaign(t *testing.T) {
 
 	wb, err := svc.Campaign()
 	assert.NoError(t, err)
-
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
 	ld, err := svc.Leader()
@@ -112,6 +110,25 @@ func TestCampaign(t *testing.T) {
 
 	_, err = svc.Campaign()
 	assert.Equal(t, ErrCampaignInProgress, err)
+}
+
+func TestCampaign_Renew(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client("i1")
+	wb, err := svc.Campaign()
+	assert.NoError(t, err)
+	assert.NoError(t, waitForState(wb, CampaignLeader))
+
+	err = svc.Resign()
+	assert.NoError(t, err)
+	assert.NoError(t, waitForState(wb, CampaignFollower))
+
+	wb2, err := svc.Campaign()
+	assert.NoError(t, err)
+	assert.NoError(t, waitForState(wb, CampaignLeader))
+	assert.True(t, wb == wb2, "watch should be cached and returned")
 }
 
 func TestResign(t *testing.T) {

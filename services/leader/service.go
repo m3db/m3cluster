@@ -24,10 +24,6 @@ var (
 	// ErrClientClosed indicates the election service client has been closed and
 	// no more elections can be started.
 	ErrClientClosed = errors.New("election client is closed")
-
-	// ErrCampaignInProgress indicates a campaign cannot be started because one
-	// is already in progress.
-	ErrCampaignInProgress = errors.New("a campaign is already in progress")
 )
 
 type service struct {
