@@ -2,7 +2,6 @@ package leader
 
 import (
 	"errors"
-	"os"
 
 	"github.com/m3db/m3cluster/services"
 )
@@ -12,11 +11,6 @@ type Options interface {
 	// Service the election is campaigning for.
 	ServiceID() services.ServiceID
 	SetServiceID(sid services.ServiceID) Options
-
-	// Override value to propose in election. If empty, the hostname of the
-	// caller is returned (which should be suitable for most cases).
-	OverrideValue() string
-	SetOverrideValue(v string) Options
 
 	ElectionOpts() services.ElectionOptions
 	SetElectionOpts(e services.ElectionOptions) Options
@@ -44,23 +38,6 @@ func (o options) ServiceID() services.ServiceID {
 
 func (o options) SetServiceID(sid services.ServiceID) Options {
 	o.sid = sid
-	return o
-}
-
-func (o options) OverrideValue() string {
-	if o.val != "" {
-		return o.val
-	}
-
-	h, err := os.Hostname()
-	if err != nil {
-		return defaultHostname
-	}
-	return h
-}
-
-func (o options) SetOverrideValue(v string) Options {
-	o.val = v
 	return o
 }
 

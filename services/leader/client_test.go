@@ -60,26 +60,25 @@ func (tc *testCluster) etcdClient() *clientv3.Client {
 	return tc.cluster.RandClient()
 }
 
-func (tc *testCluster) options(override string) Options {
+func (tc *testCluster) options() Options {
 	sid := services.NewServiceID().
 		SetEnvironment("e1").
 		SetName("s1").
 		SetZone("z1")
 
 	return NewOptions().
-		SetOverrideValue(override).
 		SetServiceID(sid)
 }
 
-func (tc *testCluster) client(override string) *client {
-	svc, err := newClient(tc.etcdClient(), tc.options(override), "", 5)
+func (tc *testCluster) client() *client {
+	svc, err := newClient(tc.etcdClient(), tc.options(), "", 5)
 	require.NoError(tc.t, err)
 
 	return svc
 }
 
-func (tc *testCluster) service(override string) services.LeaderService {
-	svc, err := NewService(tc.etcdClient(), tc.options(override))
+func (tc *testCluster) service() services.LeaderService {
+	svc, err := NewService(tc.etcdClient(), tc.options())
 	require.NoError(tc.t, err)
 
 	return svc
@@ -89,7 +88,7 @@ func TestNewClient(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc, err := newClient(tc.etcdClient(), tc.options(""), "", 5)
+	svc, err := newClient(tc.etcdClient(), tc.options(), "", 5)
 	assert.NoError(t, err)
 	assert.NotNil(t, svc)
 }
@@ -98,17 +97,35 @@ func TestCampaign(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc := tc.client("")
+	svc := tc.client()
 
-	wb, err := svc.campaign()
+	wb, err := svc.campaign("")
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
 	ld, err := svc.leader()
 	assert.NoError(t, err)
-	assert.Equal(t, svc.val, ld)
+	assert.Equal(t, svc.val(""), ld)
 
-	_, err = svc.campaign()
+	_, err = svc.campaign("")
+	assert.Equal(t, ErrCampaignInProgress, err)
+}
+
+func TestCampaign_Override(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client()
+
+	wb, err := svc.campaign("foo")
+	assert.NoError(t, err)
+	assert.NoError(t, waitForState(wb, CampaignLeader))
+
+	ld, err := svc.leader()
+	assert.NoError(t, err)
+	assert.Equal(t, "foo", ld)
+
+	_, err = svc.campaign("")
 	assert.Equal(t, ErrCampaignInProgress, err)
 }
 
@@ -116,8 +133,8 @@ func TestCampaign_Renew(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc := tc.client("i1")
-	wb, err := svc.campaign()
+	svc := tc.client()
+	wb, err := svc.campaign("")
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
@@ -125,7 +142,7 @@ func TestCampaign_Renew(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignFollower))
 
-	wb2, err := svc.campaign()
+	wb2, err := svc.campaign("")
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 	assert.True(t, wb == wb2, "watch should be cached and returned")
@@ -135,9 +152,9 @@ func TestResign(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc := tc.client("i1")
+	svc := tc.client()
 
-	wb, err := svc.campaign()
+	wb, err := svc.campaign("i1")
 	assert.NoError(t, err)
 
 	assert.NoError(t, waitForState(wb, CampaignLeader))
@@ -160,7 +177,7 @@ func TestResign_Early(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc := tc.client("i1")
+	svc := tc.client()
 
 	err := svc.resign()
 	assert.NoError(t, err)
@@ -170,13 +187,13 @@ func testHandoff(t *testing.T, resign bool) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc1, svc2 := tc.client("i1"), tc.client("i2")
+	svc1, svc2 := tc.client(), tc.client()
 
-	wb1, err := svc1.campaign()
+	wb1, err := svc1.campaign("i1")
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
-	wb2, err := svc2.campaign()
+	wb2, err := svc2.campaign("i2")
 	assert.NoError(t, waitForState(wb2, CampaignFollower))
 
 	ld, err := svc1.leader()
@@ -211,13 +228,13 @@ func TestCampaign_Close_NonLeader(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc1, svc2 := tc.client("i1"), tc.client("i2")
+	svc1, svc2 := tc.client(), tc.client()
 
-	wb1, err := svc1.campaign()
+	wb1, err := svc1.campaign("i1")
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
-	wb2, err := svc2.campaign()
+	wb2, err := svc2.campaign("i2")
 	assert.NoError(t, waitForState(wb2, CampaignFollower))
 
 	ld, err := svc1.leader()
@@ -239,9 +256,9 @@ func TestClose(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc := tc.client("i1")
+	svc := tc.client()
 
-	wb, err := svc.campaign()
+	wb, err := svc.campaign("i1")
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
@@ -257,7 +274,7 @@ func TestClose(t *testing.T) {
 	err = svc.resign()
 	assert.Equal(t, ErrClientClosed, err)
 
-	_, err = svc.campaign()
+	_, err = svc.campaign("")
 	assert.Equal(t, ErrClientClosed, err)
 }
 
@@ -265,8 +282,8 @@ func TestLeader(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc1, svc2 := tc.client("i1"), tc.client("i2")
-	wb, err := svc1.campaign()
+	svc1, svc2 := tc.client(), tc.client()
+	wb, err := svc1.campaign("i1")
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 

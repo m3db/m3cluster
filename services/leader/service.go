@@ -3,10 +3,9 @@ package leader
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
-
-	"fmt"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3cluster/services"
@@ -17,7 +16,6 @@ const (
 	leaderKeyPrefix = "_ld"
 	keySeparator    = "/"
 	keyFormat       = "%s/%s"
-	defaultHostname = "default_hostname"
 )
 
 var (
@@ -124,7 +122,7 @@ func (s *service) getOrCreateClient(electionID string, ttl int) (*client, error)
 	return clientNew, nil
 }
 
-func (s *service) Campaign(electionID string, ttl int) (xwatch.Watch, error) {
+func (s *service) Campaign(electionID string, ttl int, opts services.CampaignOptions) (xwatch.Watch, error) {
 	if s.isClosed() {
 		return nil, ErrClientClosed
 	}
@@ -134,7 +132,11 @@ func (s *service) Campaign(electionID string, ttl int) (xwatch.Watch, error) {
 		return nil, err
 	}
 
-	return client.campaign()
+	if opts == nil {
+		return client.campaign("")
+	}
+
+	return client.campaign(opts.LeaderValue())
 }
 
 func (s *service) Resign(electionID string) error {

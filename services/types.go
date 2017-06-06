@@ -471,7 +471,24 @@ type ElectionOptions interface {
 	ResignTimeout() time.Duration
 	SetResignTimeout(t time.Duration) ElectionOptions
 
+	// DefaultHostname returns the value that will be placed in the key of the
+	// leader of the election iff (1) no CampaionOptions option is passed to
+	// Campaign() and (2) the call to os.Hostname() fails. This value will very
+	// rarely be used since os.Hostname() should be reliable, and defaults to
+	// "default_hostname".
+	DefaultHostname() string
+	SetDefaultHostname(s string) ElectionOptions
+
 	String() string
+}
+
+// CampaignOptions provide the ability to override campaign defaults.
+type CampaignOptions interface {
+	// LeaderValue allows the user to override the value a campaign announces
+	// (that is, the value an observer sees upon calling Leader()). This defaults to
+	// the hostname of the caller.
+	LeaderValue() string
+	SetLeaderValue(v string) CampaignOptions
 }
 
 // LeaderService provides access to etcd-backed leader elections.
@@ -486,13 +503,14 @@ type LeaderService interface {
 	// a watch which will notify events of type leader.CampaignStatus when the
 	// status of the election changes.
 	//
+	// The leader will announce its hostname to observers until opts is non-nil
+	// and opts.LeaderValue() is non-empty.
+	//
 	// NOTE: Once a campaign for a given electionID has been started, if it is
 	// lost or resigned and restarted it will be bound to the same TTL as the
 	// original due to constraints of etcd TTL sessions. The same applies if a
 	// call to Campaign() is made after a call to Leader() with the same ttl.
-	//
-	// TODO(mschalle): formalize state changes; send specific event types?
-	Campaign(electionID string, ttl int) (xwatch.Watch, error)
+	Campaign(electionID string, ttl int, opts CampaignOptions) (xwatch.Watch, error)
 
 	// Resign gives up leadership of a specified election if the caller is the
 	// current leader (if the caller is not the leader an error is returned).

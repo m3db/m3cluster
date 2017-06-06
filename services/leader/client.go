@@ -3,6 +3,7 @@ package leader
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"sync/atomic"
 
@@ -45,7 +46,6 @@ type client struct {
 	election    *concurrency.Election
 	session     *concurrency.Session
 	opts        services.ElectionOptions
-	val         string
 	closed      uint32
 	campaigning uint32
 	wb          xwatch.Watchable
@@ -82,13 +82,27 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 		election: election,
 		session:  session,
 		opts:     opts.ElectionOpts(),
-		val:      opts.OverrideValue(),
 		wb:       wb,
 		w:        w,
 	}, nil
 }
 
-func (c *client) campaign() (xwatch.Watch, error) {
+// val returns the value the leader should propose based on (1) a potentially
+// empty override value and (2) the hostname of the caller (with a fallback to
+// the DefaultHostname option).
+func (c *client) val(override string) string {
+	if override != "" {
+		return override
+	}
+
+	if h, err := os.Hostname(); err == nil {
+		return h
+	}
+
+	return c.opts.DefaultHostname()
+}
+
+func (c *client) campaign(override string) (xwatch.Watch, error) {
 	if c.isClosed() {
 		return nil, ErrClientClosed
 	}
@@ -106,7 +120,7 @@ func (c *client) campaign() (xwatch.Watch, error) {
 	go func() {
 		c.wb.Update(okCampaignStatus(CampaignFollower))
 		// blocks until elected or error
-		err := c.election.Campaign(ctx, c.val)
+		err := c.election.Campaign(ctx, c.val(override))
 		if err != nil {
 			c.wb.Update(errCampaignStatus(err))
 		}

@@ -262,14 +262,16 @@ func (i PlacementInstances) String() string {
 // NewElectionOptions returns an empty ElectionOptions.
 func NewElectionOptions() ElectionOptions {
 	return electionOpts{
-		leaderTimeout: 30 * time.Second,
-		resignTimeout: 30 * time.Second,
+		leaderTimeout:   30 * time.Second,
+		resignTimeout:   30 * time.Second,
+		defaultHostname: "default_hostname",
 	}
 }
 
 type electionOpts struct {
-	leaderTimeout time.Duration
-	resignTimeout time.Duration
+	leaderTimeout   time.Duration
+	resignTimeout   time.Duration
+	defaultHostname string
 }
 
 func (e electionOpts) LeaderTimeout() time.Duration {
@@ -290,6 +292,36 @@ func (e electionOpts) SetResignTimeout(t time.Duration) ElectionOptions {
 	return e
 }
 
+func (e electionOpts) DefaultHostname() string {
+	return e.defaultHostname
+}
+
+func (e electionOpts) SetDefaultHostname(s string) ElectionOptions {
+	e.defaultHostname = s
+	return e
+}
+
 func (e electionOpts) String() string {
-	return fmt.Sprintf("[leaderTimeout: %s, resignTimeout: %s]", e.LeaderTimeout().String(), e.ResignTimeout().String())
+	return fmt.Sprintf("[defaultHostname: %s, leaderTimeout: %s, resignTimeout: %s]",
+		e.defaultHostname,
+		e.leaderTimeout.String(),
+		e.resignTimeout.String())
+}
+
+type campaignOpts struct {
+	val string
+}
+
+// NewCampaignOptions returns an empty CampaignOptions.
+func NewCampaignOptions() CampaignOptions {
+	return campaignOpts{}
+}
+
+func (c campaignOpts) LeaderValue() string {
+	return c.val
+}
+
+func (c campaignOpts) SetLeaderValue(v string) CampaignOptions {
+	c.val = v
+	return c
 }
