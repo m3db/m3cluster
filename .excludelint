@@ -1,4 +1,4 @@
 (vendor/)
 (generated/)
-(_mock.*.go)
+(_mock.go)
 (_string.go)
