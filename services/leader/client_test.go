@@ -272,10 +272,10 @@ func TestClose(t *testing.T) {
 	assert.NoError(t, waitForState(wb, CampaignClosed))
 
 	err = svc.resign()
-	assert.Equal(t, ErrClientClosed, err)
+	assert.Equal(t, errClientClosed, err)
 
 	_, err = svc.campaign("")
-	assert.Equal(t, ErrClientClosed, err)
+	assert.Equal(t, errClientClosed, err)
 }
 
 func TestLeader(t *testing.T) {

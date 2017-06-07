@@ -104,7 +104,7 @@ func (c *client) val(override string) string {
 
 func (c *client) campaign(override string) (xwatch.Watch, error) {
 	if c.isClosed() {
-		return nil, ErrClientClosed
+		return nil, errClientClosed
 	}
 
 	if !atomic.CompareAndSwapUint32(&c.campaigning, 0, 1) {
@@ -143,7 +143,7 @@ func (c *client) campaign(override string) (xwatch.Watch, error) {
 
 func (c *client) resign() error {
 	if c.isClosed() {
-		return ErrClientClosed
+		return errClientClosed
 	}
 
 	c.Lock()

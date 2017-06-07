@@ -19,9 +19,9 @@ const (
 )
 
 var (
-	// ErrClientClosed indicates the election service client has been closed and
+	// errClientClosed indicates the election service client has been closed and
 	// no more elections can be started.
-	ErrClientClosed = errors.New("election client is closed")
+	errClientClosed = errors.New("election client is closed")
 )
 
 type service struct {
@@ -124,7 +124,7 @@ func (s *service) getOrCreateClient(electionID string, ttl int) (*client, error)
 
 func (s *service) Campaign(electionID string, ttl int, opts services.CampaignOptions) (xwatch.Watch, error) {
 	if s.isClosed() {
-		return nil, ErrClientClosed
+		return nil, errClientClosed
 	}
 
 	client, err := s.getOrCreateClient(electionID, ttl)
@@ -141,7 +141,7 @@ func (s *service) Campaign(electionID string, ttl int, opts services.CampaignOpt
 
 func (s *service) Resign(electionID string) error {
 	if s.isClosed() {
-		return ErrClientClosed
+		return errClientClosed
 	}
 
 	s.RLock()
@@ -157,7 +157,7 @@ func (s *service) Resign(electionID string) error {
 
 func (s *service) Leader(electionID string, ttl int) (string, error) {
 	if s.isClosed() {
-		return "", ErrClientClosed
+		return "", errClientClosed
 	}
 
 	// always create a client so we can check election statuses without
