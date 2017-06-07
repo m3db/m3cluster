@@ -142,6 +142,9 @@ func TestCampaign_Renew(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignFollower))
 
+	_, err = svc.leader()
+	assert.Equal(t, ErrNoLeader, err)
+
 	wb2, err := svc.campaign("")
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
