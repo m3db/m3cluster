@@ -479,6 +479,10 @@ type ElectionOptions interface {
 	DefaultHostname() string
 	SetDefaultHostname(s string) ElectionOptions
 
+	// Hostname returns the hostname of the host if accessible, otherwise the
+	// value for DefaultHostname().
+	Hostname() string
+
 	String() string
 }
 

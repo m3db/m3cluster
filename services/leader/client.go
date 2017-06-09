@@ -3,7 +3,6 @@ package leader
 import (
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"sync/atomic"
 
@@ -217,11 +216,7 @@ func (c *client) val(override string) string {
 		return override
 	}
 
-	if h, err := os.Hostname(); err == nil {
-		return h
-	}
-
-	return c.opts.DefaultHostname()
+	return c.opts.Hostname()
 }
 
 func (c *client) newWatch() (xwatch.Watch, error) {

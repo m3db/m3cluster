@@ -23,6 +23,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -261,17 +262,24 @@ func (i PlacementInstances) String() string {
 
 // NewElectionOptions returns an empty ElectionOptions.
 func NewElectionOptions() ElectionOptions {
-	return electionOpts{
+	eo := electionOpts{
 		leaderTimeout:   30 * time.Second,
 		resignTimeout:   30 * time.Second,
 		defaultHostname: "default_hostname",
 	}
+
+	if h, err := os.Hostname(); err == nil {
+		eo.hostname = h
+	}
+
+	return eo
 }
 
 type electionOpts struct {
 	leaderTimeout   time.Duration
 	resignTimeout   time.Duration
 	defaultHostname string
+	hostname        string
 }
 
 func (e electionOpts) LeaderTimeout() time.Duration {
@@ -299,6 +307,13 @@ func (e electionOpts) DefaultHostname() string {
 func (e electionOpts) SetDefaultHostname(s string) ElectionOptions {
 	e.defaultHostname = s
 	return e
+}
+
+func (e electionOpts) Hostname() string {
+	if e.hostname != "" {
+		return e.hostname
+	}
+	return e.defaultHostname
 }
 
 func (e electionOpts) String() string {
