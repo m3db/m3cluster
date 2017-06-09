@@ -9,6 +9,7 @@ import (
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3cluster/services"
+	"github.com/m3db/m3x/errors"
 	"github.com/m3db/m3x/watch"
 )
 
@@ -89,15 +90,15 @@ func (s *service) closeClients() error {
 	wg.Wait()
 	close(errC)
 
-	var errs []error
+	merr := xerrors.NewMultiError()
 	for err := range errC {
 		if err != nil {
-			errs = append(errs, err)
+			merr = merr.Add(err)
 		}
 	}
 
-	if len(errs) > 0 {
-		return newMultiError(errs...)
+	if merr.NumErrors() > 0 {
+		return merr
 	}
 
 	return nil

@@ -28,11 +28,11 @@ type CampaignStatus struct {
 	Err   error
 }
 
-func okCampaignStatus(s CampaignState) CampaignStatus {
+func newCampaignStatus(s CampaignState) CampaignStatus {
 	return CampaignStatus{State: s}
 }
 
-func errCampaignStatus(err error) CampaignStatus {
+func newErrCampaignStatus(err error) CampaignStatus {
 	return CampaignStatus{
 		State: CampaignError,
 		Err:   err,

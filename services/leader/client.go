@@ -67,7 +67,7 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 	election := concurrency.NewElection(session, electionPrefix(opts.ServiceID(), electionID))
 
 	wb := xwatch.NewWatchable()
-	wb.Update(okCampaignStatus(CampaignFollower))
+	wb.Update(newCampaignStatus(CampaignFollower))
 
 	return &client{
 		election: election,
@@ -107,20 +107,20 @@ func (c *client) campaign(override string) (xwatch.Watch, error) {
 		c.campaignVal = proposeVal
 		c.Unlock()
 
-		c.wb.Update(okCampaignStatus(CampaignFollower))
+		c.wb.Update(newCampaignStatus(CampaignFollower))
 		// blocks until elected or error
 		err := c.election.Campaign(ctx, proposeVal)
 		if err != nil {
-			c.wb.Update(errCampaignStatus(err))
+			c.wb.Update(newErrCampaignStatus(err))
 		}
 
 		failed := false
 		select {
 		case <-c.session.Done():
 			failed = true
-			c.wb.Update(errCampaignStatus(ErrSessionExpired))
+			c.wb.Update(newErrCampaignStatus(ErrSessionExpired))
 		default:
-			c.wb.Update(okCampaignStatus(CampaignLeader))
+			c.wb.Update(newCampaignStatus(CampaignLeader))
 		}
 
 		cancel()
@@ -150,12 +150,12 @@ func (c *client) resign() error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.ResignTimeout())
 	defer cancel()
 	if err := c.election.Resign(ctx); err != nil {
-		c.wb.Update(errCampaignStatus(err))
+		c.wb.Update(newErrCampaignStatus(err))
 		return err
 	}
 
 	c.resetCampaignWithLock()
-	c.wb.Update(okCampaignStatus(CampaignFollower))
+	c.wb.Update(newCampaignStatus(CampaignFollower))
 	return nil
 }
 
@@ -182,7 +182,7 @@ func (c *client) close() error {
 		c.cancelWithLock()
 		c.Unlock()
 
-		c.wb.Update(okCampaignStatus(CampaignClosed))
+		c.wb.Update(newCampaignStatus(CampaignClosed))
 		c.wb.Close()
 		return c.session.Close()
 	}
