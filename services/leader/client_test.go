@@ -2,6 +2,7 @@ package leader
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -107,8 +108,14 @@ func TestCampaign(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, svc.val(""), ld)
 
-	_, err = svc.campaign("")
-	assert.Equal(t, ErrCampaignInProgress, err)
+	assert.Equal(t, uint32(1), atomic.LoadUint32(&svc.campaigning))
+	wb, err = svc.campaign("")
+	assert.NoError(t, err)
+	assert.NoError(t, waitForState(wb, CampaignLeader))
+
+	_, err = svc.campaign("foo")
+	assert.Error(t, err)
+	t.Log(err)
 }
 
 func TestCampaign_Override(t *testing.T) {
@@ -124,9 +131,6 @@ func TestCampaign_Override(t *testing.T) {
 	ld, err := svc.leader()
 	assert.NoError(t, err)
 	assert.Equal(t, "foo", ld)
-
-	_, err = svc.campaign("")
-	assert.Equal(t, ErrCampaignInProgress, err)
 }
 
 func TestCampaign_Renew(t *testing.T) {
@@ -147,8 +151,7 @@ func TestCampaign_Renew(t *testing.T) {
 
 	wb2, err := svc.campaign("")
 	assert.NoError(t, err)
-	assert.NoError(t, waitForState(wb, CampaignLeader))
-	assert.True(t, wb == wb2, "watch should be cached and returned")
+	assert.NoError(t, waitForState(wb2, CampaignLeader))
 }
 
 func TestResign(t *testing.T) {

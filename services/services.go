@@ -325,3 +325,7 @@ func (c campaignOpts) SetLeaderValue(v string) CampaignOptions {
 	c.val = v
 	return c
 }
+
+func (c campaignOpts) String() string {
+	return fmt.Sprintf("[leaderValue: %s]", c.val)
+}

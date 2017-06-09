@@ -489,6 +489,8 @@ type CampaignOptions interface {
 	// the hostname of the caller.
 	LeaderValue() string
 	SetLeaderValue(v string) CampaignOptions
+
+	String() string
 }
 
 // LeaderService provides access to etcd-backed leader elections.

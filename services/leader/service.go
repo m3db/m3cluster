@@ -28,9 +28,17 @@ type service struct {
 	sync.RWMutex
 
 	closed     uint32
-	clients    map[string]*client
+	clients    map[string]*clientEntry
 	opts       Options
 	etcdClient *clientv3.Client
+}
+
+// clientEntry stores a cached client as well as the TTL it was created with so
+// that a user will receive and error if they try to create a new client with a
+// different TTL
+type clientEntry struct {
+	client *client
+	ttl    int
 }
 
 // NewService creates a new leader service client based on an etcd client.
@@ -40,7 +48,7 @@ func NewService(cli *clientv3.Client, opts Options) (services.LeaderService, err
 	}
 
 	return &service{
-		clients:    make(map[string]*client),
+		clients:    make(map[string]*clientEntry),
 		opts:       opts,
 		etcdClient: cli,
 	}, nil
@@ -73,7 +81,7 @@ func (s *service) closeClients() error {
 				errC <- err
 			}
 			wg.Done()
-		}(cl)
+		}(cl.client)
 	}
 
 	s.RUnlock()
@@ -97,10 +105,13 @@ func (s *service) closeClients() error {
 
 func (s *service) getOrCreateClient(electionID string, ttl int) (*client, error) {
 	s.RLock()
-	client, ok := s.clients[electionID]
+	ce, ok := s.clients[electionID]
 	s.RUnlock()
 	if ok {
-		return client, nil
+		if ce.ttl != ttl {
+			return nil, fmt.Errorf("cannot create client with ttl=(%d), already created with ttl=(%d)", ttl, ce.ttl)
+		}
+		return ce.client, nil
 	}
 
 	clientNew, err := newClient(s.etcdClient, s.opts, electionID, ttl)
@@ -111,14 +122,14 @@ func (s *service) getOrCreateClient(electionID string, ttl int) (*client, error)
 	s.Lock()
 	defer s.Unlock()
 
-	client, ok = s.clients[electionID]
+	ce, ok = s.clients[electionID]
 	if ok {
 		// another client was created between RLock and now, close new one
 		go clientNew.close()
-		return client, nil
+		return ce.client, nil
 	}
 
-	s.clients[electionID] = clientNew
+	s.clients[electionID] = &clientEntry{client: clientNew, ttl: ttl}
 	return clientNew, nil
 }
 
@@ -145,14 +156,14 @@ func (s *service) Resign(electionID string) error {
 	}
 
 	s.RLock()
-	client, ok := s.clients[electionID]
+	ce, ok := s.clients[electionID]
 	s.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("no election with ID '%s' to resign", electionID)
 	}
 
-	return client.resign()
+	return ce.client.resign()
 }
 
 func (s *service) Leader(electionID string, ttl int) (string, error) {

@@ -31,7 +31,13 @@ func TestService_Campaign(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
-	_, err = svc.Campaign("", 5, nil)
+	_, err = svc.Campaign("", 5, overrideOpts("foo1"))
+	assert.NoError(t, err)
+
+	_, err = svc.Campaign("", 3, overrideOpts("foo1"))
+	assert.Error(t, err)
+
+	_, err = svc.Campaign("", 5, overrideOpts("foo2"))
 	assert.Error(t, err)
 
 	wb1, err := svc.Campaign("1", 5, overrideOpts("foo1"))

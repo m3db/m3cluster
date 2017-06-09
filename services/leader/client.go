@@ -20,10 +20,6 @@ import (
 const defaultElectionSuffix = "default"
 
 var (
-	// ErrCampaignInProgress indicates a campaign cannot be started because one
-	// is already in progress.
-	ErrCampaignInProgress = errors.New("a campaign is already in progress")
-
 	// ErrNoLeader is returned when a call to Leader() is made to an election
 	// with no leader. We duplicate this error so the user doesn't have to
 	// import etcd's concurrency package in order to check the cause of the
@@ -40,7 +36,7 @@ var (
 // their TTLs refreshed: https://github.com/coreos/etcd/issues/2660
 
 type client struct {
-	sync.Mutex
+	sync.RWMutex
 
 	ctxCancel   context.CancelFunc
 	election    *concurrency.Election
@@ -49,7 +45,7 @@ type client struct {
 	closed      uint32
 	campaigning uint32
 	wb          xwatch.Watchable
-	w           xwatch.Watch
+	campaignVal string
 }
 
 // newClient returns an instance of an client client bound to a single election.
@@ -73,33 +69,12 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 	wb := xwatch.NewWatchable()
 	wb.Update(okCampaignStatus(CampaignFollower))
 
-	_, w, err := wb.Watch()
-	if err != nil {
-		return nil, err
-	}
-
 	return &client{
 		election: election,
 		session:  session,
 		opts:     opts.ElectionOpts(),
 		wb:       wb,
-		w:        w,
 	}, nil
-}
-
-// val returns the value the leader should propose based on (1) a potentially
-// empty override value and (2) the hostname of the caller (with a fallback to
-// the DefaultHostname option).
-func (c *client) val(override string) string {
-	if override != "" {
-		return override
-	}
-
-	if h, err := os.Hostname(); err == nil {
-		return h
-	}
-
-	return c.opts.DefaultHostname()
 }
 
 func (c *client) campaign(override string) (xwatch.Watch, error) {
@@ -107,8 +82,17 @@ func (c *client) campaign(override string) (xwatch.Watch, error) {
 		return nil, errClientClosed
 	}
 
+	proposeVal := c.val(override)
+
 	if !atomic.CompareAndSwapUint32(&c.campaigning, 0, 1) {
-		return nil, ErrCampaignInProgress
+		c.RLock()
+		lastVal := c.campaignVal
+		c.RUnlock()
+
+		if lastVal != proposeVal {
+			return nil, fmt.Errorf("cannot start simultaneous campaign with value '%s', one in progress with '%s'", proposeVal, lastVal)
+		}
+		return c.newWatch()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -118,15 +102,22 @@ func (c *client) campaign(override string) (xwatch.Watch, error) {
 	c.Unlock()
 
 	go func() {
+
+		c.Lock()
+		c.campaignVal = proposeVal
+		c.Unlock()
+
 		c.wb.Update(okCampaignStatus(CampaignFollower))
 		// blocks until elected or error
-		err := c.election.Campaign(ctx, c.val(override))
+		err := c.election.Campaign(ctx, proposeVal)
 		if err != nil {
 			c.wb.Update(errCampaignStatus(err))
 		}
 
+		failed := false
 		select {
 		case <-c.session.Done():
+			failed = true
 			c.wb.Update(errCampaignStatus(ErrSessionExpired))
 		default:
 			c.wb.Update(okCampaignStatus(CampaignLeader))
@@ -135,10 +126,13 @@ func (c *client) campaign(override string) (xwatch.Watch, error) {
 		cancel()
 		c.Lock()
 		c.ctxCancel = nil
+		if failed {
+			c.resetCampaignWithLock()
+		}
 		c.Unlock()
 	}()
 
-	return c.w, nil
+	return c.newWatch()
 }
 
 func (c *client) resign() error {
@@ -160,7 +154,7 @@ func (c *client) resign() error {
 		return err
 	}
 
-	atomic.StoreUint32(&c.campaigning, 0)
+	c.resetCampaignWithLock()
 	c.wb.Update(okCampaignStatus(CampaignFollower))
 	return nil
 }
@@ -175,6 +169,11 @@ func (c *client) leader() (string, error) {
 	return ld, err
 }
 
+func (c *client) resetCampaignWithLock() {
+	atomic.StoreUint32(&c.campaigning, 0)
+	c.campaignVal = ""
+}
+
 // Close closes the election service client entirely. No more campaigns can be
 // started and any outstanding campaigns are closed.
 func (c *client) close() error {
@@ -185,7 +184,6 @@ func (c *client) close() error {
 
 		c.wb.Update(okCampaignStatus(CampaignClosed))
 		c.wb.Close()
-		c.w.Close()
 		return c.session.Close()
 	}
 
@@ -209,6 +207,26 @@ func (c *client) cancelWithLock() {
 		c.ctxCancel()
 		c.ctxCancel = nil
 	}
+}
+
+// val returns the value the leader should propose based on (1) a potentially
+// empty override value and (2) the hostname of the caller (with a fallback to
+// the DefaultHostname option).
+func (c *client) val(override string) string {
+	if override != "" {
+		return override
+	}
+
+	if h, err := os.Hostname(); err == nil {
+		return h
+	}
+
+	return c.opts.DefaultHostname()
+}
+
+func (c *client) newWatch() (xwatch.Watch, error) {
+	_, w, err := c.wb.Watch()
+	return w, err
 }
 
 // elections for a service "svc" in env "test" should be stored under
