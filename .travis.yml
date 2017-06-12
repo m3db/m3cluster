@@ -11,6 +11,10 @@ env:
   global:
     - TEST_TIMEOUT_SCALE=20 # Set higher timeouts for Travis
     - PACKAGE=github.com/$TRAVIS_REPO_SLUG
+  # parallelize running integration and unit tests for faster overall CI times
+  matrix:
+    - UNIT_TESTS_ONLY=true
+    - INTEGRATION_TESTS_ONLY=true
 
 script:
  - make all
