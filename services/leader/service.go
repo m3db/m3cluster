@@ -145,10 +145,10 @@ func (s *service) Campaign(electionID string, ttl int, opts services.CampaignOpt
 	}
 
 	if opts == nil {
-		return client.campaign("")
+		opts = services.NewCampaignOptions()
 	}
 
-	return client.campaign(opts.LeaderValue())
+	return client.campaign(opts.LeaderValue(), opts)
 }
 
 func (s *service) Resign(electionID string) error {

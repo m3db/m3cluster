@@ -30,6 +30,7 @@ import (
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/shard"
+	"github.com/m3db/m3x/retry"
 )
 
 var (
@@ -325,11 +326,14 @@ func (e electionOpts) String() string {
 
 type campaignOpts struct {
 	val string
+	ro  xretry.Options
 }
 
 // NewCampaignOptions returns an empty CampaignOptions.
 func NewCampaignOptions() CampaignOptions {
-	return campaignOpts{}
+	return campaignOpts{
+		ro: xretry.NewOptions().SetForever(true),
+	}
 }
 
 func (c campaignOpts) LeaderValue() string {
@@ -338,6 +342,15 @@ func (c campaignOpts) LeaderValue() string {
 
 func (c campaignOpts) SetLeaderValue(v string) CampaignOptions {
 	c.val = v
+	return c
+}
+
+func (c campaignOpts) RetryOptions() xretry.Options {
+	return c.ro
+}
+
+func (c campaignOpts) SetRetryOptions(o xretry.Options) CampaignOptions {
+	c.ro = o
 	return c
 }
 

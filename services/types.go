@@ -27,6 +27,7 @@ import (
 	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/clock"
 	"github.com/m3db/m3x/instrument"
+	"github.com/m3db/m3x/retry"
 	xwatch "github.com/m3db/m3x/watch"
 )
 
@@ -493,6 +494,13 @@ type CampaignOptions interface {
 	// the hostname of the caller.
 	LeaderValue() string
 	SetLeaderValue(v string) CampaignOptions
+
+	// RetryOptions returns the configuration for campaign retries. Because
+	// campaigns can even in the normal case take indefinitely long, it is
+	// recommended that the options passed have "Forever" set to true (and
+	// default options will).
+	RetryOptions() xretry.Options
+	SetRetryOptions(o xretry.Options) CampaignOptions
 
 	String() string
 }

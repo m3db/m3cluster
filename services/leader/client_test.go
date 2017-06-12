@@ -2,6 +2,7 @@ package leader
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -42,6 +43,7 @@ func waitForState(wb xwatch.Watch, target CampaignState) error {
 type testCluster struct {
 	t       *testing.T
 	cluster *integration.ClusterV3
+	opts    services.CampaignOptions
 }
 
 func newTestCluster(t *testing.T) *testCluster {
@@ -50,6 +52,7 @@ func newTestCluster(t *testing.T) *testCluster {
 		cluster: integration.NewClusterV3(t, &integration.ClusterConfig{
 			Size: 1,
 		}),
+		opts: services.NewCampaignOptions(),
 	}
 }
 
@@ -94,13 +97,22 @@ func TestNewClient(t *testing.T) {
 	assert.NotNil(t, svc)
 }
 
+func TestNewClient_BadCluster(t *testing.T) {
+	tc := newTestCluster(t)
+	cl := tc.etcdClient()
+	tc.close()
+
+	_, err := newClient(cl, tc.options(), "", 5)
+	assert.Error(t, err)
+}
+
 func TestCampaign(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
 	svc := tc.client()
 
-	wb, err := svc.campaign("")
+	wb, err := svc.campaign("", tc.opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
@@ -109,11 +121,11 @@ func TestCampaign(t *testing.T) {
 	assert.Equal(t, svc.val(""), ld)
 
 	assert.Equal(t, uint32(1), atomic.LoadUint32(&svc.campaigning))
-	wb, err = svc.campaign("")
+	wb, err = svc.campaign("", tc.opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
-	_, err = svc.campaign("foo")
+	_, err = svc.campaign("foo", tc.opts)
 	assert.Error(t, err)
 	t.Log(err)
 }
@@ -124,7 +136,7 @@ func TestCampaign_Override(t *testing.T) {
 
 	svc := tc.client()
 
-	wb, err := svc.campaign("foo")
+	wb, err := svc.campaign("foo", tc.opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
@@ -138,7 +150,7 @@ func TestCampaign_Renew(t *testing.T) {
 	defer tc.close()
 
 	svc := tc.client()
-	wb, err := svc.campaign("")
+	wb, err := svc.campaign("", tc.opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
@@ -149,9 +161,60 @@ func TestCampaign_Renew(t *testing.T) {
 	_, err = svc.leader()
 	assert.Equal(t, ErrNoLeader, err)
 
-	wb2, err := svc.campaign("")
+	wb2, err := svc.campaign("", tc.opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb2, CampaignLeader))
+}
+
+func TestCampaign_Failure(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client()
+	wb, err := svc.campaign("i1", tc.opts)
+	assert.NoError(t, err)
+	assert.NoError(t, waitForState(wb, CampaignLeader))
+
+	svc2 := tc.client()
+	wb2, err := svc2.campaign("i2", tc.opts)
+	assert.NoError(t, err)
+
+	var mu sync.Mutex
+	statuses := []CampaignStatus{}
+
+	go func() {
+		for range wb2.C() {
+			mu.Lock()
+			statuses = append(statuses, wb2.Get().(CampaignStatus))
+			mu.Unlock()
+		}
+	}()
+
+	// session expiration should cause it to retry campaign with new session
+	svc2.session.Close()
+
+	// should see follower state, then error (while getting new session), then
+	// follower again
+	waitUntil(15*time.Second, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		if len(statuses) < 3 {
+			return false
+		}
+
+		var followerFirst, sawError, followerLast bool
+
+		followerFirst = statuses[0].State == CampaignFollower
+		followerLast = statuses[len(statuses)-1].State == CampaignFollower
+
+		for i := 1; i < len(statuses)-1; i++ {
+			if statuses[i].State == CampaignError {
+				sawError = true
+			}
+		}
+
+		return followerFirst && sawError && followerLast
+	})
 }
 
 func TestResign(t *testing.T) {
@@ -160,7 +223,7 @@ func TestResign(t *testing.T) {
 
 	svc := tc.client()
 
-	wb, err := svc.campaign("i1")
+	wb, err := svc.campaign("i1", tc.opts)
 	assert.NoError(t, err)
 
 	assert.NoError(t, waitForState(wb, CampaignLeader))
@@ -195,11 +258,11 @@ func testHandoff(t *testing.T, resign bool) {
 
 	svc1, svc2 := tc.client(), tc.client()
 
-	wb1, err := svc1.campaign("i1")
+	wb1, err := svc1.campaign("i1", tc.opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
-	wb2, err := svc2.campaign("i2")
+	wb2, err := svc2.campaign("i2", tc.opts)
 	assert.NoError(t, waitForState(wb2, CampaignFollower))
 
 	ld, err := svc1.leader()
@@ -236,11 +299,11 @@ func TestCampaign_Close_NonLeader(t *testing.T) {
 
 	svc1, svc2 := tc.client(), tc.client()
 
-	wb1, err := svc1.campaign("i1")
+	wb1, err := svc1.campaign("i1", tc.opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb1, CampaignLeader))
 
-	wb2, err := svc2.campaign("i2")
+	wb2, err := svc2.campaign("i2", tc.opts)
 	assert.NoError(t, waitForState(wb2, CampaignFollower))
 
 	ld, err := svc1.leader()
@@ -264,7 +327,7 @@ func TestClose(t *testing.T) {
 
 	svc := tc.client()
 
-	wb, err := svc.campaign("i1")
+	wb, err := svc.campaign("i1", tc.opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 
@@ -280,7 +343,7 @@ func TestClose(t *testing.T) {
 	err = svc.resign()
 	assert.Equal(t, errClientClosed, err)
 
-	_, err = svc.campaign("")
+	_, err = svc.campaign("", tc.opts)
 	assert.Equal(t, errClientClosed, err)
 }
 
@@ -289,7 +352,7 @@ func TestLeader(t *testing.T) {
 	defer tc.close()
 
 	svc1, svc2 := tc.client(), tc.client()
-	wb, err := svc1.campaign("i1")
+	wb, err := svc1.campaign("i1", tc.opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForState(wb, CampaignLeader))
 

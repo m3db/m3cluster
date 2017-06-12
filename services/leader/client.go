@@ -9,6 +9,7 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/m3db/m3cluster/services"
+	"github.com/m3db/m3x/retry"
 	"github.com/m3db/m3x/watch"
 
 	"golang.org/x/net/context"
@@ -37,14 +38,23 @@ var (
 type client struct {
 	sync.RWMutex
 
-	ctxCancel   context.CancelFunc
-	election    *concurrency.Election
-	session     *concurrency.Session
-	opts        services.ElectionOptions
+	ctxCancel context.CancelFunc
+	election  *concurrency.Election
+	session   *concurrency.Session
+	opts      services.ElectionOptions
+
+	// state needed for resetElection()
+	etcdClient  *clientv3.Client
+	sessionOpts []concurrency.SessionOption
+	clientOpts  Options
+	electionID  string
+
 	closed      uint32
 	campaigning uint32
-	wb          xwatch.Watchable
 	campaignVal string
+
+	retrier xretry.Retrier
+	wb      xwatch.Watchable
 }
 
 // newClient returns an instance of an client client bound to a single election.
@@ -58,25 +68,45 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 		sessionOpts = append(sessionOpts, concurrency.WithTTL(ttl))
 	}
 
-	session, err := concurrency.NewSession(cli, sessionOpts...)
-	if err != nil {
+	cl := &client{
+		opts:        opts.ElectionOpts(),
+		wb:          xwatch.NewWatchable(),
+		etcdClient:  cli,
+		sessionOpts: sessionOpts,
+		clientOpts:  opts,
+		electionID:  electionID,
+	}
+
+	cl.wb.Update(newCampaignStatus(CampaignFollower))
+
+	if err := cl.resetElection(); err != nil {
 		return nil, err
 	}
 
-	election := concurrency.NewElection(session, electionPrefix(opts.ServiceID(), electionID))
-
-	wb := xwatch.NewWatchable()
-	wb.Update(newCampaignStatus(CampaignFollower))
-
-	return &client{
-		election: election,
-		session:  session,
-		opts:     opts.ElectionOpts(),
-		wb:       wb,
-	}, nil
+	return cl, nil
 }
 
-func (c *client) campaign(override string) (xwatch.Watch, error) {
+// func called when session expires / is orphaned for any reason and needs
+// to be recreated
+func (c *client) resetElection() error {
+	if c.isClosed() {
+		return errClientClosed
+	}
+
+	session, err := concurrency.NewSession(c.etcdClient, c.sessionOpts...)
+	if err != nil {
+		return err
+	}
+
+	election := concurrency.NewElection(session, electionPrefix(c.clientOpts.ServiceID(), c.electionID))
+	c.Lock()
+	c.session = session
+	c.election = election
+	c.Unlock()
+	return nil
+}
+
+func (c *client) campaign(override string, opts services.CampaignOptions) (xwatch.Watch, error) {
 	if c.isClosed() {
 		return nil, errClientClosed
 	}
@@ -94,44 +124,70 @@ func (c *client) campaign(override string) (xwatch.Watch, error) {
 		return c.newWatch()
 	}
 
+	retrier := xretry.NewRetrier(opts.RetryOptions())
+	go c.campaignWhile(retrier, proposeVal)
+
+	return c.newWatch()
+}
+
+func (c *client) campaignWhile(retrier xretry.Retrier, proposeVal string) {
+	continueFn := xretry.ContinueFn(func(int) bool {
+		return !c.isClosed()
+	})
+
+	fn := func() error {
+		return c.campaignOnce(proposeVal)
+	}
+
+	retrier.AttemptWhile(continueFn, fn)
+}
+
+func (c *client) campaignOnce(proposeVal string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	c.Lock()
+	c.campaignVal = proposeVal
 	c.ctxCancel = cancel
 	c.Unlock()
 
-	go func() {
+	c.wb.Update(newCampaignStatus(CampaignFollower))
+	// blocks until elected or error
+	err := c.election.Campaign(ctx, proposeVal)
+	if err != nil {
+		c.wb.Update(newErrCampaignStatus(err))
+	}
 
-		c.Lock()
-		c.campaignVal = proposeVal
-		c.Unlock()
+	failed := false
+	select {
+	case <-c.session.Done():
+		failed = true
+		c.wb.Update(newErrCampaignStatus(ErrSessionExpired))
+	default:
+		c.wb.Update(newCampaignStatus(CampaignLeader))
+	}
 
-		c.wb.Update(newCampaignStatus(CampaignFollower))
-		// blocks until elected or error
-		err := c.election.Campaign(ctx, proposeVal)
-		if err != nil {
-			c.wb.Update(newErrCampaignStatus(err))
-		}
-
-		failed := false
-		select {
-		case <-c.session.Done():
-			failed = true
-			c.wb.Update(newErrCampaignStatus(ErrSessionExpired))
-		default:
-			c.wb.Update(newCampaignStatus(CampaignLeader))
-		}
-
+	// if the user cancelled the context externally (i.e called resign() or
+	// close()) then we don't want to retry the campaign
+	select {
+	case <-ctx.Done():
+		return xretry.NonRetryableError(context.Canceled)
+	default:
 		cancel()
-		c.Lock()
-		c.ctxCancel = nil
-		if failed {
-			c.resetCampaignWithLock()
-		}
-		c.Unlock()
-	}()
+	}
 
-	return c.newWatch()
+	c.Lock()
+	c.ctxCancel = nil
+	c.Unlock()
+
+	// if session timed out we need to call the reset func to create a new one
+	// (gets a new lease from etcd and creates an election client with) that
+	// lease attached
+	if failed {
+		c.resetElection()
+		return xretry.RetryableError(ErrSessionExpired)
+	}
+
+	return nil
 }
 
 func (c *client) resign() error {
@@ -140,11 +196,10 @@ func (c *client) resign() error {
 	}
 
 	c.Lock()
-	defer c.Unlock()
-
 	// if we're not the leader but still campaigning, cancelling the context
 	// will stop the campaign
 	c.cancelWithLock()
+	c.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.ResignTimeout())
 	defer cancel()
@@ -153,7 +208,9 @@ func (c *client) resign() error {
 		return err
 	}
 
+	c.Lock()
 	c.resetCampaignWithLock()
+	c.Unlock()
 	c.wb.Update(newCampaignStatus(CampaignFollower))
 	return nil
 }
