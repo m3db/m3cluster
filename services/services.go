@@ -23,12 +23,14 @@ package services
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/shard"
+	"github.com/m3db/m3x/retry"
 )
 
 var (
@@ -257,4 +259,101 @@ func (i PlacementInstances) String() string {
 	}
 	strs = append(strs, "]")
 	return strings.Join(strs, "")
+}
+
+// NewElectionOptions returns an empty ElectionOptions.
+func NewElectionOptions() ElectionOptions {
+	eo := electionOpts{
+		leaderTimeout:   30 * time.Second,
+		resignTimeout:   30 * time.Second,
+		defaultHostname: "default_hostname",
+	}
+
+	if h, err := os.Hostname(); err == nil {
+		eo.hostname = h
+	}
+
+	return eo
+}
+
+type electionOpts struct {
+	leaderTimeout   time.Duration
+	resignTimeout   time.Duration
+	defaultHostname string
+	hostname        string
+}
+
+func (e electionOpts) LeaderTimeout() time.Duration {
+	return e.leaderTimeout
+}
+
+func (e electionOpts) SetLeaderTimeout(t time.Duration) ElectionOptions {
+	e.leaderTimeout = t
+	return e
+}
+
+func (e electionOpts) ResignTimeout() time.Duration {
+	return e.resignTimeout
+}
+
+func (e electionOpts) SetResignTimeout(t time.Duration) ElectionOptions {
+	e.resignTimeout = t
+	return e
+}
+
+func (e electionOpts) DefaultHostname() string {
+	return e.defaultHostname
+}
+
+func (e electionOpts) SetDefaultHostname(s string) ElectionOptions {
+	e.defaultHostname = s
+	return e
+}
+
+func (e electionOpts) Hostname() string {
+	if e.hostname != "" {
+		return e.hostname
+	}
+	return e.defaultHostname
+}
+
+func (e electionOpts) String() string {
+	return fmt.Sprintf("[defaultHostname: %s, leaderTimeout: %s, resignTimeout: %s]",
+		e.defaultHostname,
+		e.leaderTimeout.String(),
+		e.resignTimeout.String())
+}
+
+type campaignOpts struct {
+	val string
+	ro  xretry.Options
+}
+
+// NewCampaignOptions returns an empty CampaignOptions.
+func NewCampaignOptions() CampaignOptions {
+	return campaignOpts{
+		ro: xretry.NewOptions().SetForever(true),
+	}
+}
+
+func (c campaignOpts) LeaderValue() string {
+	return c.val
+}
+
+func (c campaignOpts) SetLeaderValue(v string) CampaignOptions {
+	c.val = v
+	return c
+}
+
+func (c campaignOpts) RetryOptions() xretry.Options {
+	return c.ro
+}
+
+func (c campaignOpts) SetRetryOptions(o xretry.Options) CampaignOptions {
+	c.ro = o
+	return c
+}
+
+func (c campaignOpts) String() string {
+	return fmt.Sprintf("[leaderValue: %s]", c.val)
 }

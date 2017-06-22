@@ -27,6 +27,7 @@ import (
 	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/clock"
 	"github.com/m3db/m3x/instrument"
+	"github.com/m3db/m3x/retry"
 	xwatch "github.com/m3db/m3x/watch"
 )
 
@@ -55,6 +56,10 @@ type Services interface {
 
 	// HeartbeatService returns a heartbeat store for the given service.
 	HeartbeatService(service ServiceID) (HeartbeatService, error)
+
+	// LeaderService returns an instance of a leader service for the given
+	// service ID.
+	LeaderService(service ServiceID, opts ElectionOptions) (LeaderService, error)
 }
 
 // Service describes the metadata and instances of a service
@@ -453,4 +458,81 @@ type HeartbeatService interface {
 
 	// Watch watches the heartbeats for a service
 	Watch() (xwatch.Watch, error)
+}
+
+// ElectionOptions configure specific election-scoped options.
+type ElectionOptions interface {
+	// Duration after which a call to Leader() will timeout if no response
+	// returned from etcd. Defaults to 30 seconds.
+	LeaderTimeout() time.Duration
+	SetLeaderTimeout(t time.Duration) ElectionOptions
+
+	// Duration after which a call to Resign() will timeout if no response
+	// returned from etcd. Defaults to 30 seconds.
+	ResignTimeout() time.Duration
+	SetResignTimeout(t time.Duration) ElectionOptions
+
+	// DefaultHostname returns the value that will be placed in the key of the
+	// leader of the election iff (1) no CampaionOptions option is passed to
+	// Campaign() and (2) the call to os.Hostname() fails. This value will very
+	// rarely be used since os.Hostname() should be reliable, and defaults to
+	// "default_hostname".
+	DefaultHostname() string
+	SetDefaultHostname(s string) ElectionOptions
+
+	// Hostname returns the hostname of the host if accessible, otherwise the
+	// value for DefaultHostname().
+	Hostname() string
+
+	String() string
+}
+
+// CampaignOptions provide the ability to override campaign defaults.
+type CampaignOptions interface {
+	// LeaderValue allows the user to override the value a campaign announces
+	// (that is, the value an observer sees upon calling Leader()). This defaults to
+	// the hostname of the caller.
+	LeaderValue() string
+	SetLeaderValue(v string) CampaignOptions
+
+	// RetryOptions returns the configuration for campaign retries. Because
+	// campaigns can even in the normal case take indefinitely long, it is
+	// recommended that the options passed have "Forever" set to true (and
+	// default options will).
+	RetryOptions() xretry.Options
+	SetRetryOptions(o xretry.Options) CampaignOptions
+
+	String() string
+}
+
+// LeaderService provides access to etcd-backed leader elections.
+type LeaderService interface {
+	// Close closes the election service client entirely. No more campaigns can be
+	// started and any outstanding campaigns are closed.
+	Close() error
+
+	// Campaign proposes that the caller become the leader for a specified
+	// election, with its leadership being refreshed on an interval of ttl
+	// seconds. If ttl is 0 it will default to etcd's default of 60s. It returns
+	// a watch which will notify events of type leader.CampaignStatus when the
+	// status of the election changes.
+	//
+	// The leader will announce its hostname to observers until opts is non-nil
+	// and opts.LeaderValue() is non-empty.
+	//
+	// NOTE: Once a campaign for a given electionID has been started, if it is
+	// lost or resigned and restarted it will be bound to the same TTL as the
+	// original due to constraints of etcd TTL sessions. The same applies if a
+	// call to Campaign() is made after a call to Leader() with the same ttl.
+	Campaign(electionID string, ttl int, opts CampaignOptions) (xwatch.Watch, error)
+
+	// Resign gives up leadership of a specified election if the caller is the
+	// current leader (if the caller is not the leader an error is returned).
+	Resign(electionID string) error
+
+	// Leader returns the current leader of a specified election (if there is no
+	// leader then leader.ErrNoLeader is returned). A ttl must be passed, for if
+	// there is no active session that has been created with a call to
+	// Campaign() then a new session will be created bound to this ttl.
+	Leader(electionID string, ttl int) (string, error)
 }

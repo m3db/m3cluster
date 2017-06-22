@@ -5,6 +5,7 @@ SHELL=/bin/bash -o pipefail
 
 html_report := coverage.html
 test := .ci/test-cover.sh
+test_integration := .ci/test-integration.sh
 convert-test-data := .ci/convert-test-data.sh
 coverfile := cover.out
 coverage_xml := coverage.xml
@@ -42,6 +43,14 @@ test-internal:
 	@which go-junit-report > /dev/null || go get -u github.com/sectioneight/go-junit-report
 	@$(VENDOR_ENV) $(test) $(coverfile) | tee $(test_log)
 
+ifeq ($(UNIT_TESTS_ONLY),true)
+test-integration:
+	@echo skipping integration tests
+else
+test-integration:
+	@$(VENDOR_ENV) $(test_integration)
+endif
+
 test-xml: test-internal
 	go-junit-report < $(test_log) > $(junit_xml)
 	gocov convert $(coverfile) | gocov-xml > $(coverage_xml)
@@ -55,9 +64,14 @@ testhtml: test-internal
 	gocov convert $(coverfile) | gocov-html > $(html_report) && open $(html_report)
 	@rm -f $(test_log) &> /dev/null
 
+ifeq ($(INTEGRATION_TESTS_ONLY),true)
+test-ci-unit:
+	@echo skipping unit tests
+else
 test-ci-unit: test-internal
 	@which goveralls > /dev/null || go get -u -f github.com/mattn/goveralls
 	goveralls -coverprofile=$(coverfile) -service=travis-ci || echo -e "\x1b[31mCoveralls failed\x1b[m"
+endif
 
 install-mockgen: install-vendor
 	@echo Installing mockgen
@@ -72,7 +86,9 @@ install-proto-bin: install-vendor
 	@echo Note: the protobuf compiler v3.0.0 can be downloaded from https://github.com/google/protobuf/releases or built from source at https://github.com/google/protobuf.
 	go install $(package_root)/$(vendor_prefix)/$(protoc_go_package)
 
-mock-gen: install-mockgen install-license-bin
+mock-gen: install-mockgen install-license-bin mock-gen-no-deps
+
+mock-gen-no-deps:
 	@echo Generating mocks
 	PACKAGE=$(package_root) $(auto_gen) $(mocks_output_dir) $(mocks_rules_dir)
 
