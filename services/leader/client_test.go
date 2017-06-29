@@ -1,0 +1,345 @@
+package leader
+
+import (
+	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
+	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/integration"
+	"github.com/m3db/m3cluster/services"
+	"github.com/m3db/m3cluster/services/leader/campaign"
+	"github.com/m3db/m3cluster/services/leader/election"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/net/context"
+)
+
+type conditionFn func() bool
+
+const defaultWait = 10 * time.Second
+
+var (
+	newStatus = campaign.NewStatus
+	newErr    = campaign.NewErrCampaignStatus
+	followerS = newStatus(campaign.Follower)
+	leaderS   = newStatus(campaign.Leader)
+)
+
+func waitUntil(timeout time.Duration, fn conditionFn) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if fn() {
+			return nil
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return fmt.Errorf("fn not true within %s", timeout.String())
+}
+
+func waitForStates(ch <-chan campaign.Status, early bool, states ...campaign.Status) error {
+	var seen []campaign.Status
+	for s := range ch {
+		seen = append(seen, s)
+		// terminate early (before channel closes)
+		if early && reflect.DeepEqual(seen, states) {
+			return nil
+		}
+	}
+
+	if !reflect.DeepEqual(seen, states) {
+		return fmt.Errorf("states did not match: %v != %v", seen, states)
+	}
+
+	return nil
+}
+
+type testCluster struct {
+	t       *testing.T
+	cluster *integration.ClusterV3
+	opts    services.CampaignOptions
+}
+
+func newTestCluster(t *testing.T) *testCluster {
+	return &testCluster{
+		t: t,
+		cluster: integration.NewClusterV3(t, &integration.ClusterConfig{
+			Size: 1,
+		}),
+		opts: services.NewCampaignOptions(),
+	}
+}
+
+func (tc *testCluster) close() {
+	tc.cluster.Terminate(tc.t)
+}
+
+func (tc *testCluster) etcdClient() *clientv3.Client {
+	return tc.cluster.RandClient()
+}
+
+func (tc *testCluster) options() Options {
+	sid := services.NewServiceID().
+		SetEnvironment("e1").
+		SetName("s1").
+		SetZone("z1")
+
+	return NewOptions().
+		SetServiceID(sid)
+}
+
+func (tc *testCluster) client() *client {
+	svc, err := newClient(tc.etcdClient(), tc.options(), "", 5)
+	require.NoError(tc.t, err)
+
+	return svc
+}
+
+func (tc *testCluster) service() services.LeaderService {
+	svc, err := NewService(tc.etcdClient(), tc.options())
+	require.NoError(tc.t, err)
+
+	return svc
+}
+
+func TestNewClient(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc, err := newClient(tc.etcdClient(), tc.options(), "", 5)
+	assert.NoError(t, err)
+	assert.NotNil(t, svc)
+}
+
+func TestNewClient_BadCluster(t *testing.T) {
+	tc := newTestCluster(t)
+	cl := tc.etcdClient()
+	tc.close()
+
+	_, err := newClient(cl, tc.options(), "", 5)
+	assert.Error(t, err)
+}
+
+func TestCampaign(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client()
+
+	sc, err := svc.campaign("foo", tc.opts)
+	assert.NoError(t, err)
+
+	waitForStates(sc, true, followerS, leaderS)
+
+	err = svc.resign()
+	assert.NoError(t, err)
+
+	errC := make(chan error)
+	go func() {
+		errC <- waitForStates(sc, false, followerS)
+	}()
+
+	err = <-errC
+	assert.NoError(t, err)
+}
+
+func TestCampaign_Override(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client()
+
+	sc, err := svc.campaign("foo", tc.opts)
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc, true, followerS, leaderS))
+
+	ld, err := svc.leader()
+	assert.NoError(t, err)
+	assert.Equal(t, "foo", ld)
+}
+
+func TestCampaign_Renew(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client()
+	sc, err := svc.campaign("", tc.opts)
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc, true, followerS, leaderS))
+
+	err = svc.resign()
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc, false, followerS))
+
+	_, err = svc.leader()
+	assert.Equal(t, ErrNoLeader, err)
+
+	sc2, err := svc.campaign("", tc.opts)
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc2, true, followerS, leaderS))
+}
+
+func TestResign(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client()
+
+	sc, err := svc.campaign("i1", tc.opts)
+	assert.NoError(t, err)
+
+	assert.NoError(t, waitForStates(sc, true, followerS, leaderS))
+
+	ld, err := svc.leader()
+	assert.NoError(t, err)
+	assert.Equal(t, "i1", ld)
+
+	err = svc.resign()
+	assert.NoError(t, err)
+
+	assert.NoError(t, waitForStates(sc, false, followerS))
+
+	ld, err = svc.leader()
+	assert.Equal(t, ErrNoLeader, err)
+	assert.Equal(t, "", ld)
+}
+
+func TestResign_Early(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client()
+
+	err := svc.resign()
+	assert.NoError(t, err)
+}
+
+func testHandoff(t *testing.T, resign bool) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc1, svc2 := tc.client(), tc.client()
+
+	sc1, err := svc1.campaign("i1", tc.opts)
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc1, true, followerS, leaderS))
+
+	sc2, err := svc2.campaign("i2", tc.opts)
+	assert.NoError(t, waitForStates(sc2, true, followerS))
+
+	ld, err := svc1.leader()
+	assert.NoError(t, err)
+	assert.Equal(t, ld, "i1")
+
+	if resign {
+		err = svc1.resign()
+		assert.NoError(t, waitForStates(sc1, false, followerS))
+	} else {
+		err = svc1.close()
+		assert.NoError(t, waitForStates(sc1, false, newErr(election.ErrSessionExpired)))
+	}
+	assert.NoError(t, err)
+
+	assert.NoError(t, waitForStates(sc2, true, leaderS))
+
+	ld, err = svc2.leader()
+	assert.NoError(t, err)
+	assert.Equal(t, ld, "i2")
+}
+
+func TestCampaign_Cancel_Resign(t *testing.T) {
+	testHandoff(t, true)
+}
+
+func TestCampaign_Cancel_Close(t *testing.T) {
+	testHandoff(t, false)
+}
+
+func TestCampaign_Close_NonLeader(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc1, svc2 := tc.client(), tc.client()
+
+	sc1, err := svc1.campaign("i1", tc.opts)
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc1, true, followerS, leaderS))
+
+	sc2, err := svc2.campaign("i2", tc.opts)
+	assert.NoError(t, waitForStates(sc2, true, followerS))
+
+	ld, err := svc1.leader()
+	assert.NoError(t, err)
+	assert.Equal(t, ld, "i1")
+
+	err = svc2.close()
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc2, false, newErr(context.Canceled)))
+
+	err = svc1.resign()
+	assert.NoError(t, waitForStates(sc1, false, followerS))
+
+	ld, err = svc2.leader()
+	assert.Equal(t, errClientClosed, err)
+}
+
+func TestClose(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc := tc.client()
+
+	sc, err := svc.campaign("i1", tc.opts)
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc, true, followerS, leaderS))
+
+	ld, err := svc.leader()
+	assert.NoError(t, err)
+	assert.Equal(t, "i1", ld)
+
+	err = svc.close()
+	assert.NoError(t, err)
+	assert.True(t, svc.isClosed())
+	assert.NoError(t, waitForStates(sc, false, newErr(election.ErrSessionExpired)))
+
+	err = svc.resign()
+	assert.Equal(t, errClientClosed, err)
+
+	_, err = svc.campaign("", tc.opts)
+	assert.Equal(t, errClientClosed, err)
+}
+
+func TestLeader(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc1, svc2 := tc.client(), tc.client()
+	sc, err := svc1.campaign("i1", tc.opts)
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc, true, followerS, leaderS))
+
+	ld, err := svc2.leader()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "i1", ld)
+}
+
+func TestElectionPrefix(t *testing.T) {
+	for args, exp := range map[*struct {
+		env, name, eid string
+	}]string{
+		{"", "svc", ""}:       "_ld/svc/default",
+		{"env", "svc", ""}:    "_ld/env/svc/default",
+		{"", "svc", "foo"}:    "_ld/svc/foo",
+		{"env", "svc", "foo"}: "_ld/env/svc/foo",
+	} {
+		sid := services.NewServiceID().
+			SetEnvironment(args.env).
+			SetName(args.name)
+
+		pfx := electionPrefix(sid, args.eid)
+
+		assert.Equal(t, exp, pfx)
+	}
+}
