@@ -63,11 +63,6 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 	}, nil
 }
 
-// TODO(mschalle): lock around all campaigns here as well?
-//
-// TODO(mschalle): document that this needs to be used carefully (i.e. multiple
-// calls to campaign if not already elected are dangerous, don't be stupid,
-// etc.)
 func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status, error) {
 	if c.isClosed() {
 		return nil, errClientClosed
