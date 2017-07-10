@@ -16,7 +16,7 @@ import (
 
 // appended to elections with an empty string for electionID to make it easier
 // for user to debug etcd keys
-const defaultElectionSuffix = "default"
+const defaultElectionID = "default"
 
 var (
 	// ErrNoLeader is returned when a call to Leader() is made to an election
@@ -39,7 +39,7 @@ type client struct {
 	closed    uint32
 }
 
-// newClient returns an instance of an client client bound to a single election.
+// newClient returns an instance of an client bound to a single election.
 func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (*client, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -63,13 +63,12 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 	}, nil
 }
 
-// TODO(mschalle): document necessary for caller to consume channel until closed
 // TODO(mschalle): lock around all campaigns here as well?
 //
 // TODO(mschalle): document that this needs to be used carefully (i.e. multiple
 // calls to campaign if not already elected are dangerous, don't be stupid,
 // etc.)
-func (c *client) campaign(override string, opts services.CampaignOptions) (<-chan campaign.Status, error) {
+func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status, error) {
 	if c.isClosed() {
 		return nil, errClientClosed
 	}
@@ -79,7 +78,7 @@ func (c *client) campaign(override string, opts services.CampaignOptions) (<-cha
 	c.ctxCancel = cancel
 	c.Unlock()
 
-	proposeVal := c.val(override)
+	proposeVal := c.val(opts.LeaderValue())
 
 	// buffer 1 to not block initial follower update
 	sc := make(chan campaign.Status, 1)
@@ -166,7 +165,7 @@ func (c *client) isClosed() bool {
 
 // val returns the value the leader should propose based on (1) a potentially
 // empty override value and (2) the hostname of the caller (with a fallback to
-// the DefaultHostname option).
+// the DefaultValue option).
 func (c *client) val(override string) string {
 	if override != "" {
 		return override
@@ -193,7 +192,7 @@ func servicePrefix(sid services.ServiceID) string {
 func electionPrefix(sid services.ServiceID, electionID string) string {
 	eid := electionID
 	if eid == "" {
-		eid = defaultElectionSuffix
+		eid = defaultElectionID
 	}
 
 	return fmt.Sprintf(

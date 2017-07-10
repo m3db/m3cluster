@@ -30,7 +30,6 @@ import (
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/shard"
-	"github.com/m3db/m3x/retry"
 )
 
 var (
@@ -264,9 +263,9 @@ func (i PlacementInstances) String() string {
 // NewElectionOptions returns an empty ElectionOptions.
 func NewElectionOptions() ElectionOptions {
 	eo := electionOpts{
-		leaderTimeout:   30 * time.Second,
-		resignTimeout:   30 * time.Second,
-		defaultHostname: "default_hostname",
+		leaderTimeout: 30 * time.Second,
+		resignTimeout: 30 * time.Second,
+		defaultValue:  "default_hostname",
 	}
 
 	if h, err := os.Hostname(); err == nil {
@@ -277,10 +276,10 @@ func NewElectionOptions() ElectionOptions {
 }
 
 type electionOpts struct {
-	leaderTimeout   time.Duration
-	resignTimeout   time.Duration
-	defaultHostname string
-	hostname        string
+	leaderTimeout time.Duration
+	resignTimeout time.Duration
+	defaultValue  string
+	hostname      string
 }
 
 func (e electionOpts) LeaderTimeout() time.Duration {
@@ -301,12 +300,12 @@ func (e electionOpts) SetResignTimeout(t time.Duration) ElectionOptions {
 	return e
 }
 
-func (e electionOpts) DefaultHostname() string {
-	return e.defaultHostname
+func (e electionOpts) DefaultValue() string {
+	return e.defaultValue
 }
 
-func (e electionOpts) SetDefaultHostname(s string) ElectionOptions {
-	e.defaultHostname = s
+func (e electionOpts) SetDefaultValue(s string) ElectionOptions {
+	e.defaultValue = s
 	return e
 }
 
@@ -314,26 +313,23 @@ func (e electionOpts) Hostname() string {
 	if e.hostname != "" {
 		return e.hostname
 	}
-	return e.defaultHostname
+	return e.defaultValue
 }
 
 func (e electionOpts) String() string {
-	return fmt.Sprintf("[defaultHostname: %s, leaderTimeout: %s, resignTimeout: %s]",
-		e.defaultHostname,
+	return fmt.Sprintf("[defaultValue: %s, leaderTimeout: %s, resignTimeout: %s]",
+		e.defaultValue,
 		e.leaderTimeout.String(),
 		e.resignTimeout.String())
 }
 
 type campaignOpts struct {
 	val string
-	ro  xretry.Options
 }
 
 // NewCampaignOptions returns an empty CampaignOptions.
 func NewCampaignOptions() CampaignOptions {
-	return campaignOpts{
-		ro: xretry.NewOptions().SetForever(true),
-	}
+	return campaignOpts{}
 }
 
 func (c campaignOpts) LeaderValue() string {

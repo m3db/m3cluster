@@ -474,16 +474,16 @@ type ElectionOptions interface {
 	ResignTimeout() time.Duration
 	SetResignTimeout(t time.Duration) ElectionOptions
 
-	// DefaultHostname returns the value that will be placed in the key of the
+	// DefaultValue returns the value that will be placed in the key of the
 	// leader of the election iff (1) no CampaionOptions option is passed to
 	// Campaign() and (2) the call to os.Hostname() fails. This value will very
 	// rarely be used since os.Hostname() should be reliable, and defaults to
 	// "default_hostname".
-	DefaultHostname() string
-	SetDefaultHostname(s string) ElectionOptions
+	DefaultValue() string
+	SetDefaultValue(s string) ElectionOptions
 
 	// Hostname returns the hostname of the host if accessible, otherwise the
-	// value for DefaultHostname().
+	// value for DefaultValue().
 	Hostname() string
 
 	String() string
@@ -509,10 +509,14 @@ type LeaderService interface {
 	// Campaign proposes that the caller become the leader for a specified
 	// election, with its leadership being refreshed on an interval of ttl
 	// seconds. If ttl is 0 it will default to etcd's default of 60s. It returns
-	// a watch which will notify events of type leader.CampaignStatus when the
-	// status of the election changes.
+	// a read-only channel of campaign status events that is closed when the
+	// user resigns leadership or the campaign is invalidated due to background
+	// session expiration (i.e. failing to refresh etcd leadership lease). The
+	// caller MUST consume this channel until it is closed or risk goroutine
+	// leaks. Users are encouraged to read the package docs of services/leader
+	// for advice on proper usage and common gotchas.
 	//
-	// The leader will announce its hostname to observers until opts is non-nil
+	// The leader will announce its hostname to observers unless opts is non-nil
 	// and opts.LeaderValue() is non-empty.
 	//
 	// NOTE: Once a campaign for a given electionID has been started, if it is

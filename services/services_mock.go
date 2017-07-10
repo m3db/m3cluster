@@ -1908,24 +1908,24 @@ func (_mr *_MockElectionOptionsRecorder) SetResignTimeout(arg0 interface{}) *gom
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetResignTimeout", arg0)
 }
 
-func (_m *MockElectionOptions) DefaultHostname() string {
-	ret := _m.ctrl.Call(_m, "DefaultHostname")
+func (_m *MockElectionOptions) DefaultValue() string {
+	ret := _m.ctrl.Call(_m, "DefaultValue")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-func (_mr *_MockElectionOptionsRecorder) DefaultHostname() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DefaultHostname")
+func (_mr *_MockElectionOptionsRecorder) DefaultValue() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DefaultValue")
 }
 
-func (_m *MockElectionOptions) SetDefaultHostname(s string) ElectionOptions {
-	ret := _m.ctrl.Call(_m, "SetDefaultHostname", s)
+func (_m *MockElectionOptions) SetDefaultValue(s string) ElectionOptions {
+	ret := _m.ctrl.Call(_m, "SetDefaultValue", s)
 	ret0, _ := ret[0].(ElectionOptions)
 	return ret0
 }
 
-func (_mr *_MockElectionOptionsRecorder) SetDefaultHostname(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetDefaultHostname", arg0)
+func (_mr *_MockElectionOptionsRecorder) SetDefaultValue(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetDefaultValue", arg0)
 }
 
 func (_m *MockElectionOptions) Hostname() string {

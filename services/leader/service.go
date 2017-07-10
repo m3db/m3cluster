@@ -1,4 +1,6 @@
 // Package leader provides functionality for etcd-backed leader elections.
+//
+//
 package leader
 
 import (
@@ -35,7 +37,7 @@ type multiClient struct {
 }
 
 // clientEntry stores a cached client as well as the TTL it was created with so
-// that a user will receive and error if they try to create a new client with a
+// that a user will receive an error if they try to create a new client with a
 // different TTL
 type clientEntry struct {
 	client *client
@@ -105,12 +107,14 @@ func (s *multiClient) closeClients() error {
 }
 
 func (s *multiClient) getOrCreateClient(electionID string, ttl int) (*client, error) {
+	const errTTLFmt = "cannot create client with ttl=(%d), already created with ttl=(%d)"
+
 	s.RLock()
 	ce, ok := s.clients[electionID]
 	s.RUnlock()
 	if ok {
 		if ce.ttl != ttl {
-			return nil, fmt.Errorf("cannot create client with ttl=(%d), already created with ttl=(%d)", ttl, ce.ttl)
+			return nil, fmt.Errorf(errTTLFmt, ttl, ce.ttl)
 		}
 		return ce.client, nil
 	}
@@ -127,6 +131,11 @@ func (s *multiClient) getOrCreateClient(electionID string, ttl int) (*client, er
 	if ok {
 		// another client was created between RLock and now, close new one
 		go clientNew.close()
+
+		if ce.ttl != ttl {
+			return nil, fmt.Errorf(errTTLFmt, ttl, ce.ttl)
+		}
+
 		return ce.client, nil
 	}
 
@@ -148,7 +157,7 @@ func (s *multiClient) Campaign(electionID string, ttl int, opts services.Campaig
 		opts = services.NewCampaignOptions()
 	}
 
-	return client.campaign(opts.LeaderValue(), opts)
+	return client.campaign(opts)
 }
 
 func (s *multiClient) Resign(electionID string) error {
