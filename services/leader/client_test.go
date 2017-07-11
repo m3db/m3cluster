@@ -134,6 +134,9 @@ func TestCampaign(t *testing.T) {
 
 	waitForStates(sc, true, followerS, leaderS)
 
+	_, err = svc.campaign(tc.opts("foo2"))
+	assert.Equal(t, ErrCampaignInProgress, err)
+
 	err = svc.resign()
 	assert.NoError(t, err)
 
@@ -144,6 +147,15 @@ func TestCampaign(t *testing.T) {
 
 	err = <-errC
 	assert.NoError(t, err)
+
+	sc, err = svc.campaign(tc.opts("foo3"))
+	assert.NoError(t, err)
+
+	waitForStates(sc, true, followerS, leaderS)
+
+	err = svc.resign()
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc, false, followerS))
 }
 
 func TestCampaign_Override(t *testing.T) {

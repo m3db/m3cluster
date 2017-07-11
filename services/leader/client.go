@@ -1,6 +1,7 @@
 package leader
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -24,6 +25,10 @@ var (
 	// import etcd's concurrency package in order to check the cause of the
 	// error.
 	ErrNoLeader = concurrency.ErrElectionNoLeader
+
+	// ErrCampaignInProgress is returned when a call to Campaign() is made while
+	// the caller is either already (a) campaigning or (b) the leader.
+	ErrCampaignInProgress = errors.New("campaign in progress")
 )
 
 // NB(mschalle): when an etcd leader failover occurs, all current leases have
@@ -32,11 +37,12 @@ var (
 type client struct {
 	sync.RWMutex
 
-	ecl       *election.Client
-	opts      services.ElectionOptions
-	ctxCancel context.CancelFunc
-	resignC   chan struct{}
-	closed    uint32
+	ecl         *election.Client
+	opts        services.ElectionOptions
+	ctxCancel   context.CancelFunc
+	resignC     chan struct{}
+	campaigning uint32
+	closed      uint32
 }
 
 // newClient returns an instance of an client bound to a single election.
@@ -68,6 +74,10 @@ func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status
 		return nil, errClientClosed
 	}
 
+	if !c.startCampaign() {
+		return nil, ErrCampaignInProgress
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	c.Lock()
 	c.ctxCancel = cancel
@@ -81,8 +91,11 @@ func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status
 	sc <- campaign.NewStatus(campaign.Follower)
 
 	go func() {
-		defer close(sc)
-		defer cancel()
+		defer func() {
+			close(sc)
+			cancel()
+			c.resetCampaign()
+		}()
 
 		// Campaign blocks until elected. Once we are elected, we get a channel
 		// that's closed if our session dies.
@@ -123,6 +136,8 @@ func (c *client) resign() error {
 		return err
 	}
 
+	c.resetCampaign()
+
 	// if successfully resigned and there was a campaign in Leader state cancel
 	// it
 	select {
@@ -145,6 +160,14 @@ func (c *client) leader() (string, error) {
 		return ld, ErrNoLeader
 	}
 	return ld, err
+}
+
+func (c *client) startCampaign() bool {
+	return atomic.CompareAndSwapUint32(&c.campaigning, 0, 1)
+}
+
+func (c *client) resetCampaign() {
+	atomic.StoreUint32(&c.campaigning, 0)
 }
 
 // Close closes the election service client entirely. No more campaigns can be
