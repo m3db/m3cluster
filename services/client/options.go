@@ -47,7 +47,7 @@ type KVGen func(zone string) (kv.Store, error)
 // HeartbeatGen generates a heartbeat store for a given zone
 type HeartbeatGen func(sid services.ServiceID) (services.HeartbeatService, error)
 
-// LeaderGen generates a leader service for a given zone.
+// LeaderGen generates a leader service instance for a given service.
 type LeaderGen func(sid services.ServiceID, opts services.ElectionOptions) (services.LeaderService, error)
 
 // Options are options for the client of Services
@@ -71,7 +71,8 @@ type Options interface {
 	// SetHeartbeatGen sets the HeartbeatGen
 	SetHeartbeatGen(gen HeartbeatGen) Options
 
-	// LeaderGen is the function to generate a leader service for a given zone.
+	// LeaderGen is the function to generate a leader service instance for a
+	// given service.
 	LeaderGen() LeaderGen
 
 	// SetLeaderGen sets the leader generation function.
