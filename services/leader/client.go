@@ -15,8 +15,8 @@ import (
 	"golang.org/x/net/context"
 )
 
-// appended to elections with an empty string for electionID to make it easier
-// for user to debug etcd keys
+// Appended to elections with an empty string for electionID to make it easier
+// for user to debug etcd keys.
 const defaultElectionID = "default"
 
 var (
@@ -37,10 +37,10 @@ var (
 type client struct {
 	sync.RWMutex
 
-	ecl         *election.Client
+	client      *election.Client
 	opts        services.ElectionOptions
-	ctxCancel   context.CancelFunc
-	resignC     chan struct{}
+	cancelFn    context.CancelFunc
+	resignCh    chan struct{}
 	campaigning uint32
 	closed      uint32
 }
@@ -63,9 +63,9 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 	}
 
 	return &client{
-		ecl:     ec,
-		opts:    opts.ElectionOpts(),
-		resignC: make(chan struct{}),
+		client:   ec,
+		opts:     opts.ElectionOpts(),
+		resignCh: make(chan struct{}),
 	}, nil
 }
 
@@ -80,7 +80,7 @@ func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c.Lock()
-	c.ctxCancel = cancel
+	c.cancelFn = cancel
 	c.Unlock()
 
 	proposeVal := c.val(opts.LeaderValue())
@@ -99,17 +99,17 @@ func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status
 
 		// Campaign blocks until elected. Once we are elected, we get a channel
 		// that's closed if our session dies.
-		ch, err := c.ecl.Campaign(ctx, proposeVal)
+		ch, err := c.client.Campaign(ctx, proposeVal)
 		if err != nil {
-			sc <- campaign.NewErrCampaignStatus(err)
+			sc <- campaign.NewErrorStatus(err)
 			return
 		}
 
 		sc <- campaign.NewStatus(campaign.Leader)
 		select {
 		case <-ch:
-			sc <- campaign.NewErrCampaignStatus(election.ErrSessionExpired)
-		case <-c.resignC:
+			sc <- campaign.NewErrorStatus(election.ErrSessionExpired)
+		case <-c.resignCh:
 			sc <- campaign.NewStatus(campaign.Follower)
 		}
 	}()
@@ -124,15 +124,15 @@ func (c *client) resign() error {
 
 	// if there's an active blocking call to Campaign() stop it
 	c.Lock()
-	if c.ctxCancel != nil {
-		c.ctxCancel()
-		c.ctxCancel = nil
+	if c.cancelFn != nil {
+		c.cancelFn()
+		c.cancelFn = nil
 	}
 	c.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.ResignTimeout())
 	defer cancel()
-	if err := c.ecl.Resign(ctx); err != nil {
+	if err := c.client.Resign(ctx); err != nil {
 		return err
 	}
 
@@ -141,7 +141,7 @@ func (c *client) resign() error {
 	// if successfully resigned and there was a campaign in Leader state cancel
 	// it
 	select {
-	case c.resignC <- struct{}{}:
+	case c.resignCh <- struct{}{}:
 	default:
 	}
 
@@ -154,8 +154,8 @@ func (c *client) leader() (string, error) {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.LeaderTimeout())
-	ld, err := c.ecl.Leader(ctx)
-	cancel()
+	defer cancel()
+	ld, err := c.client.Leader(ctx)
 	if err == concurrency.ErrElectionNoLeader {
 		return ld, ErrNoLeader
 	}
@@ -174,7 +174,7 @@ func (c *client) resetCampaign() {
 // started and any outstanding campaigns are closed.
 func (c *client) close() error {
 	atomic.StoreUint32(&c.closed, 1)
-	return c.ecl.Close()
+	return c.client.Close()
 }
 
 func (c *client) isClosed() bool {

@@ -34,8 +34,8 @@ func NewStatus(s State) Status {
 	return Status{State: s}
 }
 
-// NewErrCampaignStatus returns an error Status with the given State.
-func NewErrCampaignStatus(err error) Status {
+// NewErrorStatus returns an error Status with the given State.
+func NewErrorStatus(err error) Status {
 	return Status{
 		State: Error,
 		Err:   err,

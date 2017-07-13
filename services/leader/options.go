@@ -6,6 +6,11 @@ import (
 	"github.com/m3db/m3cluster/services"
 )
 
+var (
+	errMissingSid   = errors.New("leader options must specify service ID")
+	errMissingEOpts = errors.New("leader options election opts cannot be nil")
+)
+
 // Options describe options for creating a leader service.
 type Options interface {
 	// Service the election is campaigning for.
@@ -28,8 +33,6 @@ func NewOptions() Options {
 type options struct {
 	sid services.ServiceID
 	eo  services.ElectionOptions
-	val string
-	ttl int
 }
 
 func (o options) ServiceID() services.ServiceID {
@@ -52,12 +55,12 @@ func (o options) SetElectionOpts(eo services.ElectionOptions) Options {
 
 func (o options) Validate() error {
 	if o.sid == nil {
-		return errors.New("leader options must specify service ID")
+		return errMissingSid
 	}
 
-	// this shouldn't happen since we have sane defaults but prevents user error
+	// This shouldn't happen since we have sane defaults but prevents user error.
 	if o.eo == nil {
-		return errors.New("leader options election opts cannot be nil")
+		return errMissingEOpts
 	}
 
 	return nil

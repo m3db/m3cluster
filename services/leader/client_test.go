@@ -22,7 +22,7 @@ const defaultWait = 10 * time.Second
 
 var (
 	newStatus = campaign.NewStatus
-	newErr    = campaign.NewErrCampaignStatus
+	newErr    = campaign.NewErrorStatus
 	followerS = newStatus(campaign.Follower)
 	leaderS   = newStatus(campaign.Leader)
 )

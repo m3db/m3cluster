@@ -43,7 +43,6 @@ var (
 	errNoServiceID        = errors.New("no service id specified")
 	errNoInstanceID       = errors.New("no instance id specified")
 	errAdPlacementMissing = errors.New("advertisement is missing placement instance")
-	errNilElectionOpts    = errors.New("election opts cannot be nil")
 )
 
 // NewServices returns a client of Services
@@ -362,7 +361,7 @@ func (c *client) LeaderService(sid services.ServiceID, opts services.ElectionOpt
 	}
 
 	if opts == nil {
-		return nil, errNilElectionOpts
+		opts = services.NewElectionOptions()
 	}
 
 	key := leaderCacheKey(sid, opts)

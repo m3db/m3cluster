@@ -35,7 +35,7 @@ type multiClient struct {
 
 // clientEntry stores a cached client as well as the TTL it was created with so
 // that a user will receive an error if they try to create a new client with a
-// different TTL
+// different TTL.
 type clientEntry struct {
 	client *client
 	ttl    int
@@ -96,11 +96,7 @@ func (s *multiClient) closeClients() error {
 		}
 	}
 
-	if merr.NumErrors() > 0 {
-		return merr
-	}
-
-	return nil
+	return merr.FinalError()
 }
 
 func (s *multiClient) getOrCreateClient(electionID string, ttl int) (*client, error) {
