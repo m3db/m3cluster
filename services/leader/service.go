@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3cluster/services"
@@ -47,7 +46,7 @@ var (
 type multiClient struct {
 	sync.RWMutex
 
-	closed     uint32
+	closed     bool
 	clients    map[string]*clientEntry
 	opts       Options
 	etcdClient *clientv3.Client
@@ -77,15 +76,22 @@ func NewService(cli *clientv3.Client, opts Options) (services.LeaderService, err
 // Close closes all underlying election clients and returns all errors
 // encountered, if any.
 func (s *multiClient) Close() error {
-	if atomic.CompareAndSwapUint32(&s.closed, 0, 1) {
-		return s.closeClients()
+	s.Lock()
+	if s.closed {
+		s.Unlock()
+		return nil
 	}
 
-	return nil
+	s.closed = true
+	s.Unlock()
+
+	return s.closeClients()
 }
 
 func (s *multiClient) isClosed() bool {
-	return atomic.LoadUint32(&s.closed) == 1
+	s.RLock()
+	defer s.RUnlock()
+	return s.closed
 }
 
 func (s *multiClient) closeClients() error {
