@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
@@ -61,8 +60,8 @@ type client struct {
 	opts        services.ElectionOptions
 	cancelFn    context.CancelFunc
 	resignCh    chan struct{}
-	campaigning uint32
-	closed      uint32
+	campaigning bool
+	closed      bool
 }
 
 // newClient returns an instance of an client bound to a single election.
@@ -156,14 +155,14 @@ func (c *client) resign() error {
 		return err
 	}
 
-	c.resetCampaign()
-
 	// if successfully resigned and there was a campaign in Leader state cancel
 	// it
 	select {
 	case c.resignCh <- struct{}{}:
 	default:
 	}
+
+	c.resetCampaign()
 
 	return nil
 }
@@ -183,22 +182,36 @@ func (c *client) leader() (string, error) {
 }
 
 func (c *client) startCampaign() bool {
-	return atomic.CompareAndSwapUint32(&c.campaigning, 0, 1)
+	c.Lock()
+	defer c.Unlock()
+
+	if c.campaigning {
+		return false
+	}
+
+	c.campaigning = true
+	return true
 }
 
 func (c *client) resetCampaign() {
-	atomic.StoreUint32(&c.campaigning, 0)
+	c.Lock()
+	c.campaigning = false
+	c.Unlock()
 }
 
 // Close closes the election service client entirely. No more campaigns can be
 // started and any outstanding campaigns are closed.
 func (c *client) close() error {
-	atomic.StoreUint32(&c.closed, 1)
+	c.Lock()
+	c.closed = true
+	c.Unlock()
 	return c.client.Close()
 }
 
 func (c *client) isClosed() bool {
-	return atomic.LoadUint32(&c.closed) == 1
+	c.RLock()
+	defer c.RUnlock()
+	return c.closed
 }
 
 // val returns the value the leader should propose based on (1) a potentially
