@@ -70,13 +70,8 @@ func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (
 		return nil, err
 	}
 
-	var sessionOpts []concurrency.SessionOption
-	if ttl != 0 {
-		sessionOpts = append(sessionOpts, concurrency.WithTTL(ttl))
-	}
-
 	pfx := electionPrefix(opts.ServiceID(), electionID)
-	ec, err := election.NewClient(cli, pfx, election.WithSessionOptions(sessionOpts...))
+	ec, err := election.NewClient(cli, pfx, election.WithSessionOptions(concurrency.WithTTL(ttl)))
 	if err != nil {
 		return nil, err
 	}
