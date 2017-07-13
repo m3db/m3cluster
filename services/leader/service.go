@@ -28,7 +28,6 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/leader/campaign"
-	"github.com/m3db/m3x/errors"
 )
 
 const (
@@ -96,7 +95,7 @@ func (s *multiClient) isClosed() bool {
 
 func (s *multiClient) closeClients() error {
 	s.RLock()
-	errC := make(chan error, len(s.clients))
+	errC := make(chan error, 1)
 	var wg sync.WaitGroup
 
 	for _, cl := range s.clients {
@@ -104,7 +103,10 @@ func (s *multiClient) closeClients() error {
 
 		go func(cl *client) {
 			if err := cl.close(); err != nil {
-				errC <- err
+				select {
+				case errC <- err:
+				default:
+				}
 			}
 			wg.Done()
 		}(cl.client)
@@ -115,14 +117,12 @@ func (s *multiClient) closeClients() error {
 	wg.Wait()
 	close(errC)
 
-	merr := xerrors.NewMultiError()
-	for err := range errC {
-		if err != nil {
-			merr = merr.Add(err)
-		}
+	select {
+	case err := <-errC:
+		return err
+	default:
+		return nil
 	}
-
-	return merr.FinalError()
 }
 
 func (s *multiClient) getOrCreateClient(electionID string, ttl int) (*client, error) {
