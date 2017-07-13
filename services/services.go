@@ -32,6 +32,11 @@ import (
 	"github.com/m3db/m3cluster/shard"
 )
 
+const (
+	defaultLeaderTimeout = 30 * time.Second
+	defaultResignTimeout = 30 * time.Second
+)
+
 var (
 	errInstanceNotFound          = errors.New("instance not found")
 	errNilPlacementProto         = errors.New("nil placement proto")
@@ -263,8 +268,8 @@ func (i PlacementInstances) String() string {
 // NewElectionOptions returns an empty ElectionOptions.
 func NewElectionOptions() ElectionOptions {
 	eo := electionOpts{
-		leaderTimeout: 30 * time.Second,
-		resignTimeout: 30 * time.Second,
+		leaderTimeout: defaultLeaderTimeout,
+		resignTimeout: defaultResignTimeout,
 		defaultValue:  "default_hostname",
 	}
 
