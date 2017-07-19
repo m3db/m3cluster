@@ -27,14 +27,16 @@ import (
 )
 
 var (
-	defaulTimeout = 5 * time.Second
-	defaultDir    = "etcd.dir"
+	defaulTimeout    = 5 * time.Second
+	defaultDir       = "etcd.dir"
+	defaultServiceID = "integration.service"
 )
 
 type opts struct {
 	iopts       instrument.Options
 	workingDir  string
 	initTimeout time.Duration
+	serviceID   string
 }
 
 // NewOptions returns a new options
@@ -43,6 +45,7 @@ func NewOptions() Options {
 		iopts:       instrument.NewOptions(),
 		workingDir:  defaultDir,
 		initTimeout: defaulTimeout,
+		serviceID:   defaultServiceID,
 	}
 }
 
@@ -74,4 +77,14 @@ func (o *opts) SetInitTimeout(value time.Duration) Options {
 
 func (o *opts) InitTimeout() time.Duration {
 	return o.initTimeout
+}
+
+func (o *opts) SetServiceID(value string) Options {
+	oo := *o
+	oo.serviceID = value
+	return &oo
+}
+
+func (o *opts) ServiceID() string {
+	return o.serviceID
 }

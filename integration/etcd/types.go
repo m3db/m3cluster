@@ -60,4 +60,10 @@ type Options interface {
 
 	// InitTimeout returns the init timeout
 	InitTimeout() time.Duration
+
+	// SetServiceID sets the service id for KV operations
+	SetServiceID(value string) Options
+
+	// ServiceID returns the service id for KV operations
+	ServiceID() string
 }

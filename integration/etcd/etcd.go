@@ -38,10 +38,6 @@ import (
 	"github.com/coreos/etcd/embed"
 )
 
-var (
-	defaultServiceID = "etcdServer"
-)
-
 type embeddedKV struct {
 	etcd *embed.Etcd
 	opts Options
@@ -63,6 +59,7 @@ func New(opts Options) (EmbeddedKV, error) {
 	return &embeddedKV{
 		etcd: e,
 		opts: opts,
+		dir:  dir,
 	}, nil
 }
 
@@ -142,6 +139,6 @@ func (e *embeddedKV) ConfigServiceClient() (client.Client, error) {
 		SetClusters([]etcdclient.Cluster{
 			etcdclient.NewCluster().SetEndpoints(addresses),
 		}).
-		SetService(defaultServiceID)
+		SetService(e.opts.ServiceID())
 	return etcdclient.NewConfigServiceClient(eopts)
 }
