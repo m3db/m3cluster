@@ -55,7 +55,7 @@ func NewServices(opts Options) (services.Services, error) {
 		kvManagers: make(map[string]*kvManager),
 		hbStores:   make(map[string]services.HeartbeatService),
 		adDoneChs:  make(map[string]chan struct{}),
-		ldSvcs:     make(map[string]services.LeaderService),
+		ldSvcs:     make(map[leaderKey]services.LeaderService),
 		opts:       opts,
 		logger:     opts.InstrumentsOptions().Logger(),
 		m:          opts.InstrumentsOptions().MetricsScope(),
@@ -68,7 +68,7 @@ type client struct {
 	opts       Options
 	kvManagers map[string]*kvManager
 	hbStores   map[string]services.HeartbeatService
-	ldSvcs     map[string]services.LeaderService
+	ldSvcs     map[leaderKey]services.LeaderService
 	adDoneChs  map[string]chan struct{}
 	logger     xlog.Logger
 	m          tally.Scope
@@ -361,7 +361,11 @@ func (c *client) LeaderService(sid services.ServiceID, opts services.ElectionOpt
 	}
 
 	if opts == nil {
-		opts = services.NewElectionOptions()
+		eopts, err := services.NewElectionOptions()
+		if err != nil {
+			return nil, err
+		}
+		opts = eopts
 	}
 
 	key := leaderCacheKey(sid, opts)
@@ -578,8 +582,21 @@ func validateAdvertisement(sid services.ServiceID, id string) error {
 	return nil
 }
 
-func leaderCacheKey(sid services.ServiceID, opts services.ElectionOptions) string {
-	return fmt.Sprintf("%s/%s", sid.String(), opts.ID())
+// cache key for leader service clients
+type leaderKey struct {
+	sid           string
+	leaderTimeout time.Duration
+	resignTimeout time.Duration
+	ttl           int
+}
+
+func leaderCacheKey(sid services.ServiceID, opts services.ElectionOptions) leaderKey {
+	return leaderKey{
+		sid:           sid.String(),
+		leaderTimeout: opts.LeaderTimeout(),
+		resignTimeout: opts.ResignTimeout(),
+		ttl:           opts.TTL(),
+	}
 }
 
 type kvManager struct {

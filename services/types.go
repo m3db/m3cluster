@@ -474,14 +474,6 @@ type ElectionOptions interface {
 	ResignTimeout() time.Duration
 	SetResignTimeout(t time.Duration) ElectionOptions
 
-	// DefaultValue returns the value that will be placed in the key of the
-	// leader of the election iff (1) no CampaionOptions option is passed to
-	// Campaign() and (2) the call to os.Hostname() fails. This value will very
-	// rarely be used since os.Hostname() should be reliable, and defaults to
-	// "default_hostname".
-	DefaultValue() string
-	SetDefaultValue(s string) ElectionOptions
-
 	// TTL returns the TTL used for campaigns. By default (ttl == 0), etcd will
 	// set the TTL to 60s.
 	TTL() int
@@ -490,10 +482,6 @@ type ElectionOptions interface {
 	// Hostname returns the hostname of the host if accessible, otherwise the
 	// value for DefaultValue().
 	Hostname() string
-
-	// ID returns a string representation of the options suitable for cache
-	// keys.
-	ID() string
 }
 
 // CampaignOptions provide the ability to override campaign defaults.
@@ -503,10 +491,6 @@ type CampaignOptions interface {
 	// the hostname of the caller.
 	LeaderValue() string
 	SetLeaderValue(v string) CampaignOptions
-
-	// ID returns a string representation of the options suitable for cache
-	// keys.
-	ID() string
 }
 
 // LeaderService provides access to etcd-backed leader elections.

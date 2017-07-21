@@ -103,10 +103,14 @@ func (tc *testCluster) options() Options {
 		SetName("s1").
 		SetZone("z1")
 
-	eopts := services.NewElectionOptions().
+	eopts, err := services.NewElectionOptions()
+	require.NoError(tc.t, err)
+	eopts = eopts.
 		SetTTL(5)
 
-	return NewOptions().
+	opts, err := NewOptions()
+	require.NoError(tc.t, err)
+	return opts.
 		SetServiceID(sid).
 		SetElectionOpts(eopts)
 }

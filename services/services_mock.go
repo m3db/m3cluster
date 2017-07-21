@@ -1908,26 +1908,6 @@ func (_mr *_MockElectionOptionsRecorder) SetResignTimeout(arg0 interface{}) *gom
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetResignTimeout", arg0)
 }
 
-func (_m *MockElectionOptions) DefaultValue() string {
-	ret := _m.ctrl.Call(_m, "DefaultValue")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-func (_mr *_MockElectionOptionsRecorder) DefaultValue() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DefaultValue")
-}
-
-func (_m *MockElectionOptions) SetDefaultValue(s string) ElectionOptions {
-	ret := _m.ctrl.Call(_m, "SetDefaultValue", s)
-	ret0, _ := ret[0].(ElectionOptions)
-	return ret0
-}
-
-func (_mr *_MockElectionOptionsRecorder) SetDefaultValue(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetDefaultValue", arg0)
-}
-
 func (_m *MockElectionOptions) TTL() int {
 	ret := _m.ctrl.Call(_m, "TTL")
 	ret0, _ := ret[0].(int)
@@ -1956,16 +1936,6 @@ func (_m *MockElectionOptions) Hostname() string {
 
 func (_mr *_MockElectionOptionsRecorder) Hostname() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Hostname")
-}
-
-func (_m *MockElectionOptions) ID() string {
-	ret := _m.ctrl.Call(_m, "ID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-func (_mr *_MockElectionOptionsRecorder) ID() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ID")
 }
 
 // Mock of CampaignOptions interface
@@ -2007,16 +1977,6 @@ func (_m *MockCampaignOptions) SetLeaderValue(v string) CampaignOptions {
 
 func (_mr *_MockCampaignOptionsRecorder) SetLeaderValue(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetLeaderValue", arg0)
-}
-
-func (_m *MockCampaignOptions) ID() string {
-	ret := _m.ctrl.Call(_m, "ID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-func (_mr *_MockCampaignOptionsRecorder) ID() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ID")
 }
 
 // Mock of LeaderService interface

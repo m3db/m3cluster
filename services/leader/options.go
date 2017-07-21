@@ -44,10 +44,15 @@ type Options interface {
 }
 
 // NewOptions returns an instance of leader options.
-func NewOptions() Options {
-	return options{
-		eo: services.NewElectionOptions(),
+func NewOptions() (Options, error) {
+	eo, err := services.NewElectionOptions()
+	if err != nil {
+		return nil, err
 	}
+
+	return options{
+		eo: eo,
+	}, nil
 }
 
 type options struct {
