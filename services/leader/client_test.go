@@ -239,6 +239,25 @@ func TestResign(t *testing.T) {
 	assert.Equal(t, "", ld)
 }
 
+func TestResign_BlockingCampaign(t *testing.T) {
+	tc := newTestCluster(t)
+	defer tc.close()
+
+	svc1, svc2 := tc.client(), tc.client()
+
+	sc1, err := svc1.campaign(tc.opts("i1"))
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc1, true, followerS, leaderS))
+
+	sc2, err := svc2.campaign(tc.opts("i2"))
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc2, true, followerS))
+
+	err = svc2.resign()
+	assert.NoError(t, err)
+	assert.NoError(t, waitForStates(sc2, false, newErr(context.Canceled)))
+}
+
 func TestResign_Early(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
