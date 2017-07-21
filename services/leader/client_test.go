@@ -103,12 +103,16 @@ func (tc *testCluster) options() Options {
 		SetName("s1").
 		SetZone("z1")
 
+	eopts := services.NewElectionOptions().
+		SetTTL(5)
+
 	return NewOptions().
-		SetServiceID(sid)
+		SetServiceID(sid).
+		SetElectionOpts(eopts)
 }
 
 func (tc *testCluster) client() *client {
-	svc, err := newClient(tc.etcdClient(), tc.options(), "", 5)
+	svc, err := newClient(tc.etcdClient(), tc.options(), "")
 	require.NoError(tc.t, err)
 
 	return svc
@@ -129,7 +133,7 @@ func TestNewClient(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
-	svc, err := newClient(tc.etcdClient(), tc.options(), "", 5)
+	svc, err := newClient(tc.etcdClient(), tc.options(), "")
 	assert.NoError(t, err)
 	assert.NotNil(t, svc)
 }
@@ -139,7 +143,7 @@ func TestNewClient_BadCluster(t *testing.T) {
 	cl := tc.etcdClient()
 	tc.close()
 
-	_, err := newClient(cl, tc.options(), "", 5)
+	_, err := newClient(cl, tc.options(), "")
 	assert.Error(t, err)
 }
 

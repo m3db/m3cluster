@@ -46,17 +46,9 @@ type multiClient struct {
 	sync.RWMutex
 
 	closed     bool
-	clients    map[string]*clientEntry
+	clients    map[string]*client
 	opts       Options
 	etcdClient *clientv3.Client
-}
-
-// clientEntry stores a cached client as well as the TTL it was created with so
-// that a user will receive an error if they try to create a new client with a
-// different TTL.
-type clientEntry struct {
-	client *client
-	ttl    int
 }
 
 // NewService creates a new leader service client based on an etcd client.
@@ -66,7 +58,7 @@ func NewService(cli *clientv3.Client, opts Options) (services.LeaderService, err
 	}
 
 	return &multiClient{
-		clients:    make(map[string]*clientEntry),
+		clients:    make(map[string]*client),
 		opts:       opts,
 		etcdClient: cli,
 	}, nil
@@ -109,7 +101,7 @@ func (s *multiClient) closeClients() error {
 				}
 			}
 			wg.Done()
-		}(cl.client)
+		}(cl)
 	}
 
 	s.RUnlock()
@@ -125,20 +117,15 @@ func (s *multiClient) closeClients() error {
 	}
 }
 
-func (s *multiClient) getOrCreateClient(electionID string, ttl int) (*client, error) {
-	const errTTLFmt = "cannot create client with ttl=(%d), already created with ttl=(%d)"
-
+func (s *multiClient) getOrCreateClient(electionID string) (*client, error) {
 	s.RLock()
-	ce, ok := s.clients[electionID]
+	cl, ok := s.clients[electionID]
 	s.RUnlock()
 	if ok {
-		if ce.ttl != ttl {
-			return nil, fmt.Errorf(errTTLFmt, ttl, ce.ttl)
-		}
-		return ce.client, nil
+		return cl, nil
 	}
 
-	clientNew, err := newClient(s.etcdClient, s.opts, electionID, ttl)
+	clientNew, err := newClient(s.etcdClient, s.opts, electionID)
 	if err != nil {
 		return nil, err
 	}
@@ -146,28 +133,24 @@ func (s *multiClient) getOrCreateClient(electionID string, ttl int) (*client, er
 	s.Lock()
 	defer s.Unlock()
 
-	ce, ok = s.clients[electionID]
+	cl, ok = s.clients[electionID]
 	if ok {
 		// another client was created between RLock and now, close new one
 		go clientNew.close()
 
-		if ce.ttl != ttl {
-			return nil, fmt.Errorf(errTTLFmt, ttl, ce.ttl)
-		}
-
-		return ce.client, nil
+		return cl, nil
 	}
 
-	s.clients[electionID] = &clientEntry{client: clientNew, ttl: ttl}
+	s.clients[electionID] = clientNew
 	return clientNew, nil
 }
 
-func (s *multiClient) Campaign(electionID string, ttl int, opts services.CampaignOptions) (<-chan campaign.Status, error) {
+func (s *multiClient) Campaign(electionID string, opts services.CampaignOptions) (<-chan campaign.Status, error) {
 	if s.isClosed() {
 		return nil, errClientClosed
 	}
 
-	client, err := s.getOrCreateClient(electionID, ttl)
+	client, err := s.getOrCreateClient(electionID)
 	if err != nil {
 		return nil, err
 	}
@@ -185,24 +168,24 @@ func (s *multiClient) Resign(electionID string) error {
 	}
 
 	s.RLock()
-	ce, ok := s.clients[electionID]
+	cl, ok := s.clients[electionID]
 	s.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("no election with ID '%s' to resign", electionID)
 	}
 
-	return ce.client.resign()
+	return cl.resign()
 }
 
-func (s *multiClient) Leader(electionID string, ttl int) (string, error) {
+func (s *multiClient) Leader(electionID string) (string, error) {
 	if s.isClosed() {
 		return "", errClientClosed
 	}
 
 	// always create a client so we can check election statuses without
 	// campaigning
-	client, err := s.getOrCreateClient(electionID, ttl)
+	client, err := s.getOrCreateClient(electionID)
 	if err != nil {
 		return "", err
 	}

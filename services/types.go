@@ -482,6 +482,11 @@ type ElectionOptions interface {
 	DefaultValue() string
 	SetDefaultValue(s string) ElectionOptions
 
+	// TTL returns the TTL used for campaigns. By default (ttl == 0), etcd will
+	// set the TTL to 60s.
+	TTL() int
+	SetTTL(ttl int) ElectionOptions
+
 	// Hostname returns the hostname of the host if accessible, otherwise the
 	// value for DefaultValue().
 	Hostname() string
@@ -511,31 +516,24 @@ type LeaderService interface {
 	Close() error
 
 	// Campaign proposes that the caller become the leader for a specified
-	// election, with its leadership being refreshed on an interval of ttl
-	// seconds. If ttl is 0 it will default to etcd's default of 60s. It returns
-	// a read-only channel of campaign status events that is closed when the
-	// user resigns leadership or the campaign is invalidated due to background
-	// session expiration (i.e. failing to refresh etcd leadership lease). The
-	// caller MUST consume this channel until it is closed or risk goroutine
-	// leaks. Users are encouraged to read the package docs of services/leader
-	// for advice on proper usage and common gotchas.
+	// election, with its leadership being refreshed on an interval according to
+	// the ElectionOptions the service was created with. It returns a read-only
+	// channel of campaign status events that is closed when the user resigns
+	// leadership or the campaign is invalidated due to background session
+	// expiration (i.e. failing to refresh etcd leadership lease). The caller
+	// MUST consume this channel until it is closed or risk goroutine leaks.
+	// Users are encouraged to read the package docs of services/leader for
+	// advice on proper usage and common gotchas.
 	//
 	// The leader will announce its hostname to observers unless opts is non-nil
 	// and opts.LeaderValue() is non-empty.
-	//
-	// NOTE: Once a campaign for a given electionID has been started, if it is
-	// lost or resigned and restarted it will be bound to the same TTL as the
-	// original due to constraints of etcd TTL sessions. The same applies if a
-	// call to Campaign() is made after a call to Leader() with the same ttl.
-	Campaign(electionID string, ttl int, opts CampaignOptions) (<-chan campaign.Status, error)
+	Campaign(electionID string, opts CampaignOptions) (<-chan campaign.Status, error)
 
 	// Resign gives up leadership of a specified election if the caller is the
 	// current leader (if the caller is not the leader an error is returned).
 	Resign(electionID string) error
 
 	// Leader returns the current leader of a specified election (if there is no
-	// leader then leader.ErrNoLeader is returned). A ttl must be passed, for if
-	// there is no active session that has been created with a call to
-	// Campaign() then a new session will be created bound to this ttl.
-	Leader(electionID string, ttl int) (string, error)
+	// leader then leader.ErrNoLeader is returned).
+	Leader(electionID string) (string, error)
 }

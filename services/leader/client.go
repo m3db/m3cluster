@@ -65,11 +65,12 @@ type client struct {
 }
 
 // newClient returns an instance of an client bound to a single election.
-func newClient(cli *clientv3.Client, opts Options, electionID string, ttl int) (*client, error) {
+func newClient(cli *clientv3.Client, opts Options, electionID string) (*client, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
 
+	ttl := opts.ElectionOpts().TTL()
 	pfx := electionPrefix(opts.ServiceID(), electionID)
 	ec, err := election.NewClient(cli, pfx, election.WithSessionOptions(concurrency.WithTTL(ttl)))
 	if err != nil {

@@ -283,6 +283,7 @@ func NewElectionOptions() ElectionOptions {
 type electionOpts struct {
 	leaderTimeout time.Duration
 	resignTimeout time.Duration
+	ttl           int
 	defaultValue  string
 	hostname      string
 }
@@ -311,6 +312,15 @@ func (e electionOpts) DefaultValue() string {
 
 func (e electionOpts) SetDefaultValue(s string) ElectionOptions {
 	e.defaultValue = s
+	return e
+}
+
+func (e electionOpts) TTL() int {
+	return e.ttl
+}
+
+func (e electionOpts) SetTTL(ttl int) ElectionOptions {
+	e.ttl = ttl
 	return e
 }
 
