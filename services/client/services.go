@@ -579,7 +579,7 @@ func validateAdvertisement(sid services.ServiceID, id string) error {
 }
 
 func leaderCacheKey(sid services.ServiceID, opts services.ElectionOptions) string {
-	return fmt.Sprintf("%s/%s", sid.String(), opts.String())
+	return fmt.Sprintf("%s/%s", sid.String(), opts.ID())
 }
 
 type kvManager struct {

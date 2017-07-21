@@ -486,7 +486,9 @@ type ElectionOptions interface {
 	// value for DefaultValue().
 	Hostname() string
 
-	String() string
+	// ID returns a string representation of the options suitable for cache
+	// keys.
+	ID() string
 }
 
 // CampaignOptions provide the ability to override campaign defaults.
@@ -497,7 +499,9 @@ type CampaignOptions interface {
 	LeaderValue() string
 	SetLeaderValue(v string) CampaignOptions
 
-	String() string
+	// ID returns a string representation of the options suitable for cache
+	// keys.
+	ID() string
 }
 
 // LeaderService provides access to etcd-backed leader elections.

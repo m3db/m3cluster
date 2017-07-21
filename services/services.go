@@ -321,7 +321,7 @@ func (e electionOpts) Hostname() string {
 	return e.defaultValue
 }
 
-func (e electionOpts) String() string {
+func (e electionOpts) ID() string {
 	return fmt.Sprintf("[defaultValue: %s, leaderTimeout: %s, resignTimeout: %s]",
 		e.defaultValue,
 		e.leaderTimeout.String(),
@@ -346,6 +346,6 @@ func (c campaignOpts) SetLeaderValue(v string) CampaignOptions {
 	return c
 }
 
-func (c campaignOpts) String() string {
+func (c campaignOpts) ID() string {
 	return fmt.Sprintf("[leaderValue: %s]", c.val)
 }
