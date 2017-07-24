@@ -70,7 +70,7 @@ func newClient(cli *clientv3.Client, opts Options, electionID string) (*client, 
 		return nil, err
 	}
 
-	ttl := opts.ElectionOpts().TTL()
+	ttl := opts.ElectionOpts().TTLSecs()
 	pfx := electionPrefix(opts.ServiceID(), electionID)
 	ec, err := election.NewClient(cli, pfx, election.WithSessionOptions(concurrency.WithTTL(ttl)))
 	if err != nil {
@@ -98,7 +98,10 @@ func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status
 	c.cancelFn = cancel
 	c.Unlock()
 
-	proposeVal := c.val(opts.LeaderValue())
+	proposeVal := opts.LeaderValue()
+	if proposeVal == "" {
+		proposeVal = c.opts.Hostname()
+	}
 
 	// buffer 1 to not block initial follower update
 	sc := make(chan campaign.Status, 1)
@@ -109,7 +112,7 @@ func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status
 		defer func() {
 			close(sc)
 			cancel()
-			c.resetCampaign()
+			c.stopCampaign()
 		}()
 
 		// Campaign blocks until elected. Once we are elected, we get a channel
@@ -158,7 +161,7 @@ func (c *client) resign() error {
 	default:
 	}
 
-	c.resetCampaign()
+	c.stopCampaign()
 
 	return nil
 }
@@ -189,7 +192,7 @@ func (c *client) startCampaign() bool {
 	return true
 }
 
-func (c *client) resetCampaign() {
+func (c *client) stopCampaign() {
 	c.Lock()
 	c.campaigning = false
 	c.Unlock()
@@ -199,6 +202,10 @@ func (c *client) resetCampaign() {
 // started and any outstanding campaigns are closed.
 func (c *client) close() error {
 	c.Lock()
+	if c.closed {
+		c.Unlock()
+		return nil
+	}
 	c.closed = true
 	c.Unlock()
 	return c.client.Close()
@@ -208,17 +215,6 @@ func (c *client) isClosed() bool {
 	c.RLock()
 	defer c.RUnlock()
 	return c.closed
-}
-
-// val returns the value the leader should propose based on (1) a potentially
-// empty override value and (2) the hostname of the caller (with a fallback to
-// the DefaultValue option).
-func (c *client) val(override string) string {
-	if override != "" {
-		return override
-	}
-
-	return c.opts.Hostname()
 }
 
 // elections for a service "svc" in env "test" should be stored under

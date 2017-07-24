@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	defaultLeaderTimeout = 30 * time.Second
-	defaultResignTimeout = 30 * time.Second
+	defaultLeaderTimeout = 10 * time.Second
+	defaultResignTimeout = 10 * time.Second
 )
 
 var (
@@ -284,7 +284,7 @@ func NewElectionOptions() (ElectionOptions, error) {
 type electionOpts struct {
 	leaderTimeout time.Duration
 	resignTimeout time.Duration
-	ttl           int
+	ttlSecs       int
 	hostname      string
 }
 
@@ -306,12 +306,12 @@ func (e electionOpts) SetResignTimeout(t time.Duration) ElectionOptions {
 	return e
 }
 
-func (e electionOpts) TTL() int {
-	return e.ttl
+func (e electionOpts) TTLSecs() int {
+	return e.ttlSecs
 }
 
-func (e electionOpts) SetTTL(ttl int) ElectionOptions {
-	e.ttl = ttl
+func (e electionOpts) SetTTLSecs(ttl int) ElectionOptions {
+	e.ttlSecs = ttl
 	return e
 }
 

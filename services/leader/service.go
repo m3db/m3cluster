@@ -146,6 +146,10 @@ func (s *multiClient) getOrCreateClient(electionID string) (*client, error) {
 }
 
 func (s *multiClient) Campaign(electionID string, opts services.CampaignOptions) (<-chan campaign.Status, error) {
+	if opts == nil {
+		return nil, errors.New("cannot pass nil campaign options")
+	}
+
 	if s.isClosed() {
 		return nil, errClientClosed
 	}
@@ -153,10 +157,6 @@ func (s *multiClient) Campaign(electionID string, opts services.CampaignOptions)
 	client, err := s.getOrCreateClient(electionID)
 	if err != nil {
 		return nil, err
-	}
-
-	if opts == nil {
-		opts = services.NewCampaignOptions()
 	}
 
 	return client.campaign(opts)

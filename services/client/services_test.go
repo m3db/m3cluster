@@ -989,8 +989,8 @@ func TestLeaderService(t *testing.T) {
 	sid1 := services.NewServiceID().SetName("s1")
 	sid2 := services.NewServiceID().SetName("s2")
 	eo1 := newElectionOpts()
-	eo2 := newElectionOpts().SetLeaderTimeout(10 * time.Second)
-	eo3 := newElectionOpts().SetResignTimeout(10 * time.Second)
+	eo2 := newElectionOpts().SetLeaderTimeout(30 * time.Second)
+	eo3 := newElectionOpts().SetResignTimeout(30 * time.Second)
 
 	for _, sid := range []services.ServiceID{sid1, sid2} {
 		for _, eo := range []services.ElectionOptions{eo1, eo2, eo3} {

@@ -1908,24 +1908,24 @@ func (_mr *_MockElectionOptionsRecorder) SetResignTimeout(arg0 interface{}) *gom
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetResignTimeout", arg0)
 }
 
-func (_m *MockElectionOptions) TTL() int {
-	ret := _m.ctrl.Call(_m, "TTL")
+func (_m *MockElectionOptions) TTLSecs() int {
+	ret := _m.ctrl.Call(_m, "TTLSecs")
 	ret0, _ := ret[0].(int)
 	return ret0
 }
 
-func (_mr *_MockElectionOptionsRecorder) TTL() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "TTL")
+func (_mr *_MockElectionOptionsRecorder) TTLSecs() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "TTLSecs")
 }
 
-func (_m *MockElectionOptions) SetTTL(ttl int) ElectionOptions {
-	ret := _m.ctrl.Call(_m, "SetTTL", ttl)
+func (_m *MockElectionOptions) SetTTLSecs(ttl int) ElectionOptions {
+	ret := _m.ctrl.Call(_m, "SetTTLSecs", ttl)
 	ret0, _ := ret[0].(ElectionOptions)
 	return ret0
 }
 
-func (_mr *_MockElectionOptionsRecorder) SetTTL(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetTTL", arg0)
+func (_mr *_MockElectionOptionsRecorder) SetTTLSecs(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetTTLSecs", arg0)
 }
 
 func (_m *MockElectionOptions) Hostname() string {

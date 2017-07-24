@@ -476,8 +476,8 @@ type ElectionOptions interface {
 
 	// TTL returns the TTL used for campaigns. By default (ttl == 0), etcd will
 	// set the TTL to 60s.
-	TTL() int
-	SetTTL(ttl int) ElectionOptions
+	TTLSecs() int
+	SetTTLSecs(ttl int) ElectionOptions
 
 	// Hostname returns the hostname of the host if accessible, otherwise the
 	// value for DefaultValue().

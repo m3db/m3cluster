@@ -595,7 +595,7 @@ func leaderCacheKey(sid services.ServiceID, opts services.ElectionOptions) leade
 		sid:           sid.String(),
 		leaderTimeout: opts.LeaderTimeout(),
 		resignTimeout: opts.ResignTimeout(),
-		ttl:           opts.TTL(),
+		ttl:           opts.TTLSecs(),
 	}
 }
 

@@ -107,7 +107,7 @@ func TestService_Close(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NoError(t, waitForStates(sc1, true, followerS, leaderS))
 
-	sc2, err := svc.Campaign("2", nil)
+	sc2, err := svc.Campaign("2", services.NewCampaignOptions())
 	assert.NoError(t, err)
 	assert.NoError(t, waitForStates(sc2, true, followerS, leaderS))
 
@@ -119,7 +119,7 @@ func TestService_Close(t *testing.T) {
 	assert.NoError(t, svc.Close())
 	assert.Error(t, svc.Resign(""))
 
-	_, err = svc.Campaign("", nil)
+	_, err = svc.Campaign("", services.NewCampaignOptions())
 	assert.Error(t, err)
 
 	_, err = svc.Leader("")

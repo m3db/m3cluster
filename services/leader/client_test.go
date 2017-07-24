@@ -106,7 +106,7 @@ func (tc *testCluster) options() Options {
 	eopts, err := services.NewElectionOptions()
 	require.NoError(tc.t, err)
 	eopts = eopts.
-		SetTTL(5)
+		SetTTLSecs(5)
 
 	opts, err := NewOptions()
 	require.NoError(tc.t, err)
