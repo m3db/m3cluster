@@ -266,26 +266,19 @@ func (i PlacementInstances) String() string {
 }
 
 // NewElectionOptions returns an empty ElectionOptions.
-func NewElectionOptions() (ElectionOptions, error) {
+func NewElectionOptions() ElectionOptions {
 	eo := electionOpts{
 		leaderTimeout: defaultLeaderTimeout,
 		resignTimeout: defaultResignTimeout,
 	}
 
-	h, err := os.Hostname()
-	if err != nil {
-		return nil, err
-	}
-	eo.hostname = h
-
-	return eo, nil
+	return eo
 }
 
 type electionOpts struct {
 	leaderTimeout time.Duration
 	resignTimeout time.Duration
 	ttlSecs       int
-	hostname      string
 }
 
 func (e electionOpts) LeaderTimeout() time.Duration {
@@ -315,17 +308,18 @@ func (e electionOpts) SetTTLSecs(ttl int) ElectionOptions {
 	return e
 }
 
-func (e electionOpts) Hostname() string {
-	return e.hostname
-}
-
 type campaignOpts struct {
 	val string
 }
 
 // NewCampaignOptions returns an empty CampaignOptions.
-func NewCampaignOptions() CampaignOptions {
-	return campaignOpts{}
+func NewCampaignOptions() (CampaignOptions, error) {
+	h, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	return campaignOpts{val: h}, nil
 }
 
 func (c campaignOpts) LeaderValue() string {

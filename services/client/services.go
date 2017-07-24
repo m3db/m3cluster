@@ -361,11 +361,7 @@ func (c *client) LeaderService(sid services.ServiceID, opts services.ElectionOpt
 	}
 
 	if opts == nil {
-		eopts, err := services.NewElectionOptions()
-		if err != nil {
-			return nil, err
-		}
-		opts = eopts
+		opts = services.NewElectionOptions()
 	}
 
 	key := leaderCacheKey(sid, opts)

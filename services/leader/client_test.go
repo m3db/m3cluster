@@ -26,11 +26,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/integration"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/leader/campaign"
 	"github.com/m3db/m3cluster/services/leader/election"
+
+	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/integration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
@@ -103,14 +104,10 @@ func (tc *testCluster) options() Options {
 		SetName("s1").
 		SetZone("z1")
 
-	eopts, err := services.NewElectionOptions()
-	require.NoError(tc.t, err)
-	eopts = eopts.
+	eopts := services.NewElectionOptions().
 		SetTTLSecs(5)
 
-	opts, err := NewOptions()
-	require.NoError(tc.t, err)
-	return opts.
+	return NewOptions().
 		SetServiceID(sid).
 		SetElectionOpts(eopts)
 }
@@ -130,7 +127,9 @@ func (tc *testCluster) service() services.LeaderService {
 }
 
 func (tc *testCluster) opts(val string) services.CampaignOptions {
-	return services.NewCampaignOptions().SetLeaderValue(val)
+	opts, err := services.NewCampaignOptions()
+	require.NoError(tc.t, err)
+	return opts.SetLeaderValue(val)
 }
 
 func TestNewClient(t *testing.T) {

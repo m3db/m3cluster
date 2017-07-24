@@ -25,12 +25,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/leader/campaign"
 	"github.com/m3db/m3cluster/services/leader/election"
 
+	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
 	"golang.org/x/net/context"
 )
 
@@ -98,11 +98,6 @@ func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status
 	c.cancelFn = cancel
 	c.Unlock()
 
-	proposeVal := opts.LeaderValue()
-	if proposeVal == "" {
-		proposeVal = c.opts.Hostname()
-	}
-
 	// buffer 1 to not block initial follower update
 	sc := make(chan campaign.Status, 1)
 
@@ -117,7 +112,7 @@ func (c *client) campaign(opts services.CampaignOptions) (<-chan campaign.Status
 
 		// Campaign blocks until elected. Once we are elected, we get a channel
 		// that's closed if our session dies.
-		ch, err := c.client.Campaign(ctx, proposeVal)
+		ch, err := c.client.Campaign(ctx, opts.LeaderValue())
 		if err != nil {
 			sc <- campaign.NewErrorStatus(err)
 			return

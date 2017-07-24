@@ -478,17 +478,13 @@ type ElectionOptions interface {
 	// set the TTL to 60s.
 	TTLSecs() int
 	SetTTLSecs(ttl int) ElectionOptions
-
-	// Hostname returns the hostname of the host if accessible, otherwise the
-	// value for DefaultValue().
-	Hostname() string
 }
 
 // CampaignOptions provide the ability to override campaign defaults.
 type CampaignOptions interface {
 	// LeaderValue allows the user to override the value a campaign announces
-	// (that is, the value an observer sees upon calling Leader()). This defaults to
-	// the hostname of the caller.
+	// (that is, the value an observer sees upon calling Leader()). This
+	// defaults to the hostname of the caller.
 	LeaderValue() string
 	SetLeaderValue(v string) CampaignOptions
 }

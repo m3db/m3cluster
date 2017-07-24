@@ -26,10 +26,13 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/m3db/m3cluster/services"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func overrideOpts(s string) services.CampaignOptions {
-	return services.NewCampaignOptions().SetLeaderValue(s)
+func overrideOpts(t *testing.T, s string) services.CampaignOptions {
+	opts, err := services.NewCampaignOptions()
+	require.NoError(t, err)
+	return opts.SetLeaderValue(s)
 }
 
 func TestNewService(t *testing.T) {
@@ -47,11 +50,11 @@ func TestService_Campaign(t *testing.T) {
 
 	svc := tc.service()
 
-	sc, err := svc.Campaign("", overrideOpts("foo1"))
+	sc, err := svc.Campaign("", overrideOpts(t, "foo1"))
 	assert.NoError(t, err)
 	assert.NoError(t, waitForStates(sc, true, followerS, leaderS))
 
-	sc2, err := svc.Campaign("1", overrideOpts("foo1"))
+	sc2, err := svc.Campaign("1", overrideOpts(t, "foo1"))
 	assert.NoError(t, err)
 	assert.NoError(t, waitForStates(sc2, true, followerS, leaderS))
 
@@ -67,7 +70,7 @@ func TestService_Resign(t *testing.T) {
 	defer tc.close()
 
 	svc := tc.service()
-	sc, err := svc.Campaign("e", overrideOpts("foo1"))
+	sc, err := svc.Campaign("e", overrideOpts(t, "foo1"))
 	assert.NoError(t, err)
 	assert.NoError(t, waitForStates(sc, true, followerS, leaderS))
 
@@ -85,7 +88,7 @@ func TestService_Leader(t *testing.T) {
 
 	svc := tc.service()
 
-	sc, err := svc.Campaign("", overrideOpts("foo1"))
+	sc, err := svc.Campaign("", overrideOpts(t, "foo1"))
 	assert.NoError(t, err)
 	assert.NoError(t, waitForStates(sc, true, followerS, leaderS))
 
@@ -101,13 +104,16 @@ func TestService_Close(t *testing.T) {
 	tc := newTestCluster(t)
 	defer tc.close()
 
+	opts, err := services.NewCampaignOptions()
+	require.NoError(t, err)
+
 	svc := tc.service()
 
-	sc1, err := svc.Campaign("1", overrideOpts("foo1"))
+	sc1, err := svc.Campaign("1", overrideOpts(t, "foo1"))
 	assert.NoError(t, err)
 	assert.NoError(t, waitForStates(sc1, true, followerS, leaderS))
 
-	sc2, err := svc.Campaign("2", services.NewCampaignOptions())
+	sc2, err := svc.Campaign("2", opts)
 	assert.NoError(t, err)
 	assert.NoError(t, waitForStates(sc2, true, followerS, leaderS))
 
@@ -119,7 +125,7 @@ func TestService_Close(t *testing.T) {
 	assert.NoError(t, svc.Close())
 	assert.Error(t, svc.Resign(""))
 
-	_, err = svc.Campaign("", services.NewCampaignOptions())
+	_, err = svc.Campaign("", opts)
 	assert.Error(t, err)
 
 	_, err = svc.Leader("")

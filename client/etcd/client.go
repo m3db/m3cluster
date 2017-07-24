@@ -206,12 +206,7 @@ func (c *csclient) leaderGen() sdclient.LeaderGen {
 				return nil, err
 			}
 
-			opts, err := leader.NewOptions()
-			if err != nil {
-				return nil, err
-			}
-
-			opts = opts.
+			opts := leader.NewOptions().
 				SetServiceID(sid).
 				SetElectionOpts(eo)
 

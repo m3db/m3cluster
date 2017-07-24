@@ -26,8 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coreos/etcd/integration"
-	"github.com/golang/mock/gomock"
 	metadataproto "github.com/m3db/m3cluster/generated/proto/metadata"
 	"github.com/m3db/m3cluster/kv"
 	etcdKV "github.com/m3db/m3cluster/kv/etcd"
@@ -37,6 +35,9 @@ import (
 	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/instrument"
 	"github.com/m3db/m3x/watch"
+
+	"github.com/coreos/etcd/integration"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -980,17 +981,11 @@ func TestLeaderService(t *testing.T) {
 	cl, err := NewServices(opts)
 	require.NoError(t, err)
 
-	newElectionOpts := func() services.ElectionOptions {
-		eo, err := services.NewElectionOptions()
-		require.NoError(t, err)
-		return eo
-	}
-
 	sid1 := services.NewServiceID().SetName("s1")
 	sid2 := services.NewServiceID().SetName("s2")
-	eo1 := newElectionOpts()
-	eo2 := newElectionOpts().SetLeaderTimeout(30 * time.Second)
-	eo3 := newElectionOpts().SetResignTimeout(30 * time.Second)
+	eo1 := services.NewElectionOptions()
+	eo2 := services.NewElectionOptions().SetLeaderTimeout(30 * time.Second)
+	eo3 := services.NewElectionOptions().SetResignTimeout(30 * time.Second)
 
 	for _, sid := range []services.ServiceID{sid1, sid2} {
 		for _, eo := range []services.ElectionOptions{eo1, eo2, eo3} {
