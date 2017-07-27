@@ -272,6 +272,23 @@ func TestMirrorAddInstancesError(t *testing.T) {
 
 	_, err = a.AddInstances(p, []services.PlacementInstance{i3, i4})
 	assert.Error(t, err)
+
+	// duplicated shardset id
+	_, err = a.AddInstances(p, []services.PlacementInstance{
+		placement.NewInstance().
+			SetID("i7").
+			SetRack("r7").
+			SetEndpoint("endpoint7").
+			SetShardSetID("ss1").
+			SetWeight(3),
+		placement.NewInstance().
+			SetID("i7").
+			SetRack("r7").
+			SetEndpoint("endpoint7").
+			SetShardSetID("ss1").
+			SetWeight(3)},
+	)
+	assert.Error(t, err)
 }
 
 func TestMirrorRemoveInstancesError(t *testing.T) {

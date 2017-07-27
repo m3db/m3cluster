@@ -149,12 +149,15 @@ func (a mirroredAlgorithm) AddInstances(
 	}
 
 	for _, instance := range mirrorInstances {
+		if _, ok := mirrorPlacement.Instance(instance.ID()); ok {
+			return nil, fmt.Errorf("shard set id %s already exist in current placement", instance.ShardSetID())
+		}
 		ph := newAddInstanceHelper(mirrorPlacement, instance, a.opts)
 		ph.AddInstance(instance)
 		mirrorPlacement = ph.GeneratePlacement(nonEmptyOnly)
 	}
 
-	return placementFromMirror(mirrorPlacement, append(p.Instances(), addingInstances...), p.ReplicaFactor())
+	return placementFromMirror(mirrorPlacement, nonLeavingInstances(append(p.Instances(), addingInstances...)), p.ReplicaFactor())
 }
 
 func (a mirroredAlgorithm) ReplaceInstance(
