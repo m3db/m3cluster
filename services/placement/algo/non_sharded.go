@@ -42,6 +42,7 @@ func newNonShardedAlgorithm() placement.Algorithm {
 func (a nonShardedAlgorithm) InitialPlacement(
 	instances []services.PlacementInstance,
 	shards []uint32,
+	rf int,
 ) (services.Placement, error) {
 	if len(shards) > 0 {
 		return nil, errShardsOnNonShardedAlgo
@@ -50,7 +51,7 @@ func (a nonShardedAlgorithm) InitialPlacement(
 	return placement.NewPlacement().
 		SetInstances(placement.CloneInstances(instances)).
 		SetShards(shards).
-		SetReplicaFactor(1).
+		SetReplicaFactor(rf).
 		SetIsSharded(false), nil
 }
 
@@ -67,41 +68,64 @@ func (a nonShardedAlgorithm) AddReplica(p services.Placement) (services.Placemen
 }
 
 func (a nonShardedAlgorithm) RemoveInstance(p services.Placement, instanceID string) (services.Placement, error) {
+	return a.RemoveInstances(p, []string{instanceID})
+}
+
+func (a nonShardedAlgorithm) RemoveInstances(
+	p services.Placement,
+	instanceIDs []string,
+) (services.Placement, error) {
 	if p.IsSharded() {
 		return nil, errNonShardedAlgoOnShardedPlacement
 	}
+
+	removingInstances := make([]services.PlacementInstance, len(instanceIDs))
+	for i, id := range instanceIDs {
+		instance, ok := p.Instance(id)
+		if !ok {
+			return nil, fmt.Errorf("instance %s not found in placement", id)
+		}
+		removingInstances[i] = instance
+	}
+
 	p = placement.ClonePlacement(p)
 	instances := p.Instances()
-	for i, instance := range instances {
-		if instance.ID() == instanceID {
-			last := len(instances) - 1
-			instances[i], instances[last] = instances[last], instances[i]
-			return placement.NewPlacement().
-				SetInstances(instances[:last]).
-				SetShards(p.Shards()).
-				SetReplicaFactor(p.ReplicaFactor()).
-				SetIsSharded(p.IsSharded()), nil
-		}
+	for _, instance := range removingInstances {
+		instances = placement.RemoveInstanceFromList(instances, instance.ID())
 	}
-	return nil, fmt.Errorf("instance %s does not exist in placement", instanceID)
+	return placement.NewPlacement().
+		SetInstances(instances).
+		SetShards(p.Shards()).
+		SetReplicaFactor(p.ReplicaFactor()).
+		SetIsSharded(p.IsSharded()), nil
 }
 
 func (a nonShardedAlgorithm) AddInstance(
 	p services.Placement,
 	i services.PlacementInstance,
 ) (services.Placement, error) {
+	return a.AddInstances(p, []services.PlacementInstance{i})
+}
+
+func (a nonShardedAlgorithm) AddInstances(
+	p services.Placement,
+	addingInstances []services.PlacementInstance,
+) (services.Placement, error) {
 	if p.IsSharded() {
 		return nil, errNonShardedAlgoOnShardedPlacement
 	}
+
 	p = placement.ClonePlacement(p)
 	instances := p.Instances()
-	for _, instance := range instances {
-		if instance.ID() == i.ID() {
-			return nil, fmt.Errorf("instance %s already exist in placement", i.ID())
+	for _, instance := range addingInstances {
+		if _, ok := p.Instance(instance.ID()); ok {
+			return nil, fmt.Errorf("instance %s already exist in placement", instance.ID())
 		}
+		instances = append(instances, instance)
 	}
+
 	return placement.NewPlacement().
-		SetInstances(append(instances, i)).
+		SetInstances(instances).
 		SetShards(p.Shards()).
 		SetReplicaFactor(p.ReplicaFactor()).
 		SetIsSharded(p.IsSharded()), nil

@@ -38,6 +38,7 @@ var (
 	errDuplicatedShards          = errors.New("invalid placement, there are duplicated shards in one replica")
 	errUnexpectedShards          = errors.New("invalid placement, there are unexpected shard ids on instance")
 	errInvalidShardsCount        = errors.New("invalid placement, the count for a shard does not match replica factor")
+	errMirrorNotSharded          = errors.New("invalid placement, mirrored placement must be sharded")
 )
 
 type placement struct {
@@ -46,6 +47,7 @@ type placement struct {
 	rf               int
 	shards           []uint32
 	isSharded        bool
+	isMirrored       bool
 	cutoverNanos     int64
 	version          int
 }
@@ -78,7 +80,8 @@ func NewPlacementFromProto(p *placementproto.Placement) (services.Placement, err
 		SetShards(shards).
 		SetReplicaFactor(int(p.ReplicaFactor)).
 		SetIsSharded(p.IsSharded).
-		SetCutoverNanos(p.CutoverTime), nil
+		SetCutoverNanos(p.CutoverTime).
+		SetIsMirrored(p.IsMirrored), nil
 }
 
 func (p *placement) InstancesForShard(shard uint32) []services.PlacementInstance {
@@ -112,9 +115,10 @@ func (p *placement) SetInstances(instances []services.PlacementInstance) service
 		sort.Sort(ByIDAscending(instances))
 	}
 
-	p.instancesByShard = instancesByShard
-	p.instances = instancesMap
-	return p
+	newp := *p
+	newp.instancesByShard = instancesByShard
+	newp.instances = instancesMap
+	return &newp
 }
 
 func (p *placement) NumInstances() int {
@@ -131,8 +135,9 @@ func (p *placement) ReplicaFactor() int {
 }
 
 func (p *placement) SetReplicaFactor(rf int) services.Placement {
-	p.rf = rf
-	return p
+	newp := *p
+	newp.rf = rf
+	return &newp
 }
 
 func (p *placement) Shards() []uint32 {
@@ -140,8 +145,9 @@ func (p *placement) Shards() []uint32 {
 }
 
 func (p *placement) SetShards(shards []uint32) services.Placement {
-	p.shards = shards
-	return p
+	newp := *p
+	newp.shards = shards
+	return &newp
 }
 
 func (p *placement) NumShards() int {
@@ -153,8 +159,19 @@ func (p *placement) IsSharded() bool {
 }
 
 func (p *placement) SetIsSharded(v bool) services.Placement {
-	p.isSharded = v
-	return p
+	newp := *p
+	newp.isSharded = v
+	return &newp
+}
+
+func (p *placement) IsMirrored() bool {
+	return p.isMirrored
+}
+
+func (p *placement) SetIsMirrored(v bool) services.Placement {
+	newp := *p
+	newp.isMirrored = v
+	return &newp
 }
 
 func (p *placement) CutoverNanos() int64 {
@@ -162,8 +179,9 @@ func (p *placement) CutoverNanos() int64 {
 }
 
 func (p *placement) SetCutoverNanos(cutoverNanos int64) services.Placement {
-	p.cutoverNanos = cutoverNanos
-	return p
+	newp := *p
+	newp.cutoverNanos = cutoverNanos
+	return &newp
 }
 
 func (p *placement) GetVersion() int {
@@ -171,14 +189,15 @@ func (p *placement) GetVersion() int {
 }
 
 func (p *placement) SetVersion(v int) services.Placement {
-	p.version = v
-	return p
+	newp := *p
+	newp.version = v
+	return &newp
 }
 
 func (p *placement) String() string {
 	return fmt.Sprintf(
-		"Placement[Instances=%s, NumShards=%d, ReplicaFactor=%d, IsSharded=%v]",
-		p.Instances(), p.NumShards(), p.ReplicaFactor(), p.IsSharded(),
+		"Placement[Instances=%s, NumShards=%d, ReplicaFactor=%d, IsSharded=%v, IsMirrored=%v]",
+		p.Instances(), p.NumShards(), p.ReplicaFactor(), p.IsSharded(), p.IsMirrored(),
 	)
 }
 
@@ -199,6 +218,7 @@ func CloneInstance(instance services.PlacementInstance) services.PlacementInstan
 		SetZone(instance.Zone()).
 		SetWeight(instance.Weight()).
 		SetEndpoint(instance.Endpoint()).
+		SetShardSetID(instance.ShardSetID()).
 		SetShards(cloneShards(instance.Shards()))
 }
 
@@ -217,11 +237,16 @@ func ClonePlacement(p services.Placement) services.Placement {
 		SetInstances(CloneInstances(p.Instances())).
 		SetShards(p.Shards()).
 		SetReplicaFactor(p.ReplicaFactor()).
-		SetIsSharded(p.IsSharded())
+		SetIsSharded(p.IsSharded()).
+		SetIsMirrored(p.IsMirrored())
 }
 
 // Validate validates a placement
 func Validate(p services.Placement) error {
+	if p.IsMirrored() && !p.IsSharded() {
+		return errMirrorNotSharded
+	}
+
 	shardCountMap := convertShardSliceToMap(p.Shards())
 	if len(shardCountMap) != len(p.Shards()) {
 		return errDuplicatedShards
@@ -348,8 +373,8 @@ type instance struct {
 
 func (i *instance) String() string {
 	return fmt.Sprintf(
-		"Instance[ID=%s, Rack=%s, Zone=%s, Weight=%d, Endpoint=%s, Shards=%s]",
-		i.id, i.rack, i.zone, i.weight, i.endpoint, i.shards.String(),
+		"Instance[ID=%s, Rack=%s, Zone=%s, Weight=%d, Endpoint=%s, ShardSetID=%s, Shards=%s]",
+		i.id, i.rack, i.zone, i.weight, i.endpoint, i.shardSetID, i.shards.String(),
 	)
 }
 
@@ -444,11 +469,13 @@ func (s ByIDAscending) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-// RemoveInstance removes a given instance from a placement
-func RemoveInstance(list []services.PlacementInstance, instanceID string) []services.PlacementInstance {
+// RemoveInstanceFromList removes a given instance from a list of instances
+func RemoveInstanceFromList(list []services.PlacementInstance, instanceID string) []services.PlacementInstance {
 	for i, instance := range list {
 		if instance.ID() == instanceID {
-			return append(list[:i], list[i+1:]...)
+			last := len(list) - 1
+			list[i], list[last] = list[last], list[i]
+			return list[:last]
 		}
 	}
 	return list
@@ -500,7 +527,7 @@ func markShardAvailable(p services.Placement, instanceID string, shardID uint32)
 	sourceInstance.Shards().Remove(shardID)
 	if sourceInstance.Shards().NumShards() == 0 {
 		return NewPlacement().
-			SetInstances(RemoveInstance(p.Instances(), sourceInstance.ID())).
+			SetInstances(RemoveInstanceFromList(p.Instances(), sourceInstance.ID())).
 			SetShards(p.Shards()).
 			SetReplicaFactor(p.ReplicaFactor()).
 			SetIsSharded(p.IsSharded()), nil

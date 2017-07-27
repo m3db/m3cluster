@@ -336,7 +336,8 @@ func (ph *placementHelper) GeneratePlacement(t includeInstanceType) services.Pla
 		SetInstances(instances).
 		SetShards(ph.uniqueShards).
 		SetReplicaFactor(ph.rf).
-		SetIsSharded(true)
+		SetIsSharded(true).
+		SetIsMirrored(ph.opts.IsMirrored())
 }
 
 func (ph *placementHelper) PlaceShards(
@@ -674,7 +675,8 @@ func addInstanceToPlacement(p services.Placement, i services.PlacementInstance, 
 			SetInstances(append(p.Instances(), instance)).
 			SetShards(p.Shards()).
 			SetReplicaFactor(p.ReplicaFactor()).
-			SetIsSharded(p.IsSharded())
+			SetIsSharded(p.IsSharded()).
+			SetIsMirrored(p.IsMirrored())
 	}
 	return p, instance, nil
 }
@@ -686,7 +688,7 @@ func removeInstanceFromPlacement(p services.Placement, id string) (services.Plac
 	}
 
 	return placement.NewPlacement().
-		SetInstances(placement.RemoveInstance(p.Instances(), id)).
+		SetInstances(placement.RemoveInstanceFromList(p.Instances(), id)).
 		SetShards(p.Shards()).
 		SetReplicaFactor(p.ReplicaFactor()).
 		SetIsSharded(p.IsSharded()), leavingInstance, nil

@@ -229,6 +229,11 @@ type PlacementOptions interface {
 	Dryrun() bool
 	SetDryrun(d bool) PlacementOptions
 
+	// IsMirrored sets whether the shard distribution should be mirrored
+	// to support master/slave model.
+	IsMirrored() bool
+	SetIsMirrored(m bool) PlacementOptions
+
 	// InstrumentOptions is the options for instrument
 	InstrumentOptions() instrument.Options
 	SetInstrumentOptions(iopts instrument.Options) PlacementOptions
@@ -405,6 +410,12 @@ type Placement interface {
 
 	// SetCutoverNanos sets the cutover time in nanoseconds.
 	SetCutoverNanos(cutoverNanos int64) Placement
+
+	// IsMirrored() returns whether the placement is mirrored.
+	IsMirrored() bool
+
+	// SetIsMirrored() sets IsMirrored.
+	SetIsMirrored(v bool) Placement
 
 	// String returns a description of the placement
 	String() string

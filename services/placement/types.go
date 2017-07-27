@@ -24,19 +24,25 @@ import "github.com/m3db/m3cluster/services"
 
 // Algorithm places shards on instances
 type Algorithm interface {
-	// InitPlacement initialize a sharding placement with replica factor = 1
-	InitialPlacement(instances []services.PlacementInstance, shards []uint32) (services.Placement, error)
+	// InitPlacement initialize a sharding placement with given replica factor.
+	InitialPlacement(instances []services.PlacementInstance, shards []uint32, rf int) (services.Placement, error)
 
-	// AddReplica up the replica factor by 1 in the placement
+	// AddReplica up the replica factor by 1 in the placement.
 	AddReplica(p services.Placement) (services.Placement, error)
 
-	// AddInstance adds a instance to the placement
-	AddInstance(p services.Placement, i services.PlacementInstance) (services.Placement, error)
+	// AddInstance adds a instance to the placement.
+	AddInstance(p services.Placement, instance services.PlacementInstance) (services.Placement, error)
 
-	// RemoveInstance removes a instance from the placement
+	// AddInstances adds a list of instance to the placement.
+	AddInstances(p services.Placement, instances []services.PlacementInstance) (services.Placement, error)
+
+	// RemoveInstance removes a instance from the placement.
 	RemoveInstance(p services.Placement, leavingInstanceID string) (services.Placement, error)
 
-	// ReplaceInstance replace a instance with new instances
+	// RemoveInstances removes a list of instances from the placement.
+	RemoveInstances(p services.Placement, leavingInstanceIDs []string) (services.Placement, error)
+
+	// ReplaceInstance replace a instance with new instances.
 	ReplaceInstance(p services.Placement, leavingInstanceID string, addingInstances []services.PlacementInstance) (services.Placement, error)
 }
 

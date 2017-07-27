@@ -131,7 +131,7 @@ func (s *client) Placement(sid services.ServiceID) (services.Placement, int, err
 
 	p, err := placement.NewPlacementFromProto(&placementProto)
 	if p != nil {
-		p.SetVersion(v.Version())
+		p = p.SetVersion(v.Version())
 	}
 	return p, v.Version(), err
 }

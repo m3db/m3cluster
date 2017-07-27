@@ -46,7 +46,7 @@ func TestMinorWeightDifference(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement([]services.PlacementInstance{i1, i2, i3, i4, i5, i6}, ids)
+	p, err := a.InitialPlacement([]services.PlacementInstance{i1, i2, i3, i4, i5, i6}, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestMinorWeightDifference replica 1")
 
@@ -79,7 +79,7 @@ func TestGoodCase(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	p = markAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCase replica 1")
@@ -164,7 +164,7 @@ func TestGoodCaseWithWeight(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	p = markAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replica 1")
@@ -238,7 +238,7 @@ func TestPlacementChangeWithoutStateUpdate(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, p.ReplicaFactor())
 	assert.Equal(t, numShards, p.NumShards())
@@ -325,7 +325,7 @@ func TestOverSizedRack(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions().SetAllowPartialReplace(false))
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOverSizedRack replica 1")
 
@@ -365,7 +365,7 @@ func TestRemoveInitializingInstance(t *testing.T) {
 	i2 := placement.NewEmptyInstance("i2", "r1", "z1", "e2", 1)
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement([]services.PlacementInstance{i1}, []uint32{1, 2})
+	p, err := a.InitialPlacement([]services.PlacementInstance{i1}, []uint32{1, 2}, 1)
 	assert.NoError(t, err)
 
 	p, err = placement.MarkShardAvailable(p, "i1", 1)
@@ -415,7 +415,7 @@ func TestInitPlacementOnNoInstances(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.Error(t, err)
 	assert.Nil(t, p)
 }
@@ -432,7 +432,7 @@ func TestOneRack(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOneRack replica 1")
 
@@ -458,7 +458,7 @@ func TestRFGreaterThanRackLen(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLen replica 1")
 
@@ -485,7 +485,7 @@ func TestRFGreaterThanRackLenAfterInstanceRemoval(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterInstanceRemoval replica 1")
 
@@ -512,7 +512,7 @@ func TestRFGreaterThanRackLenAfterInstanceReplace(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterInstanceReplace replica 1")
 
@@ -540,7 +540,7 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	p = markAllShardsAsAvailable(t, p)
 	assert.NoError(t, placement.Validate(p))
@@ -610,7 +610,7 @@ func TestRemoveAbsentInstance(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRemoveAbsentInstance replica 1")
 
@@ -635,7 +635,7 @@ func TestReplaceAbsentInstance(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestReplaceAbsentInstance replica 1")
 
@@ -660,7 +660,7 @@ func TestInit(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, p.ReplicaFactor())
 	assert.Equal(t, numShards, p.NumShards())
@@ -783,7 +783,7 @@ func TestAddInstance_ExistNonLeaving(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestAddExistInstance replica 1")
 
@@ -806,7 +806,7 @@ func TestAddInstance_ExistAndLeaving(t *testing.T) {
 	}
 
 	a := newShardedAlgorithm(placement.NewOptions())
-	p, err := a.InitialPlacement(instances, ids)
+	p, err := a.InitialPlacement(instances, ids, 1)
 	assert.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestAddInstance_ExistAndLeaving replica 1")
 	p = markAllShardsAsAvailable(t, p)
@@ -1034,7 +1034,7 @@ func TestShardedAlgoOnNonShardedPlacement(t *testing.T) {
 	i3 := placement.NewInstance().SetID("i3").SetEndpoint("e3")
 	i4 := placement.NewInstance().SetID("i4").SetEndpoint("e4")
 
-	p, err := newNonShardedAlgorithm().InitialPlacement([]services.PlacementInstance{i1, i2}, []uint32{})
+	p, err := newNonShardedAlgorithm().InitialPlacement([]services.PlacementInstance{i1, i2}, []uint32{}, 1)
 	assert.NoError(t, err)
 
 	a := newShardedAlgorithm(placement.NewOptions())

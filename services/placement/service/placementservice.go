@@ -80,7 +80,7 @@ func (ps placementService) BuildInitialPlacement(
 		ids[i] = uint32(i)
 	}
 
-	p, err := ps.initPlacement(instances, ids, rf)
+	p, err := ps.algo.InitialPlacement(instances, ids, rf)
 	if err != nil {
 		return nil, err
 	}
@@ -102,25 +102,6 @@ func (ps placementService) BuildInitialPlacement(
 	}
 
 	return p, ps.ss.SetIfNotExist(ps.service, p)
-}
-
-func (ps placementService) initPlacement(
-	instances []services.PlacementInstance,
-	ids []uint32,
-	rf int,
-) (services.Placement, error) {
-	p, err := ps.algo.InitialPlacement(instances, ids)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := 1; i < rf; i++ {
-		if p, err = ps.algo.AddReplica(p); err != nil {
-			return nil, err
-		}
-	}
-
-	return p, nil
 }
 
 func (ps placementService) AddReplica() (services.Placement, error) {

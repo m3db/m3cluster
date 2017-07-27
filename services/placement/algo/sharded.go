@@ -43,13 +43,26 @@ func newShardedAlgorithm(opts services.PlacementOptions) placement.Algorithm {
 	return rackAwarePlacementAlgorithm{opts: opts}
 }
 
-func (a rackAwarePlacementAlgorithm) InitialPlacement(instances []services.PlacementInstance, shards []uint32) (services.Placement, error) {
+func (a rackAwarePlacementAlgorithm) InitialPlacement(
+	instances []services.PlacementInstance,
+	shards []uint32,
+	rf int,
+) (services.Placement, error) {
 	ph := newInitHelper(placement.CloneInstances(instances), shards, a.opts)
 
 	if err := ph.PlaceShards(newShards(shards), nil, ph.Instances()); err != nil {
 		return nil, err
 	}
-	return ph.GeneratePlacement(nonEmptyOnly), nil
+	p := ph.GeneratePlacement(nonEmptyOnly)
+	for i := 1; i < rf; i++ {
+		ph := newAddReplicaHelper(p, a.opts)
+		if err := ph.PlaceShards(newShards(p.Shards()), nil, ph.Instances()); err != nil {
+			return nil, err
+		}
+		ph.Optimize(safe)
+		p = ph.GeneratePlacement(nonEmptyOnly)
+	}
+	return p, nil
 }
 
 func (a rackAwarePlacementAlgorithm) AddReplica(p services.Placement) (services.Placement, error) {
@@ -68,47 +81,71 @@ func (a rackAwarePlacementAlgorithm) AddReplica(p services.Placement) (services.
 	return ph.GeneratePlacement(nonEmptyOnly), nil
 }
 
-func (a rackAwarePlacementAlgorithm) RemoveInstance(p services.Placement, instanceID string) (services.Placement, error) {
+func (a rackAwarePlacementAlgorithm) RemoveInstance(
+	p services.Placement,
+	instanceID string,
+) (services.Placement, error) {
+	return a.RemoveInstances(p, []string{instanceID})
+}
+
+func (a rackAwarePlacementAlgorithm) RemoveInstances(
+	p services.Placement,
+	instanceIDs []string,
+) (services.Placement, error) {
 	if !p.IsSharded() {
 		return nil, errShardedAlgoOnNotShardedPlacement
 	}
 
 	p = placement.ClonePlacement(p)
-	ph, leavingInstance, err := newRemoveInstanceHelper(p, instanceID, a.opts)
-	if err != nil {
-		return nil, err
-	}
-	// place the shards from the leaving instance to the rest of the cluster
-	if err := ph.PlaceShards(leavingInstance.Shards().All(), leavingInstance, ph.Instances()); err != nil {
-		return nil, err
-	}
+	for _, instanceID := range instanceIDs {
+		ph, leavingInstance, err := newRemoveInstanceHelper(p, instanceID, a.opts)
+		if err != nil {
+			return nil, err
+		}
+		// place the shards from the leaving instance to the rest of the cluster
+		if err := ph.PlaceShards(leavingInstance.Shards().All(), leavingInstance, ph.Instances()); err != nil {
+			return nil, err
+		}
 
-	result, _, err := addInstanceToPlacement(ph.GeneratePlacement(nonEmptyOnly), leavingInstance, false)
-	return result, err
+		if p, _, err = addInstanceToPlacement(ph.GeneratePlacement(nonEmptyOnly), leavingInstance, false); err != nil {
+			return nil, err
+		}
+	}
+	return p, nil
 }
 
 func (a rackAwarePlacementAlgorithm) AddInstance(
 	p services.Placement,
 	addingInstance services.PlacementInstance,
 ) (services.Placement, error) {
+	return a.AddInstances(p, []services.PlacementInstance{addingInstance})
+}
+
+func (a rackAwarePlacementAlgorithm) AddInstances(
+	p services.Placement,
+	instances []services.PlacementInstance,
+) (services.Placement, error) {
 	if !p.IsSharded() {
 		return nil, errShardedAlgoOnNotShardedPlacement
 	}
-
-	p, addingInstance = placement.ClonePlacement(p), placement.CloneInstance(addingInstance)
-	instance, exist := p.Instance(addingInstance.ID())
-	if exist {
-		if !placement.IsInstanceLeaving(instance) {
-			return nil, errAddingInstanceAlreadyExist
+	p = placement.ClonePlacement(p)
+	for _, instance := range instances {
+		addingInstance := placement.CloneInstance(instance)
+		instance, exist := p.Instance(instance.ID())
+		if exist {
+			if !placement.IsInstanceLeaving(instance) {
+				return nil, errAddingInstanceAlreadyExist
+			}
+			addingInstance = instance
 		}
-		addingInstance = instance
+
+		ph := newAddInstanceHelper(p, addingInstance, a.opts)
+
+		ph.AddInstance(addingInstance)
+		p = ph.GeneratePlacement(nonEmptyOnly)
 	}
 
-	ph := newAddInstanceHelper(p, addingInstance, a.opts)
-
-	ph.AddInstance(addingInstance)
-
-	return ph.GeneratePlacement(nonEmptyOnly), nil
+	return p, nil
 }
 
 func (a rackAwarePlacementAlgorithm) ReplaceInstance(
