@@ -82,7 +82,7 @@ func TestMirrorWorkflow(t *testing.T) {
 	assert.True(t, p.IsMirrored())
 	assert.Equal(t, 2, p.ReplicaFactor())
 
-	_, err = a.AddInstance(p, placement.NewEmptyInstance("xxx", "rrr", "zzz", "endpoint", 1))
+	_, err = a.AddInstances(p, []services.PlacementInstance{placement.NewEmptyInstance("xxx", "rrr", "zzz", "endpoint", 1)})
 	assert.Error(t, err)
 
 	p, err = a.AddInstances(p, []services.PlacementInstance{})
@@ -129,7 +129,7 @@ func TestMirrorWorkflow(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, i8.SetShards(newI8.Shards()), newI8)
 
-	_, err = a.RemoveInstance(p, i1.ID())
+	_, err = a.RemoveInstances(p, []string{i1.ID()})
 	assert.Error(t, err)
 
 	p, err = a.RemoveInstances(p, []string{i7.ID(), i8.ID()})
@@ -335,10 +335,10 @@ func TestMirrorRemoveInstancesError(t *testing.T) {
 	_, err = a.RemoveInstances(p.SetReplicaFactor(1), []string{"i1", "i2"})
 	assert.Error(t, err)
 
-	_, err = a.RemoveInstance(p, "i1")
+	_, err = a.RemoveInstances(p, []string{"i1"})
 	assert.Error(t, err)
 
-	_, err = a.RemoveInstance(p, "bad")
+	_, err = a.RemoveInstances(p, []string{"bad"})
 	assert.Error(t, err)
 }
 

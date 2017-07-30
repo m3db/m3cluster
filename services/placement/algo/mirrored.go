@@ -69,10 +69,6 @@ func (a mirroredAlgorithm) AddReplica(p services.Placement) (services.Placement,
 	return nil, errors.New("not supported")
 }
 
-func (a mirroredAlgorithm) RemoveInstance(p services.Placement, instanceID string) (services.Placement, error) {
-	return a.RemoveInstances(p, []string{instanceID})
-}
-
 func (a mirroredAlgorithm) RemoveInstances(
 	p services.Placement,
 	instanceIDs []string,
@@ -114,13 +110,6 @@ func (a mirroredAlgorithm) RemoveInstances(
 		}
 	}
 	return placementFromMirror(mirrorPlacement, nonLeavingInstances(p.Instances()), p.ReplicaFactor())
-}
-
-func (a mirroredAlgorithm) AddInstance(
-	p services.Placement,
-	addingInstance services.PlacementInstance,
-) (services.Placement, error) {
-	return a.AddInstances(p, []services.PlacementInstance{addingInstance})
 }
 
 func (a mirroredAlgorithm) AddInstances(

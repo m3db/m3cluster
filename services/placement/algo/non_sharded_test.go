@@ -60,7 +60,7 @@ func TestNonShardedAlgo(t *testing.T) {
 	assert.Equal(t, 2, p.ReplicaFactor())
 	assert.False(t, p.IsSharded())
 
-	p, err = a.AddInstance(p, i3)
+	p, err = a.AddInstances(p, []services.PlacementInstance{i3})
 	assert.NoError(t, err)
 	assert.NoError(t, placement.Validate(p))
 	assert.Equal(t, 3, p.NumInstances())
@@ -71,10 +71,10 @@ func TestNonShardedAlgo(t *testing.T) {
 	assert.Equal(t, 2, p.ReplicaFactor())
 	assert.False(t, p.IsSharded())
 
-	_, err = a.AddInstance(p, i3)
+	_, err = a.AddInstances(p, []services.PlacementInstance{i3})
 	assert.Error(t, err)
 
-	p, err = a.RemoveInstance(p, "i1")
+	p, err = a.RemoveInstances(p, []string{"i1"})
 	assert.NoError(t, err)
 	assert.NoError(t, placement.Validate(p))
 	assert.Equal(t, 2, p.NumInstances())
@@ -85,7 +85,7 @@ func TestNonShardedAlgo(t *testing.T) {
 	assert.Equal(t, 2, p.ReplicaFactor())
 	assert.False(t, p.IsSharded())
 
-	_, err = a.RemoveInstance(p, "i1")
+	_, err = a.RemoveInstances(p, []string{"i1"})
 	assert.Error(t, err)
 
 	p, err = a.ReplaceInstance(p, "i2", []services.PlacementInstance{i1, i4})
@@ -114,11 +114,11 @@ func TestNonShardedAlgoOnShardedPlacement(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, errNonShardedAlgoOnShardedPlacement, err)
 
-	_, err = a.AddInstance(p, i3)
+	_, err = a.AddInstances(p, []services.PlacementInstance{i3})
 	assert.Error(t, err)
 	assert.Equal(t, errNonShardedAlgoOnShardedPlacement, err)
 
-	_, err = a.RemoveInstance(p, "i1")
+	_, err = a.RemoveInstances(p, []string{"i1"})
 	assert.Error(t, err)
 	assert.Equal(t, errNonShardedAlgoOnShardedPlacement, err)
 

@@ -126,19 +126,19 @@ func (ps placementService) AddReplica() (services.Placement, error) {
 	return p, ps.ss.CheckAndSet(ps.service, p, v)
 }
 
-func (ps placementService) AddInstance(
+func (ps placementService) AddInstances(
 	candidates []services.PlacementInstance,
-) (services.Placement, services.PlacementInstance, error) {
+) (services.Placement, []services.PlacementInstance, error) {
 	p, v, err := ps.ss.Placement(ps.service)
 	if err != nil {
 		return nil, nil, err
 	}
-	var addingInstance services.PlacementInstance
-	if addingInstance, err = ps.findAddingInstance(p, candidates, ps.opts); err != nil {
+	addingInstances, err := ps.findAddingInstance(p, candidates, ps.opts)
+	if err != nil {
 		return nil, nil, err
 	}
 
-	if p, err = ps.algo.AddInstance(p, addingInstance); err != nil {
+	if p, err = ps.algo.AddInstances(p, addingInstances); err != nil {
 		return nil, nil, err
 	}
 
@@ -146,30 +146,29 @@ func (ps placementService) AddInstance(
 		return nil, nil, err
 	}
 
-	addingInstance, ok := p.Instance(addingInstance.ID())
-	if !ok {
-		return nil, nil, fmt.Errorf("unable to find added instance [%s] in new placement", addingInstance.ID())
+	for i, instance := range addingInstances {
+		addingInstance, ok := p.Instance(instance.ID())
+		if !ok {
+			return nil, nil, fmt.Errorf("unable to find added instance [%s] in new placement", addingInstance.ID())
+		}
+		addingInstances[i] = addingInstance
 	}
 
 	if ps.opts.Dryrun() {
 		ps.logger.Info("this is a dryrun, the operation is not persisted")
-		return p, addingInstance, err
+		return p, addingInstances, err
 	}
 
-	return p, addingInstance, ps.ss.CheckAndSet(ps.service, p, v)
+	return p, addingInstances, ps.ss.CheckAndSet(ps.service, p, v)
 }
 
-func (ps placementService) RemoveInstance(instanceID string) (services.Placement, error) {
+func (ps placementService) RemoveInstances(instanceIDs []string) (services.Placement, error) {
 	p, v, err := ps.ss.Placement(ps.service)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, exist := p.Instance(instanceID); !exist {
-		return nil, errInstanceAbsent
-	}
-
-	if p, err = ps.algo.RemoveInstance(p, instanceID); err != nil {
+	if p, err = ps.algo.RemoveInstances(p, instanceIDs); err != nil {
 		return nil, err
 	}
 
@@ -318,7 +317,7 @@ func (ps placementService) findAddingInstance(
 	p services.Placement,
 	candidates []services.PlacementInstance,
 	opts services.PlacementOptions,
-) (services.PlacementInstance, error) {
+) ([]services.PlacementInstance, error) {
 	// filter out invalid instances
 	candidates = getValidCandidates(p, candidates, opts)
 
@@ -331,7 +330,7 @@ func (ps placementService) findAddingInstance(
 	// if there is a rack not in the current placement, prefer that rack
 	for r, instances := range candidateRackMap {
 		if _, exist := placementRackMap[r]; !exist {
-			return instances[0], nil
+			return instances[:1], nil
 		}
 	}
 
@@ -349,7 +348,7 @@ func (ps placementService) findAddingInstance(
 	for _, rackLen := range racks {
 		if i, exist := candidateRackMap[rackLen.value.(string)]; exist {
 			for _, instance := range i {
-				return instance, nil
+				return []services.PlacementInstance{instance}, nil
 			}
 		}
 	}

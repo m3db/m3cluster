@@ -67,10 +67,6 @@ func (a nonShardedAlgorithm) AddReplica(p services.Placement) (services.Placemen
 		SetIsSharded(p.IsSharded()), nil
 }
 
-func (a nonShardedAlgorithm) RemoveInstance(p services.Placement, instanceID string) (services.Placement, error) {
-	return a.RemoveInstances(p, []string{instanceID})
-}
-
 func (a nonShardedAlgorithm) RemoveInstances(
 	p services.Placement,
 	instanceIDs []string,
@@ -98,13 +94,6 @@ func (a nonShardedAlgorithm) RemoveInstances(
 		SetShards(p.Shards()).
 		SetReplicaFactor(p.ReplicaFactor()).
 		SetIsSharded(p.IsSharded()), nil
-}
-
-func (a nonShardedAlgorithm) AddInstance(
-	p services.Placement,
-	i services.PlacementInstance,
-) (services.Placement, error) {
-	return a.AddInstances(p, []services.PlacementInstance{i})
 }
 
 func (a nonShardedAlgorithm) AddInstances(
@@ -136,13 +125,10 @@ func (a nonShardedAlgorithm) ReplaceInstance(
 	instanceID string,
 	addingInstances []services.PlacementInstance,
 ) (services.Placement, error) {
-	var err error
-	for _, instance := range addingInstances {
-		p, err = a.AddInstance(p, instance)
-		if err != nil {
-			return nil, err
-		}
+	p, err := a.AddInstances(p, addingInstances)
+	if err != nil {
+		return nil, err
 	}
 
-	return a.RemoveInstance(p, instanceID)
+	return a.RemoveInstances(p, []string{instanceID})
 }

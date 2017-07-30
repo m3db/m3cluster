@@ -30,14 +30,8 @@ type Algorithm interface {
 	// AddReplica up the replica factor by 1 in the placement.
 	AddReplica(p services.Placement) (services.Placement, error)
 
-	// AddInstance adds a instance to the placement.
-	AddInstance(p services.Placement, instance services.PlacementInstance) (services.Placement, error)
-
 	// AddInstances adds a list of instance to the placement.
 	AddInstances(p services.Placement, instances []services.PlacementInstance) (services.Placement, error)
-
-	// RemoveInstance removes a instance from the placement.
-	RemoveInstance(p services.Placement, leavingInstanceID string) (services.Placement, error)
 
 	// RemoveInstances removes a list of instances from the placement.
 	RemoveInstances(p services.Placement, leavingInstanceIDs []string) (services.Placement, error)

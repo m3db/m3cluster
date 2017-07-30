@@ -81,13 +81,6 @@ func (a rackAwarePlacementAlgorithm) AddReplica(p services.Placement) (services.
 	return ph.GeneratePlacement(nonEmptyOnly), nil
 }
 
-func (a rackAwarePlacementAlgorithm) RemoveInstance(
-	p services.Placement,
-	instanceID string,
-) (services.Placement, error) {
-	return a.RemoveInstances(p, []string{instanceID})
-}
-
 func (a rackAwarePlacementAlgorithm) RemoveInstances(
 	p services.Placement,
 	instanceIDs []string,
@@ -112,13 +105,6 @@ func (a rackAwarePlacementAlgorithm) RemoveInstances(
 		}
 	}
 	return p, nil
-}
-
-func (a rackAwarePlacementAlgorithm) AddInstance(
-	p services.Placement,
-	addingInstance services.PlacementInstance,
-) (services.Placement, error) {
-	return a.AddInstances(p, []services.PlacementInstance{addingInstance})
 }
 
 func (a rackAwarePlacementAlgorithm) AddInstances(

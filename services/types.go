@@ -182,11 +182,11 @@ type PlacementService interface {
 	// AddReplica up the replica factor by 1 in the placement
 	AddReplica() (Placement, error)
 
-	// AddInstance picks an instance from the candidate list to the placement
-	AddInstance(candidates []PlacementInstance) (newPlacement Placement, usedInstance PlacementInstance, err error)
+	// AddInstances adds instances from the candidate list to the placement
+	AddInstances(candidates []PlacementInstance) (newPlacement Placement, addedInstances []PlacementInstance, err error)
 
-	// RemoveInstance removes an instance from the placement
-	RemoveInstance(leavingInstanceID string) (Placement, error)
+	// RemoveInstances removes instances from the placement
+	RemoveInstances(leavingInstanceIDs []string) (Placement, error)
 
 	// ReplaceInstance picks instances from the candidate list to replace an instance in current placement
 	ReplaceInstance(leavingInstanceID string, candidates []PlacementInstance) (
