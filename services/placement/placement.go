@@ -115,10 +115,9 @@ func (p *placement) SetInstances(instances []services.PlacementInstance) service
 		sort.Sort(ByIDAscending(instances))
 	}
 
-	newp := *p
-	newp.instancesByShard = instancesByShard
-	newp.instances = instancesMap
-	return &newp
+	p.instancesByShard = instancesByShard
+	p.instances = instancesMap
+	return p
 }
 
 func (p *placement) NumInstances() int {
@@ -135,9 +134,8 @@ func (p *placement) ReplicaFactor() int {
 }
 
 func (p *placement) SetReplicaFactor(rf int) services.Placement {
-	newp := *p
-	newp.rf = rf
-	return &newp
+	p.rf = rf
+	return p
 }
 
 func (p *placement) Shards() []uint32 {
@@ -145,9 +143,8 @@ func (p *placement) Shards() []uint32 {
 }
 
 func (p *placement) SetShards(shards []uint32) services.Placement {
-	newp := *p
-	newp.shards = shards
-	return &newp
+	p.shards = shards
+	return p
 }
 
 func (p *placement) NumShards() int {
@@ -159,9 +156,8 @@ func (p *placement) IsSharded() bool {
 }
 
 func (p *placement) SetIsSharded(v bool) services.Placement {
-	newp := *p
-	newp.isSharded = v
-	return &newp
+	p.isSharded = v
+	return p
 }
 
 func (p *placement) IsMirrored() bool {
@@ -169,9 +165,8 @@ func (p *placement) IsMirrored() bool {
 }
 
 func (p *placement) SetIsMirrored(v bool) services.Placement {
-	newp := *p
-	newp.isMirrored = v
-	return &newp
+	p.isMirrored = v
+	return p
 }
 
 func (p *placement) CutoverNanos() int64 {
@@ -179,9 +174,8 @@ func (p *placement) CutoverNanos() int64 {
 }
 
 func (p *placement) SetCutoverNanos(cutoverNanos int64) services.Placement {
-	newp := *p
-	newp.cutoverNanos = cutoverNanos
-	return &newp
+	p.cutoverNanos = cutoverNanos
+	return p
 }
 
 func (p *placement) GetVersion() int {
@@ -189,9 +183,8 @@ func (p *placement) GetVersion() int {
 }
 
 func (p *placement) SetVersion(v int) services.Placement {
-	newp := *p
-	newp.version = v
-	return &newp
+	p.version = v
+	return p
 }
 
 func (p *placement) String() string {
@@ -201,7 +194,8 @@ func (p *placement) String() string {
 	)
 }
 
-func cloneShards(shards shard.Shards) shard.Shards {
+// CloneShards returns a copy of shards.
+func CloneShards(shards shard.Shards) shard.Shards {
 	newShards := make([]shard.Shard, shards.NumShards())
 	for i, s := range shards.All() {
 		newShards[i] = shard.NewShard(s.ID()).SetState(s.State()).SetSourceID(s.SourceID())
@@ -210,7 +204,7 @@ func cloneShards(shards shard.Shards) shard.Shards {
 	return shard.NewShards(newShards)
 }
 
-// CloneInstance returns a a copy of an instance
+// CloneInstance returns a copy of an instance.
 func CloneInstance(instance services.PlacementInstance) services.PlacementInstance {
 	return NewInstance().
 		SetID(instance.ID()).
@@ -219,10 +213,10 @@ func CloneInstance(instance services.PlacementInstance) services.PlacementInstan
 		SetWeight(instance.Weight()).
 		SetEndpoint(instance.Endpoint()).
 		SetShardSetID(instance.ShardSetID()).
-		SetShards(cloneShards(instance.Shards()))
+		SetShards(CloneShards(instance.Shards()))
 }
 
-// CloneInstances returns a set of cloned instances
+// CloneInstances returns a set of cloned instances.
 func CloneInstances(instances []services.PlacementInstance) []services.PlacementInstance {
 	copied := make([]services.PlacementInstance, len(instances))
 	for i, instance := range instances {
@@ -231,7 +225,7 @@ func CloneInstances(instances []services.PlacementInstance) []services.Placement
 	return copied
 }
 
-// ClonePlacement creates a copy of a given placment
+// ClonePlacement creates a copy of a given placment.
 func ClonePlacement(p services.Placement) services.Placement {
 	return NewPlacement().
 		SetInstances(CloneInstances(p.Instances())).

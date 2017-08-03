@@ -38,6 +38,9 @@ type Algorithm interface {
 
 	// ReplaceInstance replace a instance with new instances.
 	ReplaceInstance(p services.Placement, leavingInstanceID string, addingInstances []services.PlacementInstance) (services.Placement, error)
+
+	// IsCompatibleWith checks whether the algorithm could be applied to given placement.
+	IsCompatibleWith(p services.Placement) error
 }
 
 // DeploymentPlanner generates deployment steps for a placement

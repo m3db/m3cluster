@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Uber Technologies, Inc.
+// Copyright (c) 2017 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	errMirrorAlgoOnNotMirroredPlacement = errors.New("could not apply mirrored algo on non-mirrored placement")
+	errIncompatibleWithMirrorAlgo = errors.New("could not apply mirrored algo on the placement")
 )
 
 type mirroredAlgorithm struct {
@@ -41,8 +41,20 @@ type mirroredAlgorithm struct {
 func newMirroredAlgorithm(opts services.PlacementOptions) placement.Algorithm {
 	return mirroredAlgorithm{
 		opts:        opts,
-		shardedAlgo: newShardedAlgorithm(opts),
+		shardedAlgo: newShardedAlgorithm(opts.SetAllowPartialReplace(false)),
 	}
+}
+
+func (a mirroredAlgorithm) IsCompatibleWith(p services.Placement) error {
+	if !p.IsMirrored() {
+		return errIncompatibleWithMirrorAlgo
+	}
+
+	if !p.IsSharded() {
+		return errIncompatibleWithMirrorAlgo
+	}
+
+	return nil
 }
 
 func (a mirroredAlgorithm) InitialPlacement(
@@ -55,6 +67,7 @@ func (a mirroredAlgorithm) InitialPlacement(
 		return nil, err
 	}
 
+	// We use the sharded algorithm to generate a mirror placement with rf equals 1.
 	mirrorPlacement, err := a.shardedAlgo.InitialPlacement(mirrorInstances, shards, 1)
 	if err != nil {
 		return nil, err
@@ -73,8 +86,8 @@ func (a mirroredAlgorithm) RemoveInstances(
 	p services.Placement,
 	instanceIDs []string,
 ) (services.Placement, error) {
-	if !p.IsMirrored() {
-		return nil, errMirrorAlgoOnNotMirroredPlacement
+	if err := a.IsCompatibleWith(p); err != nil {
+		return nil, err
 	}
 
 	removingInstances := make([]services.PlacementInstance, len(instanceIDs))
@@ -86,10 +99,16 @@ func (a mirroredAlgorithm) RemoveInstances(
 		removingInstances[i] = instance
 	}
 
+	p, err := placement.MarkAllShardsAsAvailable(p)
+	if err != nil {
+		return nil, err
+	}
+
 	mirrorPlacement, err := mirrorFromPlacement(p)
 	if err != nil {
 		return nil, err
 	}
+
 	mirrorInstances, err := groupInstancesByShardSetID(removingInstances, p.ReplicaFactor())
 	if err != nil {
 		return nil, err
@@ -100,38 +119,44 @@ func (a mirroredAlgorithm) RemoveInstances(
 		if err != nil {
 			return nil, err
 		}
-		// place the shards from the leaving instance to the rest of the cluster
+		// Place the shards from the leaving instance to the rest of the cluster
 		if err := ph.PlaceShards(leavingInstance.Shards().All(), leavingInstance, ph.Instances()); err != nil {
 			return nil, err
 		}
 
-		if mirrorPlacement, _, err = addInstanceToPlacement(ph.GeneratePlacement(nonEmptyOnly), leavingInstance, false); err != nil {
+		if mirrorPlacement, _, err = addInstanceToPlacement(ph.GeneratePlacement(), leavingInstance, nonEmptyOnly); err != nil {
 			return nil, err
 		}
 	}
-	return placementFromMirror(mirrorPlacement, nonLeavingInstances(p.Instances()), p.ReplicaFactor())
+	return placementFromMirror(mirrorPlacement, p.Instances(), p.ReplicaFactor())
 }
 
 func (a mirroredAlgorithm) AddInstances(
 	p services.Placement,
 	addingInstances []services.PlacementInstance,
 ) (services.Placement, error) {
-	if !p.IsMirrored() {
-		return nil, errMirrorAlgoOnNotMirroredPlacement
+	if err := a.IsCompatibleWith(p); err != nil {
+		return nil, err
 	}
 
 	for _, instance := range addingInstances {
-		if _, exist := p.Instance(instance.ID()); exist {
-			// TODO(cw): Should we allow adding a leaving instance?
-			// What if leaving instance paired with new instances?
-			return nil, fmt.Errorf("instance %s already exist in the placement", instance.ID())
+		if instance, exist := p.Instance(instance.ID()); exist {
+			if !placement.IsInstanceLeaving(instance) {
+				return nil, fmt.Errorf("instance %s already exist in the placement", instance.ID())
+			}
 		}
+	}
+
+	p, err := placement.MarkAllShardsAsAvailable(p)
+	if err != nil {
+		return nil, err
 	}
 
 	mirrorPlacement, err := mirrorFromPlacement(p)
 	if err != nil {
 		return nil, err
 	}
+
 	mirrorInstances, err := groupInstancesByShardSetID(addingInstances, p.ReplicaFactor())
 	if err != nil {
 		return nil, err
@@ -143,10 +168,10 @@ func (a mirroredAlgorithm) AddInstances(
 		}
 		ph := newAddInstanceHelper(mirrorPlacement, instance, a.opts)
 		ph.AddInstance(instance)
-		mirrorPlacement = ph.GeneratePlacement(nonEmptyOnly)
+		mirrorPlacement = ph.GeneratePlacement()
 	}
 
-	return placementFromMirror(mirrorPlacement, nonLeavingInstances(append(p.Instances(), addingInstances...)), p.ReplicaFactor())
+	return placementFromMirror(mirrorPlacement, append(p.Instances(), addingInstances...), p.ReplicaFactor())
 }
 
 func (a mirroredAlgorithm) ReplaceInstance(
@@ -154,57 +179,20 @@ func (a mirroredAlgorithm) ReplaceInstance(
 	instanceID string,
 	addingInstances []services.PlacementInstance,
 ) (services.Placement, error) {
-	if !p.IsMirrored() {
-		return nil, errMirrorAlgoOnNotMirroredPlacement
+	if err := a.IsCompatibleWith(p); err != nil {
+		return nil, err
 	}
 
 	if len(addingInstances) != 1 {
 		return nil, fmt.Errorf("invalid number of instances: %d for mirrored replace", len(addingInstances))
 	}
-	addingInstance := placement.CloneInstance(addingInstances[0])
 
-	// Clean up shard states before the replacement operation.
-	mirror, err := mirrorFromPlacement(p)
+	p, err := placement.MarkAllShardsAsAvailable(p)
 	if err != nil {
 		return nil, err
 	}
 
-	p, err = placementFromMirror(mirror, nonLeavingInstances(p.Instances()), p.ReplicaFactor())
-	if err != nil {
-		return nil, err
-	}
-
-	leavingInstance, ok := p.Instance(instanceID)
-	if !ok {
-		return nil, fmt.Errorf("instance %s not found in placement", instanceID)
-	}
-
-	shards := leavingInstance.Shards()
-	for _, s := range shards.All() {
-		// NB(cw): Mark Available as Initializing in case we use shard state
-		// to indicate cutover/cutoff time for the shard.
-		if s.State() == shard.Available {
-			s.SetState(shard.Initializing)
-		}
-	}
-
-	addingInstance = addingInstance.SetShards(shards).SetShardSetID(leavingInstance.ShardSetID())
-
-	// NB(cw): Replace is supposed to be used when the leaving node is considered dead,
-	// so the leaving node will be removed from the placement in this algo, unlike the
-	// replacement of non-mirrored algo which will leave the leaving node in the
-	// placement with all shards marked as Leaving.
-	// This is because we use shardSetID as the sourceID in mirrored placement for
-	// initializing shards, and I don't want the adding instance to keep a sourceID
-	// of the leaving instance for this case.
-	instances := placement.RemoveInstanceFromList(p.Instances(), instanceID)
-	instances = append(instances, addingInstance)
-	return placement.NewPlacement().
-		SetInstances(instances).
-		SetReplicaFactor(p.ReplicaFactor()).
-		SetShards(p.Shards()).
-		SetIsSharded(p.IsSharded()).
-		SetIsMirrored(p.IsMirrored()), nil
+	return a.shardedAlgo.ReplaceInstance(p, instanceID, addingInstances)
 }
 
 func groupInstancesByShardSetID(
@@ -212,37 +200,48 @@ func groupInstancesByShardSetID(
 	rf int,
 ) ([]services.PlacementInstance, error) {
 	var (
-		shardSetMap   = make(map[string]uint32, len(instances))
-		shardSetCount = make(map[string]int, len(instances))
-		res           = make([]services.PlacementInstance, 0, len(instances))
+		shardSetMap1 = make(map[string]*shardSetMetadata, len(instances))
+		res          = make([]services.PlacementInstance, 0, len(instances))
 	)
 	for _, instance := range instances {
 		ssID := instance.ShardSetID()
 		weight := instance.Weight()
-		shardSetCount[ssID] = shardSetCount[ssID] + 1
-		if w, ok := shardSetMap[ssID]; ok {
-			if weight == w {
-				continue
+		rack := instance.Rack()
+		meta, ok := shardSetMap1[ssID]
+		if !ok {
+			meta = &shardSetMetadata{
+				weight: weight,
+				racks:  make(map[string]struct{}, rf),
+				shards: instance.Shards(),
 			}
-			return nil, fmt.Errorf("found different weights: %d and %d, for shardset id %s", w, weight, ssID)
+			shardSetMap1[ssID] = meta
+		}
+		if _, ok := meta.racks[rack]; ok {
+			return nil, fmt.Errorf("found duplicated rack %s for shardset id %s", rack, ssID)
 		}
 
-		shardSetMap[ssID] = instance.Weight()
+		if meta.weight != weight {
+			return nil, fmt.Errorf("found different weights: %d and %d, for shardset id %s", meta.weight, weight, ssID)
+		}
+
+		meta.racks[rack] = struct{}{}
+		meta.count++
+	}
+
+	for ssID, meta := range shardSetMap1 {
+		if meta.count != rf {
+			return nil, fmt.Errorf("found %d count of shard set id %s, expecting %d", meta.count, ssID, rf)
+		}
+
 		res = append(
 			res,
 			placement.NewInstance().
 				SetID(ssID).
 				SetRack(ssID).
-				SetWeight(weight).
-				SetShardSetID(instance.ShardSetID()).
-				SetShards(instance.Shards()),
+				SetWeight(meta.weight).
+				SetShardSetID(ssID).
+				SetShards(placement.CloneShards(meta.shards)),
 		)
-	}
-
-	for ssID, count := range shardSetCount {
-		if count != rf {
-			return nil, fmt.Errorf("got %d count of shard set id %s, expecting %d", count, ssID, rf)
-		}
 	}
 
 	return res, nil
@@ -256,16 +255,12 @@ func mirrorFromPlacement(p services.Placement) (services.Placement, error) {
 		return nil, err
 	}
 
-	mirror := placement.NewPlacement().
+	return placement.NewPlacement().
 		SetInstances(mirrorInstances).
 		SetReplicaFactor(1).
 		SetShards(p.Shards()).
 		SetIsSharded(true).
-		SetIsMirrored(true)
-	// NB(cw): Always clean up the shard states from previous placement changes,
-	// so the shard states in the new placement only reflects the shard ownership
-	// change from the latest operation.
-	return placement.MarkAllShardsAsAvailable(mirror)
+		SetIsMirrored(true), nil
 }
 
 // placementFromMirror duplicates the shards for each shard set id and assign
@@ -276,24 +271,71 @@ func placementFromMirror(
 	rf int,
 ) (services.Placement, error) {
 	var (
-		mirrorInstances = mirror.Instances()
-		shardSetMap     = make(map[string]shard.Shards, len(mirrorInstances))
+		mirrorInstances     = mirror.Instances()
+		shardSetMap         = make(map[string][]services.PlacementInstance, len(mirrorInstances))
+		instancesWithShards = make([]services.PlacementInstance, 0, len(instances))
 	)
-	for _, instance := range mirrorInstances {
-		shardSetMap[instance.ShardSetID()] = instance.Shards()
-	}
 	for _, instance := range instances {
-		shards, ok := shardSetMap[instance.ShardSetID()]
+		instances, ok := shardSetMap[instance.ShardSetID()]
 		if !ok {
-			return nil, fmt.Errorf("could not find shardset id %s for instance %s", instance.ShardSetID(), instance.ID())
+			instances = make([]services.PlacementInstance, 0, rf)
 		}
-		instance.SetShards(shards)
+		instances = append(instances, instance)
+		shardSetMap[instance.ShardSetID()] = instances
+	}
+
+	for _, mirrorInstance := range mirrorInstances {
+		instances, err := instancesFromMirror(mirrorInstance, shardSetMap)
+		if err != nil {
+			return nil, err
+		}
+		instancesWithShards = append(instancesWithShards, instances...)
 	}
 
 	return placement.NewPlacement().
-		SetInstances(instances).
+		SetInstances(instancesWithShards).
 		SetReplicaFactor(rf).
 		SetShards(mirror.Shards()).
 		SetIsMirrored(true).
 		SetIsSharded(true), nil
+}
+
+func instancesFromMirror(
+	mirrorInstance services.PlacementInstance,
+	instancesMap map[string][]services.PlacementInstance,
+) ([]services.PlacementInstance, error) {
+	ssID := mirrorInstance.ShardSetID()
+	instances, ok := instancesMap[ssID]
+	if !ok {
+		return nil, fmt.Errorf("could not find shard set id %s in placement", ssID)
+	}
+
+	shards := mirrorInstance.Shards()
+	for i, instance := range instances {
+		newShards := make([]shard.Shard, shards.NumShards())
+		for j, s := range shards.All() {
+			newShard := shard.NewShard(s.ID()).SetState(s.State())
+			sourceID := s.SourceID()
+			if sourceID != "" {
+				// The sourceID in the mirror placement is shardSetID, need to be converted
+				// to instanceID.
+				sourceInstances, ok := instancesMap[sourceID]
+				if !ok {
+					return nil, fmt.Errorf("could not find source id %s in placement", sourceID)
+				}
+
+				sourceID = sourceInstances[i].ID()
+			}
+			newShards[j] = newShard.SetSourceID(sourceID)
+		}
+		instances[i] = instance.SetShards(shard.NewShards(newShards))
+	}
+	return instances, nil
+}
+
+type shardSetMetadata struct {
+	weight uint32
+	count  int
+	racks  map[string]struct{}
+	shards shard.Shards
 }

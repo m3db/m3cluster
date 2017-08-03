@@ -29,14 +29,26 @@ import (
 )
 
 var (
-	errShardsOnNonShardedAlgo           = errors.New("could not apply shards in non-sharded placement")
-	errNonShardedAlgoOnShardedPlacement = errors.New("could not apply non-sharded algo on sharded placement")
+	errShardsOnNonShardedAlgo         = errors.New("could not apply shards in non-sharded placement")
+	errInCompatibleWithNonShardedAlgo = errors.New("could not apply non-sharded algo on the placement")
 )
 
 type nonShardedAlgorithm struct{}
 
 func newNonShardedAlgorithm() placement.Algorithm {
 	return nonShardedAlgorithm{}
+}
+
+func (a nonShardedAlgorithm) IsCompatibleWith(p services.Placement) error {
+	if p.IsSharded() {
+		return errInCompatibleWithNonShardedAlgo
+	}
+
+	if p.IsMirrored() {
+		return errInCompatibleWithNonShardedAlgo
+	}
+
+	return nil
 }
 
 func (a nonShardedAlgorithm) InitialPlacement(
@@ -56,9 +68,10 @@ func (a nonShardedAlgorithm) InitialPlacement(
 }
 
 func (a nonShardedAlgorithm) AddReplica(p services.Placement) (services.Placement, error) {
-	if p.IsSharded() {
-		return nil, errNonShardedAlgoOnShardedPlacement
+	if err := a.IsCompatibleWith(p); err != nil {
+		return nil, err
 	}
+
 	p = placement.ClonePlacement(p)
 	return placement.NewPlacement().
 		SetInstances(p.Instances()).
@@ -71,8 +84,8 @@ func (a nonShardedAlgorithm) RemoveInstances(
 	p services.Placement,
 	instanceIDs []string,
 ) (services.Placement, error) {
-	if p.IsSharded() {
-		return nil, errNonShardedAlgoOnShardedPlacement
+	if err := a.IsCompatibleWith(p); err != nil {
+		return nil, err
 	}
 
 	removingInstances := make([]services.PlacementInstance, len(instanceIDs))
@@ -100,8 +113,8 @@ func (a nonShardedAlgorithm) AddInstances(
 	p services.Placement,
 	addingInstances []services.PlacementInstance,
 ) (services.Placement, error) {
-	if p.IsSharded() {
-		return nil, errNonShardedAlgoOnShardedPlacement
+	if err := a.IsCompatibleWith(p); err != nil {
+		return nil, err
 	}
 
 	p = placement.ClonePlacement(p)
@@ -125,6 +138,10 @@ func (a nonShardedAlgorithm) ReplaceInstance(
 	instanceID string,
 	addingInstances []services.PlacementInstance,
 ) (services.Placement, error) {
+	if err := a.IsCompatibleWith(p); err != nil {
+		return nil, err
+	}
+
 	p, err := a.AddInstances(p, addingInstances)
 	if err != nil {
 		return nil, err

@@ -100,7 +100,7 @@ func TestNonShardedAlgo(t *testing.T) {
 	assert.False(t, p.IsSharded())
 }
 
-func TestNonShardedAlgoOnShardedPlacement(t *testing.T) {
+func TestIncompatibleWithNonShardedAlgo(t *testing.T) {
 	i1 := placement.NewInstance().SetID("i1").SetEndpoint("e1").SetWeight(1)
 	i2 := placement.NewInstance().SetID("i2").SetEndpoint("e2").SetWeight(1)
 	i3 := placement.NewInstance().SetID("i3").SetEndpoint("e3").SetWeight(1)
@@ -112,17 +112,17 @@ func TestNonShardedAlgoOnShardedPlacement(t *testing.T) {
 
 	_, err = a.AddReplica(p)
 	assert.Error(t, err)
-	assert.Equal(t, errNonShardedAlgoOnShardedPlacement, err)
+	assert.Equal(t, errInCompatibleWithNonShardedAlgo, err)
 
 	_, err = a.AddInstances(p, []services.PlacementInstance{i3})
 	assert.Error(t, err)
-	assert.Equal(t, errNonShardedAlgoOnShardedPlacement, err)
+	assert.Equal(t, errInCompatibleWithNonShardedAlgo, err)
 
 	_, err = a.RemoveInstances(p, []string{"i1"})
 	assert.Error(t, err)
-	assert.Equal(t, errNonShardedAlgoOnShardedPlacement, err)
+	assert.Equal(t, errInCompatibleWithNonShardedAlgo, err)
 
 	_, err = a.ReplaceInstance(p, "i1", []services.PlacementInstance{i3, i4})
 	assert.Error(t, err)
-	assert.Equal(t, errNonShardedAlgoOnShardedPlacement, err)
+	assert.Equal(t, errInCompatibleWithNonShardedAlgo, err)
 }

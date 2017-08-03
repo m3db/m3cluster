@@ -579,6 +579,8 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 
 	p, err = b.AddReplica(p)
 	assert.NoError(t, err)
+	assert.NoError(t, placement.Validate(p))
+
 	p = markAllShardsAsAvailable(t, p)
 	assert.NoError(t, placement.Validate(p))
 }
@@ -1014,7 +1016,7 @@ func TestReplaceInstance_Backout(t *testing.T) {
 	assert.Equal(t, "e2", i2.Endpoint())
 }
 
-func TestShardedAlgoOnNonShardedPlacement(t *testing.T) {
+func TestIncompatibleWithShardedAlgo(t *testing.T) {
 	i1 := placement.NewInstance().SetID("i1").SetEndpoint("e1")
 	i2 := placement.NewInstance().SetID("i2").SetEndpoint("e2")
 	i3 := placement.NewInstance().SetID("i3").SetEndpoint("e3")
@@ -1026,19 +1028,19 @@ func TestShardedAlgoOnNonShardedPlacement(t *testing.T) {
 	a := newShardedAlgorithm(placement.NewOptions())
 	_, err = a.AddReplica(p)
 	assert.Error(t, err)
-	assert.Equal(t, errShardedAlgoOnNotShardedPlacement, err)
+	assert.Equal(t, errIncompatibleWithShardedAlgo, err)
 
 	_, err = a.AddInstances(p, []services.PlacementInstance{i3})
 	assert.Error(t, err)
-	assert.Equal(t, errShardedAlgoOnNotShardedPlacement, err)
+	assert.Equal(t, errIncompatibleWithShardedAlgo, err)
 
 	_, err = a.RemoveInstances(p, []string{"i1"})
 	assert.Error(t, err)
-	assert.Equal(t, errShardedAlgoOnNotShardedPlacement, err)
+	assert.Equal(t, errIncompatibleWithShardedAlgo, err)
 
 	_, err = a.ReplaceInstance(p, "i1", []services.PlacementInstance{i3, i4})
 	assert.Error(t, err)
-	assert.Equal(t, errShardedAlgoOnNotShardedPlacement, err)
+	assert.Equal(t, errIncompatibleWithShardedAlgo, err)
 }
 
 func markAllShardsAsAvailable(t *testing.T, p services.Placement) services.Placement {
