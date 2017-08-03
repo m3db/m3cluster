@@ -139,17 +139,16 @@ func (a mirroredAlgorithm) AddInstances(
 		return nil, err
 	}
 
-	for _, instance := range addingInstances {
-		if instance, exist := p.Instance(instance.ID()); exist {
-			if !placement.IsInstanceLeaving(instance) {
-				return nil, fmt.Errorf("instance %s already exist in the placement", instance.ID())
-			}
-		}
-	}
-
 	p, err := placement.MarkAllShardsAsAvailable(p)
 	if err != nil {
 		return nil, err
+	}
+
+	// At this point, all leaving instances in the placement are cleaned up.
+	for _, instance := range addingInstances {
+		if _, exist := p.Instance(instance.ID()); exist {
+			return nil, fmt.Errorf("instance %s already exist in the placement", instance.ID())
+		}
 	}
 
 	mirrorPlacement, err := mirrorFromPlacement(p)
@@ -200,21 +199,21 @@ func groupInstancesByShardSetID(
 	rf int,
 ) ([]services.PlacementInstance, error) {
 	var (
-		shardSetMap1 = make(map[string]*shardSetMetadata, len(instances))
-		res          = make([]services.PlacementInstance, 0, len(instances))
+		shardSetMap = make(map[string]*shardSetMetadata, len(instances))
+		res         = make([]services.PlacementInstance, 0, len(instances))
 	)
 	for _, instance := range instances {
 		ssID := instance.ShardSetID()
 		weight := instance.Weight()
 		rack := instance.Rack()
-		meta, ok := shardSetMap1[ssID]
+		meta, ok := shardSetMap[ssID]
 		if !ok {
 			meta = &shardSetMetadata{
 				weight: weight,
 				racks:  make(map[string]struct{}, rf),
 				shards: instance.Shards(),
 			}
-			shardSetMap1[ssID] = meta
+			shardSetMap[ssID] = meta
 		}
 		if _, ok := meta.racks[rack]; ok {
 			return nil, fmt.Errorf("found duplicated rack %s for shardset id %s", rack, ssID)
@@ -228,7 +227,7 @@ func groupInstancesByShardSetID(
 		meta.count++
 	}
 
-	for ssID, meta := range shardSetMap1 {
+	for ssID, meta := range shardSetMap {
 		if meta.count != rf {
 			return nil, fmt.Errorf("found %d count of shard set id %s, expecting %d", meta.count, ssID, rf)
 		}
