@@ -232,6 +232,8 @@ func groupInstancesByShardSetID(
 			return nil, fmt.Errorf("found %d count of shard set id %s, expecting %d", meta.count, ssID, rf)
 		}
 
+		// NB(cw) The shard set ID should to be assigned in placement service,
+		// the algorithm does not change the shard set id assigned to each instance.
 		res = append(
 			res,
 			placement.NewInstance().

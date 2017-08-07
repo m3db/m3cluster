@@ -330,6 +330,7 @@ func (ps placementService) findAddingInstance(
 	// if there is a rack not in the current placement, prefer that rack
 	for r, instances := range candidateRackMap {
 		if _, exist := placementRackMap[r]; !exist {
+			// All the racks in the candidateRackMap have at least 1 instance.
 			return instances[:1], nil
 		}
 	}
