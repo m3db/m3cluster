@@ -77,6 +77,18 @@ type Shard interface {
 	// ID returns the ID of the shard
 	ID() uint32
 
+	// CutoverNanos returns when shard traffic is cut over.
+	CutoverNanos() int64
+
+	// SetCutoverNanos sets when shard traffic is cut over.
+	SetCutoverNanos(value int64) Shard
+
+	// CutoffNanos returns when shard traffic is cut off.
+	CutoffNanos() int64
+
+	// SetCutoffNanos sets when shard traffic is cut off.
+	SetCutoffNanos(value int64) Shard
+
 	// State returns the state of the shard
 	State() State
 
@@ -102,13 +114,17 @@ func NewShardFromProto(shard *placementproto.Shard) (Shard, error) {
 
 	return NewShard(shard.Id).
 		SetState(state).
-		SetSourceID(shard.SourceId), nil
+		SetSourceID(shard.SourceId).
+		SetCutoverNanos(shard.CutoverNanos).
+		SetCutoffNanos(shard.CutoffNanos), nil
 }
 
 type shard struct {
-	id       uint32
-	state    State
-	sourceID string
+	id           uint32
+	state        State
+	sourceID     string
+	cutoverNanos int64
+	cutoffNanos  int64
 }
 
 func (s *shard) ID() uint32                        { return s.id }
@@ -116,6 +132,10 @@ func (s *shard) State() State                      { return s.state }
 func (s *shard) SetState(state State) Shard        { s.state = state; return s }
 func (s *shard) SourceID() string                  { return s.sourceID }
 func (s *shard) SetSourceID(sourceID string) Shard { s.sourceID = sourceID; return s }
+func (s *shard) CutoverNanos() int64               { return s.cutoverNanos }
+func (s *shard) SetCutoverNanos(value int64) Shard { s.cutoverNanos = value; return s }
+func (s *shard) CutoffNanos() int64                { return s.cutoffNanos }
+func (s *shard) SetCutoffNanos(value int64) Shard  { s.cutoffNanos = value; return s }
 
 // SortableShardsByIDAsc are sortable shards by ID in ascending order
 type SortableShardsByIDAsc []Shard

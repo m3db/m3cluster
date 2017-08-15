@@ -46,6 +46,8 @@ message Shard {
   uint32 id = 1;
   ShardState state = 2;
   string source_id = 3;
+  int64 cutover_nanos = 4;
+  int64 cutoff_nanos = 5;
 }
 
 enum ShardState {

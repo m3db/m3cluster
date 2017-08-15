@@ -77,9 +77,11 @@ func shardsToProto(shards shard.Shards) ([]*placementproto.Shard, error) {
 			return nil, err
 		}
 		r[i] = &placementproto.Shard{
-			Id:       s.ID(),
-			State:    ss,
-			SourceId: s.SourceID(),
+			Id:           s.ID(),
+			State:        ss,
+			SourceId:     s.SourceID(),
+			CutoverNanos: s.CutoverNanos(),
+			CutoffNanos:  s.CutoffNanos(),
 		}
 	}
 	return r, nil
