@@ -422,6 +422,7 @@ func TestWatchNonBlocking(t *testing.T) {
 
 	err = store.Heartbeat(i2, 100*time.Second)
 	require.NoError(t, err)
+
 	for {
 		if len(w1.Get().([]string)) == 2 {
 			break

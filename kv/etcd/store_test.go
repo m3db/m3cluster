@@ -500,6 +500,7 @@ func TestHistory(t *testing.T) {
 
 	store, err := NewStore(ec, ec, opts)
 	require.NoError(t, err)
+
 	_, err = store.History("k1", 10, 5)
 	require.Error(t, err)
 

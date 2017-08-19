@@ -267,10 +267,12 @@ func testHandoff(t *testing.T, resign bool) {
 
 	sc1, err := svc1.campaign(tc.opts("i1"))
 	assert.NoError(t, err)
+
 	assert.NoError(t, waitForStates(sc1, true, followerS, leaderS))
 
 	sc2, err := svc2.campaign(tc.opts("i2"))
 	assert.NoError(t, err)
+
 	assert.NoError(t, waitForStates(sc2, true, followerS))
 
 	ld, err := svc1.leader()
