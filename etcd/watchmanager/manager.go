@@ -66,11 +66,10 @@ type metrics struct {
 	etcdWatchReset  tally.Counter
 }
 
-func (w *manager) watchChanWithTimeout(key string) (clientv3.WatchChan, error) {
+func (w *manager) watchChanWithTimeout(key string) (clientv3.WatchChan, context.CancelFunc, error) {
 	doneCh := make(chan struct{})
 
 	ctx, cancelFn := context.WithCancel(clientv3.WithRequireLeader(context.Background()))
-	defer cancelFn()
 
 	var watchChan clientv3.WatchChan
 	go func() {
@@ -85,9 +84,10 @@ func (w *manager) watchChanWithTimeout(key string) (clientv3.WatchChan, error) {
 	timeout := w.opts.WatchChanInitTimeout()
 	select {
 	case <-doneCh:
-		return watchChan, nil
+		return watchChan, cancelFn, nil
 	case <-time.After(timeout):
-		return nil, fmt.Errorf("etcd watch create timed out after %s for key: %s", timeout.String(), key)
+		cancelFn()
+		return nil, nil, fmt.Errorf("etcd watch create timed out after %s for key: %s", timeout.String(), key)
 	}
 }
 
@@ -96,12 +96,13 @@ func (w *manager) Watch(key string) {
 
 	var (
 		watchChan clientv3.WatchChan
+		cancelFn  context.CancelFunc
 		err       error
 	)
 	for {
 		if watchChan == nil {
 			w.m.etcdWatchCreate.Inc(1)
-			watchChan, err = w.watchChanWithTimeout(key)
+			watchChan, cancelFn, err = w.watchChanWithTimeout(key)
 			if err != nil {
 				w.logger.Errorf("could not create etcd watch: %v", err)
 
@@ -121,6 +122,7 @@ func (w *manager) Watch(key string) {
 			if !ok {
 				// the watch chan is closed, set it to nil so it will be recreated
 				// this is unlikely to happen but just to be defensive
+				cancelFn()
 				watchChan = nil
 				w.logger.Warnf("etcd watch channel closed on key %s, recreating a watch channel", key)
 
