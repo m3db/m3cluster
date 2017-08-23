@@ -22,6 +22,7 @@ package util
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -33,46 +34,171 @@ import (
 var errNilStore = errors.New("kv store is nil")
 
 type getValueFn func(kv.Value) (interface{}, error)
+
 type updateFn func(interface{})
 
+type validateBoundsFn func(interface{}) (lower, upper interface{}, err error)
+
 // WatchAndUpdateBool sets up a watch for a bool property.
-func WatchAndUpdateBool(store kv.Store, key string, property *bool, lock sync.Locker,
-	defaultValue bool, logger xlog.Logger) (kv.ValueWatch, error) {
+func WatchAndUpdateBool(
+	store kv.Store,
+	key string, property *bool,
+	lock sync.Locker,
+	defaultValue bool,
+	logger xlog.Logger,
+) (kv.ValueWatch, error) {
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(bool) }, lock)
 
-	return watchAndUpdate(store, key, getBool, updateFn, defaultValue, logger)
+	return watchAndUpdate(store, key, getBool, updateFn, nil, defaultValue, logger)
 }
 
 // WatchAndUpdateFloat64 sets up a watch for an float64 property.
-func WatchAndUpdateFloat64(store kv.Store, key string, property *float64, lock sync.Locker,
-	defaultValue float64, logger xlog.Logger) (kv.ValueWatch, error) {
+func WatchAndUpdateFloat64(
+	store kv.Store,
+	key string,
+	property *float64,
+	lock sync.Locker,
+	defaultValue float64,
+	logger xlog.Logger,
+) (kv.ValueWatch, error) {
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(float64) }, lock)
 
-	return watchAndUpdate(store, key, getFloat64, updateFn, defaultValue, logger)
+	return watchAndUpdate(store, key, getFloat64, updateFn, nil, defaultValue, logger)
 }
 
 // WatchAndUpdateInt64 sets up a watch for an int64 property.
-func WatchAndUpdateInt64(store kv.Store, key string, property *int64, lock sync.Locker,
-	defaultValue int64, logger xlog.Logger) (kv.ValueWatch, error) {
+func WatchAndUpdateInt64(
+	store kv.Store,
+	key string,
+	property *int64,
+	lock sync.Locker,
+	defaultValue int64,
+	logger xlog.Logger,
+) (kv.ValueWatch, error) {
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(int64) }, lock)
 
-	return watchAndUpdate(store, key, getInt64, updateFn, defaultValue, logger)
+	return watchAndUpdate(store, key, getInt64, updateFn, nil, defaultValue, logger)
 }
 
 // WatchAndUpdateString sets up a watch for an string property.
-func WatchAndUpdateString(store kv.Store, key string, property *string, lock sync.Locker,
-	defaultValue string, logger xlog.Logger) (kv.ValueWatch, error) {
+func WatchAndUpdateString(
+	store kv.Store,
+	key string,
+	property *string,
+	lock sync.Locker,
+	defaultValue string,
+	logger xlog.Logger,
+) (kv.ValueWatch, error) {
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(string) }, lock)
 
-	return watchAndUpdate(store, key, getString, updateFn, defaultValue, logger)
+	return watchAndUpdate(store, key, getString, updateFn, nil, defaultValue, logger)
 }
 
 // WatchAndUpdateTime sets up a watch for a time property.
-func WatchAndUpdateTime(store kv.Store, key string, property *time.Time, lock sync.Locker,
-	defaultValue time.Time, logger xlog.Logger) (kv.ValueWatch, error) {
+func WatchAndUpdateTime(
+	store kv.Store,
+	key string,
+	property *time.Time,
+	lock sync.Locker,
+	defaultValue time.Time,
+	logger xlog.Logger,
+) (kv.ValueWatch, error) {
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(time.Time) }, lock)
 
-	return watchAndUpdate(store, key, getTime, updateFn, defaultValue, logger)
+	return watchAndUpdate(store, key, getTime, updateFn, nil, defaultValue, logger)
+}
+
+// WatchAndUpdateWithBoundsFloat64 sets up a watch for a float64 property and
+// validates that any updates are within the inclusive lower and upper bounds.
+func WatchAndUpdateWithBoundsFloat64(
+	store kv.Store,
+	key string,
+	property *float64,
+	lock sync.Locker,
+	defaultValue, lowerBound, upperBound float64,
+	logger xlog.Logger,
+) (kv.ValueWatch, error) {
+	updateFn := lockedUpdate(func(i interface{}) { *property = i.(float64) }, lock)
+
+	validateBoundsFn := func(val interface{}) (lower, upper interface{}, err error) {
+		v, ok := val.(float64)
+		if !ok {
+			return nil, nil, fmt.Errorf("expected update value to be a float64, is a %T instead", val)
+		}
+
+		if v < lowerBound || v > upperBound {
+			err := fmt.Errorf(
+				"update value '%v' is not within bounds [%v, %v]", v, lowerBound, upperBound,
+			)
+			return nil, nil, err
+		}
+
+		return lowerBound, upperBound, nil
+	}
+
+	return watchAndUpdate(store, key, getFloat64, updateFn, validateBoundsFn, defaultValue, logger)
+}
+
+// WatchAndUpdateWithBoundsInt64 sets up a watch for an int64 property and
+// validates that any updates are within the inclusive lower and upper bounds.
+func WatchAndUpdateWithBoundsInt64(
+	store kv.Store,
+	key string,
+	property *int64,
+	lock sync.Locker,
+	defaultValue, lowerBound, upperBound int64,
+	logger xlog.Logger,
+) (kv.ValueWatch, error) {
+	updateFn := lockedUpdate(func(i interface{}) { *property = i.(int64) }, lock)
+
+	validateBoundsFn := func(val interface{}) (lower, upper interface{}, err error) {
+		v, ok := val.(int64)
+		if !ok {
+			return nil, nil, fmt.Errorf("expected update value to be an int64, is a %T instead", val)
+		}
+
+		if v < lowerBound || v > upperBound {
+			err := fmt.Errorf(
+				"update value '%v' is not within bounds [%v, %v]", v, lowerBound, upperBound,
+			)
+			return nil, nil, err
+		}
+
+		return lowerBound, upperBound, nil
+	}
+
+	return watchAndUpdate(store, key, getInt64, updateFn, validateBoundsFn, defaultValue, logger)
+}
+
+// WatchAndUpdateWithBoundsTime sets up a watch for a time.Time property and
+// validates that any updates are within the inclusive lower and upper bounds.
+func WatchAndUpdateWithBoundsTime(
+	store kv.Store,
+	key string,
+	property *time.Time,
+	lock sync.Locker,
+	defaultValue, lowerBound, upperBound time.Time,
+	logger xlog.Logger,
+) (kv.ValueWatch, error) {
+	updateFn := lockedUpdate(func(i interface{}) { *property = i.(time.Time) }, lock)
+
+	validateBoundsFn := func(val interface{}) (lower, upper interface{}, err error) {
+		v, ok := val.(time.Time)
+		if !ok {
+			return nil, nil, fmt.Errorf("expected update value to be an int64, is a %T instead", val)
+		}
+
+		if v.Before(lowerBound) || v.After(upperBound) {
+			err := fmt.Errorf(
+				"update value '%v' is not within bounds [%v, %v]", v, lowerBound, upperBound,
+			)
+			return nil, nil, err
+		}
+
+		return lowerBound, upperBound, nil
+	}
+
+	return watchAndUpdate(store, key, getTime, updateFn, validateBoundsFn, defaultValue, logger)
 }
 
 // BoolFromValue get a bool from kv.Value
@@ -80,7 +206,7 @@ func BoolFromValue(v kv.Value, key string, defaultValue bool, logger xlog.Logger
 	var res bool
 	updateFn := func(i interface{}) { res = i.(bool) }
 
-	updateWithKV(getBool, updateFn, key, v, defaultValue, logger)
+	updateWithKV(getBool, updateFn, nil, key, v, defaultValue, logger)
 
 	return res
 }
@@ -90,7 +216,7 @@ func Float64FromValue(v kv.Value, key string, defaultValue float64, logger xlog.
 	var res float64
 	updateFn := func(i interface{}) { res = i.(float64) }
 
-	updateWithKV(getFloat64, updateFn, key, v, defaultValue, logger)
+	updateWithKV(getFloat64, updateFn, nil, key, v, defaultValue, logger)
 
 	return res
 }
@@ -100,7 +226,7 @@ func Int64FromValue(v kv.Value, key string, defaultValue int64, logger xlog.Logg
 	var res int64
 	updateFn := func(i interface{}) { res = i.(int64) }
 
-	updateWithKV(getInt64, updateFn, key, v, defaultValue, logger)
+	updateWithKV(getInt64, updateFn, nil, key, v, defaultValue, logger)
 
 	return res
 }
@@ -110,17 +236,19 @@ func StringFromValue(v kv.Value, key string, defaultValue string, logger xlog.Lo
 	var res string
 	updateFn := func(i interface{}) { res = i.(string) }
 
-	updateWithKV(getString, updateFn, key, v, defaultValue, logger)
+	updateWithKV(getString, updateFn, nil, key, v, defaultValue, logger)
 
 	return res
 }
 
 // StringArrayFromValue gets a string array from kv.Value
-func StringArrayFromValue(v kv.Value, key string, defaultValue []string, logger xlog.Logger) []string {
+func StringArrayFromValue(
+	v kv.Value, key string, defaultValue []string, logger xlog.Logger,
+) []string {
 	var res []string
 	updateFn := func(i interface{}) { res = i.([]string) }
 
-	updateWithKV(getStringArray, updateFn, key, v, defaultValue, logger)
+	updateWithKV(getStringArray, updateFn, nil, key, v, defaultValue, logger)
 
 	return res
 }
@@ -187,8 +315,15 @@ func getTime(v kv.Value) (interface{}, error) {
 	return time.Unix(int64Proto.Value, 0), nil
 }
 
-func watchAndUpdate(store kv.Store, key string, getValue getValueFn, update updateFn,
-	defaultValue interface{}, logger xlog.Logger) (kv.ValueWatch, error) {
+func watchAndUpdate(
+	store kv.Store,
+	key string,
+	getValue getValueFn,
+	update updateFn,
+	validateBounds validateBoundsFn,
+	defaultValue interface{},
+	logger xlog.Logger,
+) (kv.ValueWatch, error) {
 	if store == nil {
 		return nil, errNilStore
 	}
@@ -204,17 +339,24 @@ func watchAndUpdate(store kv.Store, key string, getValue getValueFn, update upda
 			if !ok {
 				return
 			}
-			updateWithKV(getValue, update, key, watch.Get(), defaultValue, logger)
+			updateWithKV(getValue, update, validateBounds, key, watch.Get(), defaultValue, logger)
 		}
 	}()
 
 	return watch, err
 }
 
-func updateWithKV(getValue getValueFn, update updateFn, key string, v kv.Value,
-	defaultValue interface{}, logger xlog.Logger) error {
+func updateWithKV(
+	getValue getValueFn,
+	update updateFn,
+	validateBounds validateBoundsFn,
+	key string,
+	v kv.Value,
+	defaultValue interface{},
+	logger xlog.Logger,
+) error {
 	if v == nil {
-		// the key is deleted from kv, use the default value
+		// The key is deleted from kv, use the default value.
 		update(defaultValue)
 		logSetDefault(logger, key, defaultValue)
 		return nil
@@ -225,6 +367,15 @@ func updateWithKV(getValue getValueFn, update updateFn, key string, v kv.Value,
 		update(defaultValue)
 		logInvalidUpdate(logger, key, v.Version(), defaultValue, err)
 		return err
+	}
+
+	if validateBounds != nil {
+		if lower, upper, err := validateBounds(newValue); err != nil {
+			// Do not apply the default value for updates which fall outside of bounds.
+			logInvalidBoundsUpdate(logger, key, v.Version(), newValue, lower, upper, err)
+			return err
+		}
+
 	}
 
 	update(newValue)
@@ -254,6 +405,25 @@ func logInvalidUpdate(logger xlog.Logger, k string, ver int, v interface{}, err 
 		xlog.NewLogField("version", ver),
 		xlog.NewLogField("error", err),
 	).Infof("invalid value from kv store, use default value")
+}
+
+func logInvalidBoundsUpdate(
+	logger xlog.Logger,
+	k string,
+	ver int,
+	v, lower, upper interface{},
+	err error,
+) {
+	getLogger(logger).WithFields(
+		xlog.NewLogField("key", k),
+		xlog.NewLogField("value", v),
+		xlog.NewLogField("version", ver),
+		xlog.NewLogField("lower-bound", lower),
+		xlog.NewLogField("upper-bound", upper),
+		xlog.NewLogField("error", err),
+	).Infof(
+		"invalid value from kv store, value does not fall within allowed bounds, not applying update",
+	)
 }
 
 func getLogger(logger xlog.Logger) xlog.Logger {

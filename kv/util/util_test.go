@@ -21,6 +21,7 @@
 package util
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -93,7 +94,7 @@ func TestWatchAndUpdateBool(t *testing.T) {
 	_, err = store.Set("foo", &commonpb.BoolProto{Value: false})
 	require.NoError(t, err)
 
-	// no longer receives update
+	// No longer receives update.
 	time.Sleep(100 * time.Millisecond)
 	require.True(t, valueFn())
 }
@@ -145,7 +146,7 @@ func TestWatchAndUpdateFloat64(t *testing.T) {
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 1.2})
 	require.NoError(t, err)
 
-	// no longer receives update
+	// No longer receives update.
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, 12.3, valueFn())
 }
@@ -197,7 +198,7 @@ func TestWatchAndUpdateInt64(t *testing.T) {
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
 	require.NoError(t, err)
 
-	// no longer receives update
+	// No longer receives update.
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, int64(12), valueFn())
 }
@@ -249,7 +250,7 @@ func TestWatchAndUpdateString(t *testing.T) {
 	_, err = store.Set("foo", &commonpb.StringProto{Value: "lol"})
 	require.NoError(t, err)
 
-	// no longer receives update
+	// No longer receives update.
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, "bar", valueFn())
 }
@@ -267,9 +268,11 @@ func TestWatchAndUpdateTime(t *testing.T) {
 		return testConfig.v
 	}
 
-	store := mem.NewStore()
-	now := time.Now()
-	defaultTime := now.Add(time.Hour)
+	var (
+		store       = mem.NewStore()
+		now         = time.Now()
+		defaultTime = now.Add(time.Hour)
+	)
 
 	w, err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, defaultTime, nil)
 	require.NoError(t, err)
@@ -303,7 +306,235 @@ func TestWatchAndUpdateTime(t *testing.T) {
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: now.Unix()})
 	require.NoError(t, err)
 
-	// no longer receives update
+	// No longer receives update.
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, defaultTime, valueFn())
+}
+
+func TestWatchAndUpdateWithBoundsFloat64(t *testing.T) {
+	testConfig := struct {
+		sync.RWMutex
+		v float64
+	}{}
+
+	valueFn := func() float64 {
+		testConfig.RLock()
+		defer testConfig.RUnlock()
+
+		return testConfig.v
+	}
+
+	store := mem.NewStore()
+
+	w, err := WatchAndUpdateWithBoundsFloat64(
+		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, 10, 20, nil,
+	)
+	require.NoError(t, err)
+
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 17})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 17 {
+			break
+		}
+	}
+
+	// Greater than upper bound.
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 22})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 17 {
+			break
+		}
+	}
+
+	// Less than lower bound.
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 8})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 17 {
+			break
+		}
+	}
+
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 17 {
+			break
+		}
+	}
+
+	_, err = store.Delete("foo")
+	require.NoError(t, err)
+	for {
+		if valueFn() == 15 {
+			break
+		}
+	}
+
+	w.Close()
+
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 13})
+	require.NoError(t, err)
+
+	// No longer receives update.
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, float64(15), valueFn())
+}
+
+func TestWatchAndUpdateWithBoundsInt64(t *testing.T) {
+	testConfig := struct {
+		sync.RWMutex
+		v int64
+	}{}
+
+	valueFn := func() int64 {
+		testConfig.RLock()
+		defer testConfig.RUnlock()
+
+		return testConfig.v
+	}
+
+	store := mem.NewStore()
+
+	w, err := WatchAndUpdateWithBoundsInt64(
+		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, 10, 20, nil,
+	)
+	require.NoError(t, err)
+
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 17})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 17 {
+			break
+		}
+	}
+
+	// Greater than upper bound.
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 22})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 17 {
+			break
+		}
+	}
+
+	// Less than lower bound.
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 8})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 17 {
+			break
+		}
+	}
+
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 1})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 17 {
+			break
+		}
+	}
+
+	_, err = store.Delete("foo")
+	require.NoError(t, err)
+	for {
+		if valueFn() == 15 {
+			break
+		}
+	}
+
+	w.Close()
+
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 13})
+	require.NoError(t, err)
+
+	// No longer receives update.
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, int64(15), valueFn())
+}
+
+func TestWatchAndUpdateWithBoundsTime(t *testing.T) {
+	testConfig := struct {
+		sync.RWMutex
+		v time.Time
+	}{}
+
+	valueFn := func() time.Time {
+		testConfig.RLock()
+		defer testConfig.RUnlock()
+
+		return testConfig.v
+	}
+
+	var (
+		store       = mem.NewStore()
+		defaultTime = time.Now()
+		lower       = defaultTime.Add(-1 * time.Minute)
+		upper       = defaultTime.Add(1 * time.Minute)
+	)
+
+	w, err := WatchAndUpdateWithBoundsTime(
+		store, "foo", &testConfig.v, &testConfig.RWMutex, defaultTime, lower, upper, nil,
+	)
+	require.NoError(t, err)
+
+	newTime := defaultTime.Add(30 * time.Second)
+
+	fmt.Println(defaultTime)
+	fmt.Println(newTime)
+
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: newTime.Unix()})
+	require.NoError(t, err)
+	for {
+		if valueFn().Unix() == newTime.Unix() {
+			break
+		}
+	}
+
+	// Greater than upper bound.
+	invalidTime := defaultTime.Add(2 * time.Minute)
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: invalidTime.Unix()})
+	require.NoError(t, err)
+	for {
+		if valueFn().Unix() == newTime.Unix() {
+			break
+		}
+	}
+
+	// Less than lower bound.
+	invalidTime = defaultTime.Add(-2 * time.Minute)
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: invalidTime.Unix()})
+	require.NoError(t, err)
+	for {
+		if valueFn().Unix() == newTime.Unix() {
+			break
+		}
+	}
+
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 1})
+	require.NoError(t, err)
+	for {
+		if valueFn().Unix() == newTime.Unix() {
+			break
+		}
+	}
+
+	_, err = store.Delete("foo")
+	require.NoError(t, err)
+	for {
+		if valueFn().Unix() == defaultTime.Unix() {
+			break
+		}
+	}
+
+	w.Close()
+
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: newTime.Unix()})
+	require.NoError(t, err)
+
+	// No longer receives update.
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, defaultTime, valueFn())
 }
