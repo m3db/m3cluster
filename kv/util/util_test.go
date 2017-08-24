@@ -353,7 +353,7 @@ func TestWatchAndUpdateWithValidationFloat64(t *testing.T) {
 		}
 	}
 
-	// Invalid value.
+	// Invalid update.
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 22})
 	require.NoError(t, err)
 	for {
@@ -429,7 +429,7 @@ func TestWatchAndUpdateWithValidationInt64(t *testing.T) {
 		}
 	}
 
-	// Invalid value.
+	// Invalid update.
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 22})
 	require.NoError(t, err)
 	for {
@@ -505,7 +505,7 @@ func TestWatchAndUpdateWithValidationString(t *testing.T) {
 		}
 	}
 
-	// Invalid value.
+	// Invalid update.
 	_, err = store.Set("foo", &commonpb.StringProto{Value: "cat"})
 	require.NoError(t, err)
 	for {
@@ -590,7 +590,7 @@ func TestWatchAndUpdateWithValidationTime(t *testing.T) {
 		}
 	}
 
-	// Invalid value.
+	// Invalid update.
 	invalidTime := defaultTime.Add(2 * time.Minute)
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: invalidTime.Unix()})
 	require.NoError(t, err)
