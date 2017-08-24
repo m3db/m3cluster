@@ -22,6 +22,7 @@ package util
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -311,7 +312,7 @@ func TestWatchAndUpdateTime(t *testing.T) {
 	require.Equal(t, defaultTime, valueFn())
 }
 
-func TestWatchAndUpdateWithBoundsFloat64(t *testing.T) {
+func TestWatchAndUpdateWithValidationFloat64(t *testing.T) {
 	testConfig := struct {
 		sync.RWMutex
 		v float64
@@ -324,10 +325,23 @@ func TestWatchAndUpdateWithBoundsFloat64(t *testing.T) {
 		return testConfig.v
 	}
 
+	validateFn := func(val interface{}) error {
+		v, ok := val.(float64)
+		if !ok {
+			return fmt.Errorf("invalid type for val, expected float64, received %T", val)
+		}
+
+		if v > 20 {
+			return fmt.Errorf("val must be < 20, is %v", v)
+		}
+
+		return nil
+	}
+
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateWithBoundsFloat64(
-		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, 10, 20, nil,
+	w, err := WatchAndUpdateWithValidationFloat64(
+		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, validateFn, nil,
 	)
 	require.NoError(t, err)
 
@@ -339,17 +353,8 @@ func TestWatchAndUpdateWithBoundsFloat64(t *testing.T) {
 		}
 	}
 
-	// Greater than upper bound.
+	// Invalid value.
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 22})
-	require.NoError(t, err)
-	for {
-		if valueFn() == 17 {
-			break
-		}
-	}
-
-	// Less than lower bound.
-	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 8})
 	require.NoError(t, err)
 	for {
 		if valueFn() == 17 {
@@ -383,7 +388,7 @@ func TestWatchAndUpdateWithBoundsFloat64(t *testing.T) {
 	require.Equal(t, float64(15), valueFn())
 }
 
-func TestWatchAndUpdateWithBoundsInt64(t *testing.T) {
+func TestWatchAndUpdateWithValidationInt64(t *testing.T) {
 	testConfig := struct {
 		sync.RWMutex
 		v int64
@@ -396,10 +401,23 @@ func TestWatchAndUpdateWithBoundsInt64(t *testing.T) {
 		return testConfig.v
 	}
 
+	validateFn := func(val interface{}) error {
+		v, ok := val.(int64)
+		if !ok {
+			return fmt.Errorf("invalid type for val, expected int64, received %T", val)
+		}
+
+		if v > 20 {
+			return fmt.Errorf("val must be < 20, is %v", v)
+		}
+
+		return nil
+	}
+
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateWithBoundsInt64(
-		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, 10, 20, nil,
+	w, err := WatchAndUpdateWithValidationInt64(
+		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, validateFn, nil,
 	)
 	require.NoError(t, err)
 
@@ -411,17 +429,8 @@ func TestWatchAndUpdateWithBoundsInt64(t *testing.T) {
 		}
 	}
 
-	// Greater than upper bound.
+	// Invalid value.
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 22})
-	require.NoError(t, err)
-	for {
-		if valueFn() == 17 {
-			break
-		}
-	}
-
-	// Less than lower bound.
-	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 8})
 	require.NoError(t, err)
 	for {
 		if valueFn() == 17 {
@@ -455,7 +464,83 @@ func TestWatchAndUpdateWithBoundsInt64(t *testing.T) {
 	require.Equal(t, int64(15), valueFn())
 }
 
-func TestWatchAndUpdateWithBoundsTime(t *testing.T) {
+func TestWatchAndUpdateWithValidationString(t *testing.T) {
+	testConfig := struct {
+		sync.RWMutex
+		v string
+	}{}
+
+	valueFn := func() string {
+		testConfig.RLock()
+		defer testConfig.RUnlock()
+
+		return testConfig.v
+	}
+
+	validateFn := func(val interface{}) error {
+		v, ok := val.(string)
+		if !ok {
+			return fmt.Errorf("invalid type for val, expected string, received %T", val)
+		}
+
+		if !strings.HasPrefix(v, "b") {
+			return fmt.Errorf("val must start with 'b', is %v", v)
+		}
+
+		return nil
+	}
+
+	store := mem.NewStore()
+
+	w, err := WatchAndUpdateWithValidationString(
+		store, "foo", &testConfig.v, &testConfig.RWMutex, "bar", validateFn, nil,
+	)
+	require.NoError(t, err)
+
+	_, err = store.Set("foo", &commonpb.StringProto{Value: "baz"})
+	require.NoError(t, err)
+	for {
+		if valueFn() == "baz" {
+			break
+		}
+	}
+
+	// Invalid value.
+	_, err = store.Set("foo", &commonpb.StringProto{Value: "cat"})
+	require.NoError(t, err)
+	for {
+		if valueFn() == "baz" {
+			break
+		}
+	}
+
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 100})
+	require.NoError(t, err)
+	for {
+		if valueFn() == "bar" {
+			break
+		}
+	}
+
+	_, err = store.Delete("foo")
+	require.NoError(t, err)
+	for {
+		if valueFn() == "bar" {
+			break
+		}
+	}
+
+	w.Close()
+
+	_, err = store.Set("foo", &commonpb.StringProto{Value: "lol"})
+	require.NoError(t, err)
+
+	// No longer receives update.
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, "bar", valueFn())
+}
+
+func TestWatchAndUpdateWithValidationTime(t *testing.T) {
 	testConfig := struct {
 		sync.RWMutex
 		v time.Time
@@ -471,12 +556,24 @@ func TestWatchAndUpdateWithBoundsTime(t *testing.T) {
 	var (
 		store       = mem.NewStore()
 		defaultTime = time.Now()
-		lower       = defaultTime.Add(-1 * time.Minute)
-		upper       = defaultTime.Add(1 * time.Minute)
 	)
 
-	w, err := WatchAndUpdateWithBoundsTime(
-		store, "foo", &testConfig.v, &testConfig.RWMutex, defaultTime, lower, upper, nil,
+	validateFn := func(val interface{}) error {
+		v, ok := val.(time.Time)
+		if !ok {
+			return fmt.Errorf("invalid type for val, expected time.Time, received %T", val)
+		}
+
+		bound := defaultTime.Add(time.Minute)
+		if v.After(bound) {
+			return fmt.Errorf("val must be before %v, is %v", bound, v)
+		}
+
+		return nil
+	}
+
+	w, err := WatchAndUpdateWithValidationTime(
+		store, "foo", &testConfig.v, &testConfig.RWMutex, defaultTime, validateFn, nil,
 	)
 	require.NoError(t, err)
 
@@ -493,18 +590,8 @@ func TestWatchAndUpdateWithBoundsTime(t *testing.T) {
 		}
 	}
 
-	// Greater than upper bound.
+	// Invalid value.
 	invalidTime := defaultTime.Add(2 * time.Minute)
-	_, err = store.Set("foo", &commonpb.Int64Proto{Value: invalidTime.Unix()})
-	require.NoError(t, err)
-	for {
-		if valueFn().Unix() == newTime.Unix() {
-			break
-		}
-	}
-
-	// Less than lower bound.
-	invalidTime = defaultTime.Add(-2 * time.Minute)
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: invalidTime.Unix()})
 	require.NoError(t, err)
 	for {
