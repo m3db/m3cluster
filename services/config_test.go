@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Uber Technologies, Inc.
+// Copyright (c) 2017 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,33 +18,41 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package client
+package services
 
 import (
-	"github.com/m3db/m3cluster/kv"
-	"github.com/m3db/m3cluster/services"
+	"testing"
+
+	yaml "gopkg.in/yaml.v2"
+
+	"github.com/stretchr/testify/require"
 )
 
-// Client is the base interface into the cluster management system, providing
-// access to cluster services.
-type Client interface {
-	// Services returns access to the set of services.
-	Services() (services.Services, error)
+func TestConfiguration(t *testing.T) {
+	configStr := `
+namespaceOverride:
+  placementNamespace: p
+  metadataNamespace: m
+`
 
-	// ServiceDiscovery returns service discovery with custom namespaces.
-	ServiceDiscovery(opts services.Options) (services.Services, error)
+	var cfg Configuration
+	err := yaml.Unmarshal([]byte(configStr), &cfg)
+	require.NoError(t, err)
+	opts := cfg.NewOptions()
+	require.Equal(t, "p", opts.NamespaceOptions().PlacementNamespace())
+	require.Equal(t, "m", opts.NamespaceOptions().MetadataNamespace())
+}
 
-	// KV returns access to the distributed configuration store.
-	// To be deprecated.
-	KV() (kv.Store, error)
+func TestNamespaceConfiguration(t *testing.T) {
+	configStr := `
+placementNamespace: p
+metadataNamespace: m
+`
 
-	// Txn returns access to the transaction store.
-	// To be deprecated.
-	Txn() (kv.TxnStore, error)
-
-	// Store returns access to the distributed configuration store with a namespace.
-	Store(namespace string) (kv.Store, error)
-
-	// TxnStore returns access to the transaction store with a namespace.
-	TxnStore(namespace string) (kv.TxnStore, error)
+	var cfg NamespaceConfiguration
+	err := yaml.Unmarshal([]byte(configStr), &cfg)
+	require.NoError(t, err)
+	opts := cfg.NewOptions()
+	require.Equal(t, "p", opts.PlacementNamespace())
+	require.Equal(t, "m", opts.MetadataNamespace())
 }

@@ -23,10 +23,10 @@ package etcd
 import (
 	"testing"
 
-	"github.com/m3db/m3cluster/services"
-
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
+	"github.com/m3db/m3cluster/services"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -145,25 +145,64 @@ func TestClient(t *testing.T) {
 	require.True(t, ok)
 }
 
+func TestServicesWithNamespace(t *testing.T) {
+	cs, err := NewConfigServiceClient(testOptions())
+	require.NoError(t, err)
+	c := cs.(*csclient)
+
+	fn, closer := testNewETCDFn(t)
+	defer closer()
+	c.newFn = fn
+
+	sd1, err := c.Services()
+	require.NoError(t, err)
+
+	nOpts := services.NewNamespaceOptions().SetPlacementNamespace("p").SetMetadataNamespace("m")
+	sd2, err := c.ServiceDiscovery(services.NewOptions().SetNamespaceOptions(nOpts))
+	require.NoError(t, err)
+
+	require.NotEqual(t, sd1, sd2)
+
+	sid := services.NewServiceID().SetName("service").SetZone("zone2")
+	err = sd1.SetMetadata(sid, services.NewMetadata())
+	require.NoError(t, err)
+
+	_, err = sd1.Metadata(sid)
+	require.NoError(t, err)
+
+	_, err = sd2.Metadata(sid)
+	require.Error(t, err)
+
+	sid2 := services.NewServiceID().SetName("service").SetZone("zone2").SetEnvironment("test")
+	err = sd2.SetMetadata(sid2, services.NewMetadata())
+	require.NoError(t, err)
+
+	_, err = sd1.Metadata(sid2)
+	require.Error(t, err)
+}
+
 func TestCacheFileForZone(t *testing.T) {
 	c, err := NewConfigServiceClient(testOptions())
 	require.NoError(t, err)
 	cs := c.(*csclient)
 
-	kvOpts := cs.newkvOptions("z1", "namespace")
+	kvOpts := cs.newkvOptions("z1", cs.cacheFileFn(), "namespace")
 	require.Equal(t, "", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 
 	cs.opts = cs.opts.SetCacheDir("/cacheDir")
-	kvOpts = cs.newkvOptions("z1")
+	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn())
 	require.Equal(t, "/cacheDir/test_app_z1.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
-	kvOpts = cs.newkvOptions("z1", "namespace")
+	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn(), "namespace")
 	require.Equal(t, "/cacheDir/namespace_test_app_z1.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 
-	kvOpts = cs.newkvOptions("z1", "namespace", "")
+	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn(), "namespace", "")
 	require.Equal(t, "/cacheDir/namespace_test_app_z1.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 
-	kvOpts = cs.newkvOptions("z1", "namespace", "env")
+	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn(), "namespace", "env")
 	require.Equal(t, "/cacheDir/namespace_env_test_app_z1.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
+
+	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn("f1", "", "f2"), "namespace")
+	require.Equal(t, "/cacheDir/namespace_test_app_z1_f1_f2.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 }
 
 func TestValidateNamespace(t *testing.T) {
