@@ -21,105 +21,143 @@
 package client
 
 import (
-	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
-	"github.com/m3db/m3cluster/proto/util"
+	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/services"
-	"github.com/m3db/m3cluster/services/placement"
 )
 
-func (c *client) Set(sid services.ServiceID, p services.Placement) error {
+type storage struct {
+	helper placementStorageHelper
+	keyFn  keyFn
+	kvGen  KVGen
+}
+
+func newPlacementStorage(keyFn keyFn, kvGen KVGen, helper placementStorageHelper) services.PlacementStorage {
+	return &storage{
+		keyFn:  keyFn,
+		kvGen:  kvGen,
+		helper: helper,
+	}
+}
+
+func (s *storage) SetProto(sid services.ServiceID, p proto.Message) error {
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
-	placementProto, err := util.PlacementToProto(p)
+
+	err := s.helper.ValidateProto(p)
 	if err != nil {
 		return err
 	}
-	kvm, err := c.getKVManager(sid.Zone())
+
+	store, err := s.kvGen(sid.Zone())
 	if err != nil {
 		return err
 	}
-	_, err = kvm.kv.Set(c.placementKeyFn(sid), &placementProto)
+
+	_, err = store.Set(s.keyFn(sid), p)
 	return err
 }
 
-func (c *client) CheckAndSet(sid services.ServiceID, p services.Placement, version int) error {
+func (s *storage) Proto(sid services.ServiceID) (proto.Message, int, error) {
+	if err := validateServiceID(sid); err != nil {
+		return nil, 0, err
+	}
+
+	store, err := s.kvGen(sid.Zone())
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return s.helper.Proto(store, s.keyFn(sid))
+}
+
+func (s *storage) Set(sid services.ServiceID, p services.Placement) error {
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
 
-	placementProto, err := util.PlacementToProto(p)
+	store, err := s.kvGen(sid.Zone())
 	if err != nil {
 		return err
 	}
 
-	kvm, err := c.getKVManager(sid.Zone())
+	placementProto, err := s.helper.GenerateProto(store, s.keyFn(sid), p)
 	if err != nil {
 		return err
 	}
 
-	_, err = kvm.kv.CheckAndSet(
-		c.placementKeyFn(sid),
+	_, err = store.Set(s.keyFn(sid), placementProto)
+	return err
+}
+
+func (s *storage) CheckAndSet(sid services.ServiceID, p services.Placement, version int) error {
+	if err := validateServiceID(sid); err != nil {
+		return err
+	}
+
+	store, err := s.kvGen(sid.Zone())
+	if err != nil {
+		return err
+	}
+
+	placementProto, err := s.helper.GenerateProto(store, s.keyFn(sid), p)
+	if err != nil {
+		return err
+	}
+
+	_, err = store.CheckAndSet(
+		s.keyFn(sid),
 		version,
-		&placementProto,
+		placementProto,
 	)
 	return err
 }
 
-func (c *client) SetIfNotExist(sid services.ServiceID, p services.Placement) error {
+func (s *storage) SetIfNotExist(sid services.ServiceID, p services.Placement) error {
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
 
-	placementProto, err := util.PlacementToProto(p)
+	store, err := s.kvGen(sid.Zone())
 	if err != nil {
 		return err
 	}
 
-	kvm, err := c.getKVManager(sid.Zone())
+	placementProto, err := s.helper.GenerateProto(store, s.keyFn(sid), p)
 	if err != nil {
 		return err
 	}
 
-	_, err = kvm.kv.SetIfNotExists(
-		c.placementKeyFn(sid),
-		&placementProto,
+	_, err = store.SetIfNotExists(
+		s.keyFn(sid),
+		placementProto,
 	)
 	return err
 }
 
-func (c *client) Delete(sid services.ServiceID) error {
+func (s *storage) Delete(sid services.ServiceID) error {
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
 
-	kvm, err := c.getKVManager(sid.Zone())
+	store, err := s.kvGen(sid.Zone())
 	if err != nil {
 		return err
 	}
 
-	_, err = kvm.kv.Delete(c.placementKeyFn(sid))
+	_, err = store.Delete(s.keyFn(sid))
 	return err
 }
 
-func (c *client) Placement(sid services.ServiceID) (services.Placement, int, error) {
+func (s *storage) Placement(sid services.ServiceID) (services.Placement, int, error) {
 	if err := validateServiceID(sid); err != nil {
 		return nil, 0, err
 	}
 
-	v, err := c.getPlacementValue(sid)
+	store, err := s.kvGen(sid.Zone())
 	if err != nil {
 		return nil, 0, err
 	}
 
-	var placementProto placementproto.Placement
-	if err := v.Unmarshal(&placementProto); err != nil {
-		return nil, 0, err
-	}
-
-	p, err := placement.NewPlacementFromProto(&placementProto)
-	if p != nil {
-		p.SetVersion(v.Version())
-	}
-	return p, v.Version(), err
+	return s.helper.Placement(store, s.keyFn(sid))
 }

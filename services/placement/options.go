@@ -55,6 +55,7 @@ type options struct {
 	allowPartialReplace bool
 	sharded             bool
 	mirrored            bool
+	keepSnapshots       bool
 	iopts               instrument.Options
 	validZone           string
 	dryrun              bool
@@ -102,6 +103,15 @@ func (o options) IsMirrored() bool {
 
 func (o options) SetIsMirrored(v bool) services.PlacementOptions {
 	o.mirrored = v
+	return o
+}
+
+func (o options) ShouldKeepSnapshots() bool {
+	return o.keepSnapshots
+}
+
+func (o options) SetShouldKeepSnapshots(v bool) services.PlacementOptions {
+	o.keepSnapshots = v
 	return o
 }
 

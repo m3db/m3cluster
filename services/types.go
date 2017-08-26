@@ -23,6 +23,7 @@ package services
 import (
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services/leader/campaign"
 	"github.com/m3db/m3cluster/shard"
@@ -77,7 +78,10 @@ type Services interface {
 	SetMetadata(sid ServiceID, m Metadata) error
 
 	// PlacementService returns a client of Placement Service
-	PlacementService(service ServiceID, popts PlacementOptions) (PlacementService, error)
+	PlacementService(sid ServiceID, popts PlacementOptions) (PlacementService, error)
+
+	// PlacementStorage returns a client of Placement Storage.
+	PlacementStorage(popts PlacementOptions) (PlacementStorage, error)
 
 	// HeartbeatService returns a heartbeat store for the given service.
 	HeartbeatService(service ServiceID) (HeartbeatService, error)
@@ -203,6 +207,31 @@ type Metadata interface {
 	SetHeartbeatInterval(h time.Duration) Metadata
 }
 
+// PlacementStorage provides read and write access to service placement.
+type PlacementStorage interface {
+	// SetProto sets the proto as the placement for the service id.
+	SetProto(sid ServiceID, p proto.Message) error
+
+	// Proto returns the placement proto for the service id.
+	Proto(sid ServiceID) (proto.Message, int, error)
+
+	// Set writes a placement for a service.
+	Set(service ServiceID, p Placement) error
+
+	// CheckAndSet writes a placement for a service if the current version
+	// matches the expected version.
+	CheckAndSet(service ServiceID, p Placement, version int) error
+
+	// SetIfNotExist writes a placement for a service.
+	SetIfNotExist(service ServiceID, p Placement) error
+
+	// Delete deletes the placement for a service.
+	Delete(service ServiceID) error
+
+	// Placement reads placement and version for a service.
+	Placement(service ServiceID) (Placement, int, error)
+}
+
 // PlacementService handles the placement related operations for registered services
 // all write or update operations will persist the generated placement before returning success
 type PlacementService interface {
@@ -244,34 +273,52 @@ type PlacementService interface {
 	Delete() error
 }
 
-// PlacementOptions is the interface for placement options
+// PlacementOptions is the interface for placement options.
 type PlacementOptions interface {
 	// LooseRackCheck enables the placement to loose the rack check
-	// during instance replacement to achieve full ownership transfer
+	// during instance replacement to achieve full ownership transfer.
 	LooseRackCheck() bool
+
+	// SetLooseRackCheck sets LooseRackCheck.
 	SetLooseRackCheck(looseRackCheck bool) PlacementOptions
 
 	// AllowPartialReplace allows shards from the leaving instance to be
 	// placed on instances other than the new instances in a replace operation
 	AllowPartialReplace() bool
+
+	// SetAllowPartialReplace sets AllowPartialReplace.
 	SetAllowPartialReplace(allowPartialReplace bool) PlacementOptions
 
-	// IsSharded describes whether a placement needs to be sharded
-	// when set to false, no specific shards will be assigned to any instance
+	// IsSharded describes whether a placement needs to be sharded,
+	// when set to false, no specific shards will be assigned to any instance.
 	IsSharded() bool
+
+	// SetIsSharded sets IsSharded.
 	SetIsSharded(sharded bool) PlacementOptions
 
-	// Dryrun will try to perform the placement operation but will not persist the final result
+	// Dryrun will try to perform the placement operation but will not persist the final result.
 	Dryrun() bool
+
+	// SetDryrun sets whether the Dryrun value.
 	SetDryrun(d bool) PlacementOptions
 
-	// IsMirrored sets whether the shard distribution should be mirrored
+	// IsMirrored returns whether the shard distribution should be mirrored
 	// to support master/slave model.
 	IsMirrored() bool
+
+	// SetIsMirrored sets IsMirrored.
 	SetIsMirrored(m bool) PlacementOptions
 
-	// InstrumentOptions is the options for instrument
+	// ShouldKeepSnapshots returns whether the placement should keep all the snapshots.
+	ShouldKeepSnapshots() bool
+
+	// SetShouldKeepSnapshots sets whether the placement should keep all the snapshots.
+	SetShouldKeepSnapshots(v bool) PlacementOptions
+
+	// InstrumentOptions is the options for instrument.
 	InstrumentOptions() instrument.Options
+
+	// SetInstrumentOptions sets the instrument options.
 	SetInstrumentOptions(iopts instrument.Options) PlacementOptions
 
 	// ValidZone returns the zone that added instances must be in in order
@@ -391,7 +438,7 @@ type StagedPlacement interface {
 	SetVersion(version int) StagedPlacement
 
 	// Placements return the placements in the staged placement.
-	Placements() []Placement
+	Placements() Placements
 
 	// SetPlacements sets the placements in the staged placement.
 	SetPlacements(placements []Placement) StagedPlacement
@@ -466,6 +513,9 @@ type Placement interface {
 	// to the MVCC store.
 	SetVersion(v int) Placement
 }
+
+// Placements represents a list of service placements.
+type Placements []Placement
 
 // PlacementInstance represents an instance in a service placement
 type PlacementInstance interface {
