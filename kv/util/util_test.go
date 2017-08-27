@@ -21,6 +21,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -47,7 +48,7 @@ func TestWatchAndUpdateBool(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, true, nil)
+	w, err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, true, nil, nil)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.BoolProto{Value: true})
@@ -115,7 +116,7 @@ func TestWatchAndUpdateFloat64(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateFloat64(store, "foo", &testConfig.v, &testConfig.RWMutex, 12.3, nil)
+	w, err := WatchAndUpdateFloat64(store, "foo", &testConfig.v, &testConfig.RWMutex, 12.3, nil, nil)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
@@ -167,7 +168,7 @@ func TestWatchAndUpdateInt64(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateInt64(store, "foo", &testConfig.v, &testConfig.RWMutex, 12, nil)
+	w, err := WatchAndUpdateInt64(store, "foo", &testConfig.v, &testConfig.RWMutex, 12, nil, nil)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 100})
@@ -219,7 +220,7 @@ func TestWatchAndUpdateString(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateString(store, "foo", &testConfig.v, &testConfig.RWMutex, "bar", nil)
+	w, err := WatchAndUpdateString(store, "foo", &testConfig.v, &testConfig.RWMutex, "bar", nil, nil)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 100})
@@ -275,7 +276,7 @@ func TestWatchAndUpdateTime(t *testing.T) {
 		defaultTime = now.Add(time.Hour)
 	)
 
-	w, err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, defaultTime, nil)
+	w, err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, defaultTime, nil, nil)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 100})
@@ -312,6 +313,75 @@ func TestWatchAndUpdateTime(t *testing.T) {
 	require.Equal(t, defaultTime, valueFn())
 }
 
+func TestWatchAndUpdateWithValidationBool(t *testing.T) {
+	testConfig := struct {
+		sync.RWMutex
+		v bool
+	}{}
+
+	valueFn := func() bool {
+		testConfig.RLock()
+		defer testConfig.RUnlock()
+
+		return testConfig.v
+	}
+
+	validateFn := func(val interface{}) error {
+		v, ok := val.(bool)
+		if !ok {
+			return fmt.Errorf("invalid type for val, expected boll, received %T", val)
+		}
+
+		if !v {
+			return errors.New("value of update is false, must be true")
+		}
+
+		return nil
+	}
+
+	store := mem.NewStore()
+
+	w, err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, true, validateFn, nil)
+	require.NoError(t, err)
+
+	_, err = store.Set("foo", &commonpb.BoolProto{Value: true})
+	require.NoError(t, err)
+	for {
+		if valueFn() {
+			break
+		}
+	}
+
+	// Invalid update.
+	_, err = store.Set("foo", &commonpb.BoolProto{Value: false})
+	require.NoError(t, err)
+	for {
+		if valueFn() {
+			break
+		}
+	}
+
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 20})
+	require.NoError(t, err)
+	for {
+		if valueFn() {
+			break
+		}
+	}
+
+	_, err = store.Delete("foo")
+	require.NoError(t, err)
+	for {
+		if valueFn() {
+			break
+		}
+	}
+
+	w.Close()
+
+	require.NoError(t, err)
+}
+
 func TestWatchAndUpdateWithValidationFloat64(t *testing.T) {
 	testConfig := struct {
 		sync.RWMutex
@@ -340,7 +410,7 @@ func TestWatchAndUpdateWithValidationFloat64(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateWithValidationFloat64(
+	w, err := WatchAndUpdateFloat64(
 		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, validateFn, nil,
 	)
 	require.NoError(t, err)
@@ -416,7 +486,7 @@ func TestWatchAndUpdateWithValidationInt64(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateWithValidationInt64(
+	w, err := WatchAndUpdateInt64(
 		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, validateFn, nil,
 	)
 	require.NoError(t, err)
@@ -492,7 +562,7 @@ func TestWatchAndUpdateWithValidationString(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateWithValidationString(
+	w, err := WatchAndUpdateString(
 		store, "foo", &testConfig.v, &testConfig.RWMutex, "bar", validateFn, nil,
 	)
 	require.NoError(t, err)
@@ -572,7 +642,7 @@ func TestWatchAndUpdateWithValidationTime(t *testing.T) {
 		return nil
 	}
 
-	w, err := WatchAndUpdateWithValidationTime(
+	w, err := WatchAndUpdateTime(
 		store, "foo", &testConfig.v, &testConfig.RWMutex, defaultTime, validateFn, nil,
 	)
 	require.NoError(t, err)

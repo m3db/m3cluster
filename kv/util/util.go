@@ -39,70 +39,24 @@ type getValueFn func(kv.Value) (interface{}, error)
 
 type updateFn func(interface{})
 
-// WatchAndUpdateBool sets up a watch for a bool property.
+// WatchAndUpdateBool sets up a watch with validation for a bool property. Any invalid
+// updates are not applied.
 func WatchAndUpdateBool(
 	store kv.Store,
 	key string, property *bool,
 	lock sync.Locker,
 	defaultValue bool,
+	validate ValidateFn,
 	logger xlog.Logger,
 ) (kv.ValueWatch, error) {
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(bool) }, lock)
 
-	return watchAndUpdate(store, key, getBool, updateFn, nil, defaultValue, logger)
+	return watchAndUpdate(store, key, getBool, updateFn, validate, defaultValue, logger)
 }
 
-// WatchAndUpdateFloat64 sets up a watch for a float64 property.
+// WatchAndUpdateFloat64 sets up a watch with validation for a float64 property. Any
+// invalid updates are not applied.
 func WatchAndUpdateFloat64(
-	store kv.Store,
-	key string,
-	property *float64,
-	lock sync.Locker,
-	defaultValue float64,
-	logger xlog.Logger,
-) (kv.ValueWatch, error) {
-	return WatchAndUpdateWithValidationFloat64(store, key, property, lock, defaultValue, nil, logger)
-}
-
-// WatchAndUpdateInt64 sets up a watch for an int64 property.
-func WatchAndUpdateInt64(
-	store kv.Store,
-	key string,
-	property *int64,
-	lock sync.Locker,
-	defaultValue int64,
-	logger xlog.Logger,
-) (kv.ValueWatch, error) {
-	return WatchAndUpdateWithValidationInt64(store, key, property, lock, defaultValue, nil, logger)
-}
-
-// WatchAndUpdateString sets up a watch for a string property.
-func WatchAndUpdateString(
-	store kv.Store,
-	key string,
-	property *string,
-	lock sync.Locker,
-	defaultValue string,
-	logger xlog.Logger,
-) (kv.ValueWatch, error) {
-	return WatchAndUpdateWithValidationString(store, key, property, lock, defaultValue, nil, logger)
-}
-
-// WatchAndUpdateTime sets up a watch for a time property.
-func WatchAndUpdateTime(
-	store kv.Store,
-	key string,
-	property *time.Time,
-	lock sync.Locker,
-	defaultValue time.Time,
-	logger xlog.Logger,
-) (kv.ValueWatch, error) {
-	return WatchAndUpdateWithValidationTime(store, key, property, lock, defaultValue, nil, logger)
-}
-
-// WatchAndUpdateWithValidationFloat64 sets up a watch with validation for a float64
-// property. Any invalid updates are not applied.
-func WatchAndUpdateWithValidationFloat64(
 	store kv.Store,
 	key string,
 	property *float64,
@@ -116,9 +70,9 @@ func WatchAndUpdateWithValidationFloat64(
 	return watchAndUpdate(store, key, getFloat64, updateFn, validate, defaultValue, logger)
 }
 
-// WatchAndUpdateWithValidationInt64 sets up a watch with validation for an int64
-// property. Any invalid updates are not applied.
-func WatchAndUpdateWithValidationInt64(
+// WatchAndUpdateInt64 sets up a watch with validation for an int64 property. Any
+// invalid updates are not applied.
+func WatchAndUpdateInt64(
 	store kv.Store,
 	key string,
 	property *int64,
@@ -132,9 +86,9 @@ func WatchAndUpdateWithValidationInt64(
 	return watchAndUpdate(store, key, getInt64, updateFn, validate, defaultValue, logger)
 }
 
-// WatchAndUpdateWithValidationString sets up a watch with validation for a string
-// property. Any invalid updates are not applied.
-func WatchAndUpdateWithValidationString(
+// WatchAndUpdateString sets up a watch with validation for a string property. Any
+// invalid updates are not applied.
+func WatchAndUpdateString(
 	store kv.Store,
 	key string,
 	property *string,
@@ -148,9 +102,9 @@ func WatchAndUpdateWithValidationString(
 	return watchAndUpdate(store, key, getString, updateFn, validate, defaultValue, logger)
 }
 
-// WatchAndUpdateWithValidationTime sets up a watch with validation for a time property.
-// Any invalid updates are not applied.
-func WatchAndUpdateWithValidationTime(
+// WatchAndUpdateTime sets up a watch with validation for a time property. Any invalid
+// updates are not applied.
+func WatchAndUpdateTime(
 	store kv.Store,
 	key string,
 	property *time.Time,
@@ -349,7 +303,7 @@ func logSetDefault(logger xlog.Logger, k string, v interface{}) {
 	getLogger(logger).WithFields(
 		xlog.NewLogField("key", k),
 		xlog.NewLogField("value", v),
-	).Warnf("nil value from kv store, use default value")
+	).Warnf("nil value from kv store, using default value")
 }
 
 func logUpdateSuccess(logger xlog.Logger, k string, ver int, v interface{}) {
@@ -366,7 +320,7 @@ func logMalformedUpdate(logger xlog.Logger, k string, ver int, v interface{}, er
 		xlog.NewLogField("value", v),
 		xlog.NewLogField("version", ver),
 		xlog.NewLogField("error", err),
-	).Warnf("malformed value from kv store, use default value")
+	).Warnf("malformed value from kv store, using default value")
 }
 
 func logInvalidUpdate(logger xlog.Logger, k string, ver int, v interface{}, err error) {
