@@ -23,10 +23,10 @@ package etcd
 import (
 	"testing"
 
-	"github.com/coreos/etcd/clientv3"
-	"github.com/coreos/etcd/integration"
 	"github.com/m3db/m3cluster/services"
 
+	"github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/integration"
 	"github.com/stretchr/testify/require"
 )
 
@@ -203,6 +203,9 @@ func TestCacheFileForZone(t *testing.T) {
 
 	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn("f1", "", "f2"), "namespace")
 	require.Equal(t, "/cacheDir/namespace_test_app_z1_f1_f2.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
+
+	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn("/r2/m3agg"), "")
+	require.Equal(t, "/cacheDir/test_app_z1__r2_m3agg.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 }
 
 func TestValidateNamespace(t *testing.T) {

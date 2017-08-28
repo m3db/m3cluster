@@ -22,24 +22,24 @@ package services
 
 // Configuration configs the Options.
 type Configuration struct {
-	NamespaceOverride NamespaceConfiguration `yaml:"namespaceOverride"`
+	Namespaces NamespacesConfiguration `yaml:"namespaces"`
 }
 
 // NewOptions creates a new Options.
 func (cfg Configuration) NewOptions() Options {
 	return NewOptions().
-		SetNamespaceOptions(cfg.NamespaceOverride.NewOptions())
+		SetNamespaceOptions(cfg.Namespaces.NewOptions())
 }
 
-// NamespaceConfiguration configs the NamespaceOptions.
-type NamespaceConfiguration struct {
-	PlacementNamespace string `yaml:"placementNamespace"`
-	MetadataNamespace  string `yaml:"metadataNamespace"`
+// NamespacesConfiguration configs the NamespaceOptions.
+type NamespacesConfiguration struct {
+	Placement string `yaml:"placement"`
+	Metadata  string `yaml:"metadata"`
 }
 
 // NewOptions creates a new NamespaceOptions.
-func (cfg NamespaceConfiguration) NewOptions() NamespaceOptions {
+func (cfg NamespacesConfiguration) NewOptions() NamespaceOptions {
 	return NewNamespaceOptions().
-		SetPlacementNamespace(cfg.PlacementNamespace).
-		SetMetadataNamespace(cfg.MetadataNamespace)
+		SetPlacementNamespace(cfg.Placement).
+		SetMetadataNamespace(cfg.Metadata)
 }

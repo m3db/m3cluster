@@ -23,16 +23,15 @@ package services
 import (
 	"testing"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/stretchr/testify/require"
+	yaml "gopkg.in/yaml.v2"
 )
 
 func TestConfiguration(t *testing.T) {
 	configStr := `
-namespaceOverride:
-  placementNamespace: p
-  metadataNamespace: m
+namespaces:
+  placement: p
+  metadata: m
 `
 
 	var cfg Configuration
@@ -45,11 +44,11 @@ namespaceOverride:
 
 func TestNamespaceConfiguration(t *testing.T) {
 	configStr := `
-placementNamespace: p
-metadataNamespace: m
+placement: p
+metadata: m
 `
 
-	var cfg NamespaceConfiguration
+	var cfg NamespacesConfiguration
 	err := yaml.Unmarshal([]byte(configStr), &cfg)
 	require.NoError(t, err)
 	opts := cfg.NewOptions()

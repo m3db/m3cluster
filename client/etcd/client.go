@@ -91,9 +91,9 @@ type csclient struct {
 	logger  xlog.Logger
 	newFn   newClientFn
 
-	sdOnce sync.Once
-	sd     services.Services
-	sdErr  error
+	defaultServicesOnce sync.Once
+	defaultServices     services.Services
+	defaultServicesErr  error
 
 	txnOnce sync.Once
 	txn     kv.TxnStore
@@ -101,11 +101,11 @@ type csclient struct {
 }
 
 func (c *csclient) Services() (services.Services, error) {
-	c.sdOnce.Do(func() {
-		c.sd, c.sdErr = c.createServices(services.NewOptions())
+	c.defaultServicesOnce.Do(func() {
+		c.defaultServices, c.defaultServicesErr = c.createServices(services.NewOptions())
 	})
 
-	return c.sd, c.sdErr
+	return c.defaultServices, c.defaultServicesErr
 }
 
 func (c *csclient) ServiceDiscovery(opts services.Options) (services.Services, error) {
@@ -144,7 +144,7 @@ func (c *csclient) createServices(opts services.Options) (services.Services, err
 		SetHeartbeatGen(c.heartbeatGen()).
 		SetKVGen(c.kvGen(c.cacheFileFn(cacheFileExtraFields...))).
 		SetLeaderGen(c.leaderGen()).
-		SetNamespaceOptions(opts.NamespaceOptions()).
+		SetNamespaceOptions(nOpts).
 		SetInstrumentsOptions(instrument.NewOptions().
 			SetLogger(c.logger).
 			SetMetricsScope(c.sdScope),
@@ -255,14 +255,16 @@ func newClient(endpoints []string) (*clientv3.Client, error) {
 
 func (c *csclient) cacheFileFn(extraFields ...string) cacheFileForZoneFn {
 	return func(zone string) etcdkv.CacheFileFn {
-		return etcdkv.CacheFileFn(func(namespace string) string {
+		return func(namespace string) string {
 			if c.opts.CacheDir() == "" {
 				return ""
 			}
-			cacheFileFields := []string{namespace, c.opts.Service(), zone}
+
+			cacheFileFields := make([]string, 0, len(extraFields)+3)
+			cacheFileFields = append(cacheFileFields, namespace, c.opts.Service(), zone)
 			cacheFileFields = append(cacheFileFields, extraFields...)
 			return filepath.Join(c.opts.CacheDir(), fileName(cacheFileFields...))
-		})
+		}
 	}
 }
 
