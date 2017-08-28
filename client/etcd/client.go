@@ -97,6 +97,9 @@ type csclient struct {
 }
 
 func (c *csclient) Services(opts services.Options) (services.Services, error) {
+	if opts == nil {
+		opts = services.NewOptions()
+	}
 	return c.createServices(opts)
 }
 

@@ -117,7 +117,7 @@ func TestClient(t *testing.T) {
 	_, ok := c.clis["zone1"]
 	require.True(t, ok)
 
-	sd1, err := c.Services(services.NewOptions())
+	sd1, err := c.Services(nil)
 	require.NoError(t, err)
 
 	err = sd1.SetMetadata(
