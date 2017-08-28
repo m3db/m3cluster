@@ -310,11 +310,11 @@ type PlacementOptions interface {
 	// SetIsMirrored sets IsMirrored.
 	SetIsMirrored(m bool) PlacementOptions
 
-	// IsStagedPlacement returns whether the placement should keep all the snapshots.
-	IsStagedPlacement() bool
+	// IsStaged returns whether the placement should keep all the snapshots.
+	IsStaged() bool
 
-	// SetIsStagedPlacement sets whether the placement should keep all the snapshots.
-	SetIsStagedPlacement(v bool) PlacementOptions
+	// SetIsStaged sets whether the placement should keep all the snapshots.
+	SetIsStaged(v bool) PlacementOptions
 
 	// InstrumentOptions is the options for instrument.
 	InstrumentOptions() instrument.Options

@@ -106,11 +106,11 @@ func (o options) SetIsMirrored(v bool) services.PlacementOptions {
 	return o
 }
 
-func (o options) IsStagedPlacement() bool {
+func (o options) IsStaged() bool {
 	return o.isStaged
 }
 
-func (o options) SetIsStagedPlacement(v bool) services.PlacementOptions {
+func (o options) SetIsStaged(v bool) services.PlacementOptions {
 	o.isStaged = v
 	return o
 }

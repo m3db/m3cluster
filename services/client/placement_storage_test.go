@@ -118,7 +118,7 @@ func TestStorageWithPlacementSnapshots(t *testing.T) {
 	opts, closer, _ := testSetup(t)
 	defer closer()
 
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions().SetIsStagedPlacement(true))
+	ps, err := newTestPlacementStorage(opts, placement.NewOptions().SetIsStaged(true))
 	require.NoError(t, err)
 
 	sid := services.NewServiceID().SetName("m3db").SetZone("zone").SetEnvironment("env")

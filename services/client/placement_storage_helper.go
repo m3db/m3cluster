@@ -55,7 +55,7 @@ type placementStorageHelper interface {
 
 // newHelper returns a new placement storage helper.
 func newHelper(opts services.PlacementOptions) placementStorageHelper {
-	if opts.IsStagedPlacement() {
+	if opts.IsStaged() {
 		return newStagedPlacementHelper()
 	}
 
