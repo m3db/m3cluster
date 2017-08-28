@@ -93,22 +93,22 @@ func placementFromValue(v kv.Value) (services.Placement, error) {
 	return p.SetVersion(v.Version()), nil
 }
 
-func placementsProtoFromValue(v kv.Value) (*schema.PlacementSnapshots, error) {
-	var placementProto schema.PlacementSnapshots
-	if err := v.Unmarshal(&placementProto); err != nil {
+func placementSnapshotsProtoFromValue(v kv.Value) (*schema.PlacementSnapshots, error) {
+	var placementsProto schema.PlacementSnapshots
+	if err := v.Unmarshal(&placementsProto); err != nil {
 		return nil, err
 	}
 
-	return &placementProto, nil
+	return &placementsProto, nil
 }
 
 func placementsFromValue(v kv.Value) (services.Placements, error) {
-	placementProto, err := placementsProtoFromValue(v)
+	placementsProto, err := placementSnapshotsProtoFromValue(v)
 	if err != nil {
 		return nil, err
 	}
 
-	ps, err := placement.NewPlacementsFromProto(placementProto)
+	ps, err := placement.NewPlacementsFromProto(placementsProto)
 	if err != nil {
 		return nil, err
 	}

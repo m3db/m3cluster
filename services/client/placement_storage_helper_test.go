@@ -62,7 +62,7 @@ func TestSinglePlacementHelper(t *testing.T) {
 	_, err := store.Set(key, proto1)
 	require.NoError(t, err)
 
-	helper := newSinglePlacementHelper()
+	helper := newPlacementHelper()
 
 	p, v, err := helper.Placement(store, key)
 	require.NoError(t, err)
@@ -127,7 +127,7 @@ func TestPlacementSnapshotsHelper(t *testing.T) {
 		IsSharded:     true,
 		CutoverTime:   2000,
 	}
-	helper := newPlacementSnapshotsHelper()
+	helper := newStagedPlacementHelper()
 	ps := &placementproto.PlacementSnapshots{Snapshots: []*placementproto.Placement{proto1, proto2}}
 	key := "key"
 	store := mem.NewStore()

@@ -23,12 +23,13 @@ package client
 import (
 	"errors"
 
-	"github.com/golang/protobuf/proto"
 	schema "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/proto/util"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement"
+
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -41,8 +42,8 @@ type placementStorageHelper interface {
 	// Placement retrieves the placement stored on kv.Store.
 	Placement(store kv.Store, key string) (services.Placement, int, error)
 
-	// Proto retrieves the proto stored on kv.Store.
-	Proto(store kv.Store, key string) (proto.Message, int, error)
+	// PlacementProto retrieves the proto stored on kv.Store.
+	PlacementProto(store kv.Store, key string) (proto.Message, int, error)
 
 	// GenerateProto generates the proto message for the new placement, it may read the kv.Store
 	// if existing placement data is needed.
@@ -54,20 +55,20 @@ type placementStorageHelper interface {
 
 // newHelper returns a new placement storage helper.
 func newHelper(opts services.PlacementOptions) placementStorageHelper {
-	if opts.ShouldKeepSnapshots() {
-		return newPlacementSnapshotsHelper()
+	if opts.IsStagedPlacement() {
+		return newStagedPlacementHelper()
 	}
 
-	return newSinglePlacementHelper()
+	return newPlacementHelper()
 }
 
-type singlePlacementHelper struct{}
+type placementHelper struct{}
 
-func newSinglePlacementHelper() placementStorageHelper {
-	return singlePlacementHelper{}
+func newPlacementHelper() placementStorageHelper {
+	return placementHelper{}
 }
 
-func (singlePlacementHelper) Placement(store kv.Store, key string) (services.Placement, int, error) {
+func (placementHelper) Placement(store kv.Store, key string) (services.Placement, int, error) {
 	v, err := store.Get(key)
 	if err != nil {
 		return nil, 0, err
@@ -77,7 +78,7 @@ func (singlePlacementHelper) Placement(store kv.Store, key string) (services.Pla
 	return p, v.Version(), err
 }
 
-func (singlePlacementHelper) Proto(store kv.Store, key string) (proto.Message, int, error) {
+func (placementHelper) PlacementProto(store kv.Store, key string) (proto.Message, int, error) {
 	v, err := store.Get(key)
 	if err != nil {
 		return nil, 0, err
@@ -87,11 +88,11 @@ func (singlePlacementHelper) Proto(store kv.Store, key string) (proto.Message, i
 	return p, v.Version(), err
 }
 
-func (singlePlacementHelper) GenerateProto(store kv.Store, key string, p services.Placement) (proto.Message, error) {
+func (placementHelper) GenerateProto(store kv.Store, key string, p services.Placement) (proto.Message, error) {
 	return util.PlacementToProto(p)
 }
 
-func (singlePlacementHelper) ValidateProto(proto proto.Message) error {
+func (placementHelper) ValidateProto(proto proto.Message) error {
 	placementProto, ok := proto.(*schema.Placement)
 	if !ok {
 		return errInvalidProtoForSinglePlacement
@@ -105,39 +106,39 @@ func (singlePlacementHelper) ValidateProto(proto proto.Message) error {
 	return placement.Validate(p)
 }
 
-type placementSnapshotsHelper struct{}
+type stagedPlacementHelper struct{}
 
-func newPlacementSnapshotsHelper() placementStorageHelper {
-	return placementSnapshotsHelper{}
+func newStagedPlacementHelper() placementStorageHelper {
+	return stagedPlacementHelper{}
 }
 
 // Placement returns the last placement in the snapshots.
-func (h placementSnapshotsHelper) Placement(store kv.Store, key string) (services.Placement, int, error) {
+func (h stagedPlacementHelper) Placement(store kv.Store, key string) (services.Placement, int, error) {
 	ps, v, err := h.placements(store, key)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	l := len(ps)
-	if l <= 0 {
+	if l == 0 {
 		return nil, 0, errNoPlacementInTheSnapshots
 	}
 
 	return ps[l-1], v, nil
 }
 
-func (h placementSnapshotsHelper) Proto(store kv.Store, key string) (proto.Message, int, error) {
+func (h stagedPlacementHelper) PlacementProto(store kv.Store, key string) (proto.Message, int, error) {
 	value, err := store.Get(key)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	ps, err := placementsProtoFromValue(value)
+	ps, err := placementSnapshotsProtoFromValue(value)
 	return ps, value.Version(), err
 }
 
 // GenerateProto generates a proto message with the placement appended to the snapshots.
-func (h placementSnapshotsHelper) GenerateProto(store kv.Store, key string, p services.Placement) (proto.Message, error) {
+func (h stagedPlacementHelper) GenerateProto(store kv.Store, key string, p services.Placement) (proto.Message, error) {
 	ps, _, err := h.placements(store, key)
 	if err != nil && err != kv.ErrNotFound {
 		return nil, err
@@ -146,7 +147,7 @@ func (h placementSnapshotsHelper) GenerateProto(store kv.Store, key string, p se
 	return util.PlacementsToProto(append(ps, p))
 }
 
-func (h placementSnapshotsHelper) ValidateProto(proto proto.Message) error {
+func (h stagedPlacementHelper) ValidateProto(proto proto.Message) error {
 	placementsProto, ok := proto.(*schema.PlacementSnapshots)
 	if !ok {
 		return errInvalidProtoForPlacementSnapshots
@@ -156,7 +157,7 @@ func (h placementSnapshotsHelper) ValidateProto(proto proto.Message) error {
 	return err
 }
 
-func (h placementSnapshotsHelper) placements(store kv.Store, key string) (services.Placements, int, error) {
+func (h stagedPlacementHelper) placements(store kv.Store, key string) (services.Placements, int, error) {
 	value, err := store.Get(key)
 	if err != nil {
 		return nil, 0, err

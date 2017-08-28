@@ -21,8 +21,9 @@
 package client
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/services"
+
+	"github.com/golang/protobuf/proto"
 )
 
 type storage struct {
@@ -39,13 +40,12 @@ func newPlacementStorage(keyFn keyFn, kvGen KVGen, helper placementStorageHelper
 	}
 }
 
-func (s *storage) SetProto(sid services.ServiceID, p proto.Message) error {
+func (s *storage) SetPlacementProto(sid services.ServiceID, p proto.Message) error {
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
 
-	err := s.helper.ValidateProto(p)
-	if err != nil {
+	if err := s.helper.ValidateProto(p); err != nil {
 		return err
 	}
 
@@ -58,7 +58,7 @@ func (s *storage) SetProto(sid services.ServiceID, p proto.Message) error {
 	return err
 }
 
-func (s *storage) Proto(sid services.ServiceID) (proto.Message, int, error) {
+func (s *storage) PlacementProto(sid services.ServiceID) (proto.Message, int, error) {
 	if err := validateServiceID(sid); err != nil {
 		return nil, 0, err
 	}
@@ -68,7 +68,7 @@ func (s *storage) Proto(sid services.ServiceID) (proto.Message, int, error) {
 		return nil, 0, err
 	}
 
-	return s.helper.Proto(store, s.keyFn(sid))
+	return s.helper.PlacementProto(store, s.keyFn(sid))
 }
 
 func (s *storage) Set(sid services.ServiceID, p services.Placement) error {

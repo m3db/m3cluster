@@ -381,8 +381,8 @@ func (o options) SetNamespaceOptions(opts NamespaceOptions) Options {
 }
 
 type namespaceOpts struct {
-	placementNamespace string
-	metadataNamespace  string
+	placement string
+	metadata  string
 }
 
 // NewNamespaceOptions constructs a new NamespaceOptions.
@@ -391,19 +391,19 @@ func NewNamespaceOptions() NamespaceOptions {
 }
 
 func (opts namespaceOpts) PlacementNamespace() string {
-	return opts.placementNamespace
+	return opts.placement
 }
 
 func (opts namespaceOpts) SetPlacementNamespace(v string) NamespaceOptions {
-	opts.placementNamespace = v
+	opts.placement = v
 	return opts
 }
 
 func (opts namespaceOpts) MetadataNamespace() string {
-	return opts.metadataNamespace
+	return opts.metadata
 }
 
 func (opts namespaceOpts) SetMetadataNamespace(v string) NamespaceOptions {
-	opts.metadataNamespace = v
+	opts.metadata = v
 	return opts
 }

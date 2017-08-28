@@ -23,13 +23,14 @@ package services
 import (
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services/leader/campaign"
 	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/clock"
 	"github.com/m3db/m3x/instrument"
 	xwatch "github.com/m3db/m3x/watch"
+
+	"github.com/golang/protobuf/proto"
 )
 
 // Options are options to configure the service discovery service.
@@ -209,11 +210,11 @@ type Metadata interface {
 
 // PlacementStorage provides read and write access to service placement.
 type PlacementStorage interface {
-	// SetProto sets the proto as the placement for the service id.
-	SetProto(sid ServiceID, p proto.Message) error
+	// SetPlacementProto sets the proto as the placement for the service id.
+	SetPlacementProto(sid ServiceID, p proto.Message) error
 
-	// Proto returns the placement proto for the service id.
-	Proto(sid ServiceID) (proto.Message, int, error)
+	// PlacementProto returns the placement proto for the service id.
+	PlacementProto(sid ServiceID) (proto.Message, int, error)
 
 	// Set writes a placement for a service.
 	Set(service ServiceID, p Placement) error
@@ -309,11 +310,11 @@ type PlacementOptions interface {
 	// SetIsMirrored sets IsMirrored.
 	SetIsMirrored(m bool) PlacementOptions
 
-	// ShouldKeepSnapshots returns whether the placement should keep all the snapshots.
-	ShouldKeepSnapshots() bool
+	// IsStagedPlacement returns whether the placement should keep all the snapshots.
+	IsStagedPlacement() bool
 
-	// SetShouldKeepSnapshots sets whether the placement should keep all the snapshots.
-	SetShouldKeepSnapshots(v bool) PlacementOptions
+	// SetIsStagedPlacement sets whether the placement should keep all the snapshots.
+	SetIsStagedPlacement(v bool) PlacementOptions
 
 	// InstrumentOptions is the options for instrument.
 	InstrumentOptions() instrument.Options

@@ -25,11 +25,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement"
 	"github.com/m3db/m3cluster/shard"
+
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1027,11 +1028,11 @@ func (ms *mockStorage) Placement(service services.ServiceID) (services.Placement
 	return nil, 0, kv.ErrNotFound
 }
 
-func (ms *mockStorage) SetProto(sid services.ServiceID, p proto.Message) error {
+func (ms *mockStorage) SetPlacementProto(sid services.ServiceID, p proto.Message) error {
 	return errors.New("not implemented")
 }
 
-func (ms *mockStorage) Proto(sid services.ServiceID) (proto.Message, int, error) {
+func (ms *mockStorage) PlacementProto(sid services.ServiceID) (proto.Message, int, error) {
 	return nil, 0, errors.New("not implemented")
 }
 

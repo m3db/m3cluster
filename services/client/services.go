@@ -120,11 +120,12 @@ func (c *client) PlacementService(sid services.ServiceID, opts services.Placemen
 		return nil, err
 	}
 
-	return service.NewPlacementService(
-		newPlacementStorage(c.placementKeyFn, c.opts.KVGen(), newHelper(opts)),
-		sid,
-		opts,
-	), nil
+	ps, err := c.PlacementStorage(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return service.NewPlacementService(ps, sid, opts), nil
 }
 
 func (c *client) PlacementStorage(opts services.PlacementOptions) (services.PlacementStorage, error) {

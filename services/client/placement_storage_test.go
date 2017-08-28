@@ -96,7 +96,7 @@ func TestStorageWithSinglePlacement(t *testing.T) {
 	require.Equal(t, 1, v)
 	require.Equal(t, p.SetVersion(1), pGet)
 
-	proto, v, err := ps.Proto(sid)
+	proto, v, err := ps.PlacementProto(sid)
 	require.NoError(t, err)
 	require.Equal(t, 1, v)
 
@@ -118,7 +118,7 @@ func TestStorageWithPlacementSnapshots(t *testing.T) {
 	opts, closer, _ := testSetup(t)
 	defer closer()
 
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions().SetShouldKeepSnapshots(true))
+	ps, err := newTestPlacementStorage(opts, placement.NewOptions().SetIsStagedPlacement(true))
 	require.NoError(t, err)
 
 	sid := services.NewServiceID().SetName("m3db").SetZone("zone").SetEnvironment("env")
@@ -151,7 +151,7 @@ func TestStorageWithPlacementSnapshots(t *testing.T) {
 	require.Equal(t, 2, v)
 	require.Equal(t, p.SetVersion(2), pGet2)
 
-	newProto, v, err := ps.Proto(sid)
+	newProto, v, err := ps.PlacementProto(sid)
 	require.NoError(t, err)
 	require.Equal(t, 2, v)
 
