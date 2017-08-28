@@ -103,10 +103,6 @@ func (c *csclient) Services(opts services.Options) (services.Services, error) {
 	return c.createServices(opts)
 }
 
-func (c *csclient) ServiceDiscovery(opts services.Options) (services.Services, error) {
-	return c.createServices(opts)
-}
-
 func (c *csclient) KV() (kv.Store, error) {
 	return c.Txn()
 }

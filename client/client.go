@@ -31,9 +31,6 @@ type Client interface {
 	// Services returns access to the set of services.
 	Services(opts services.Options) (services.Services, error)
 
-	// ServiceDiscovery returns service discovery with custom namespaces.
-	ServiceDiscovery(opts services.Options) (services.Services, error)
-
 	// KV returns access to the distributed configuration store.
 	// To be deprecated.
 	KV() (kv.Store, error)
