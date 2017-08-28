@@ -117,8 +117,12 @@ func TestClient(t *testing.T) {
 	_, ok := c.clis["zone1"]
 	require.True(t, ok)
 
-	sd1, err := c.Services(nil)
+	sd1, err := c.Services()
 	require.NoError(t, err)
+
+	sd2, err := c.Services()
+	require.NoError(t, err)
+	require.Equal(t, sd1, sd2)
 
 	err = sd1.SetMetadata(
 		services.NewServiceID().SetName("service").SetZone("zone2"),
@@ -141,67 +145,25 @@ func TestClient(t *testing.T) {
 	require.True(t, ok)
 }
 
-func TestServicesWithNamespace(t *testing.T) {
-	cs, err := NewConfigServiceClient(testOptions())
-	require.NoError(t, err)
-	c := cs.(*csclient)
-
-	fn, closer := testNewETCDFn(t)
-	defer closer()
-	c.newFn = fn
-
-	sd1, err := c.Services(services.NewOptions())
-	require.NoError(t, err)
-
-	nOpts := services.NewNamespaceOptions().SetPlacementNamespace("p").SetMetadataNamespace("m")
-	sd2, err := c.Services(services.NewOptions().SetNamespaceOptions(nOpts))
-	require.NoError(t, err)
-
-	require.NotEqual(t, sd1, sd2)
-
-	sid := services.NewServiceID().SetName("service").SetZone("zone2")
-	err = sd1.SetMetadata(sid, services.NewMetadata())
-	require.NoError(t, err)
-
-	_, err = sd1.Metadata(sid)
-	require.NoError(t, err)
-
-	_, err = sd2.Metadata(sid)
-	require.Error(t, err)
-
-	sid2 := services.NewServiceID().SetName("service").SetZone("zone2").SetEnvironment("test")
-	err = sd2.SetMetadata(sid2, services.NewMetadata())
-	require.NoError(t, err)
-
-	_, err = sd1.Metadata(sid2)
-	require.Error(t, err)
-}
-
 func TestCacheFileForZone(t *testing.T) {
 	c, err := NewConfigServiceClient(testOptions())
 	require.NoError(t, err)
 	cs := c.(*csclient)
 
-	kvOpts := cs.newkvOptions("z1", cs.cacheFileFn(), "namespace")
+	kvOpts := cs.newkvOptions("z1", "namespace")
 	require.Equal(t, "", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 
 	cs.opts = cs.opts.SetCacheDir("/cacheDir")
-	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn())
+	kvOpts = cs.newkvOptions("z1")
 	require.Equal(t, "/cacheDir/test_app_z1.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
-	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn(), "namespace")
+	kvOpts = cs.newkvOptions("z1", "namespace")
 	require.Equal(t, "/cacheDir/namespace_test_app_z1.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 
-	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn(), "namespace", "")
+	kvOpts = cs.newkvOptions("z1", "namespace", "")
 	require.Equal(t, "/cacheDir/namespace_test_app_z1.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 
-	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn(), "namespace", "env")
+	kvOpts = cs.newkvOptions("z1", "namespace", "env")
 	require.Equal(t, "/cacheDir/namespace_env_test_app_z1.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
-
-	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn("f1", "", "f2"), "namespace")
-	require.Equal(t, "/cacheDir/namespace_test_app_z1_f1_f2.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
-
-	kvOpts = cs.newkvOptions("z1", cs.cacheFileFn("/r2/m3agg"), "")
-	require.Equal(t, "/cacheDir/test_app_z1__r2_m3agg.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 }
 
 func TestValidateNamespace(t *testing.T) {

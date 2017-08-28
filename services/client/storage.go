@@ -27,7 +27,7 @@ import (
 	"github.com/m3db/m3cluster/services/placement"
 )
 
-func (c *client) Set(sid services.ServiceID, p services.Placement) error {
+func (s *client) Set(sid services.ServiceID, p services.Placement) error {
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
@@ -35,15 +35,15 @@ func (c *client) Set(sid services.ServiceID, p services.Placement) error {
 	if err != nil {
 		return err
 	}
-	kvm, err := c.getKVManager(sid.Zone())
+	kvm, err := s.getKVManager(sid.Zone())
 	if err != nil {
 		return err
 	}
-	_, err = kvm.kv.Set(c.placementKeyFn(sid), &placementProto)
+	_, err = kvm.kv.Set(placementKey(sid), &placementProto)
 	return err
 }
 
-func (c *client) CheckAndSet(sid services.ServiceID, p services.Placement, version int) error {
+func (s *client) CheckAndSet(sid services.ServiceID, p services.Placement, version int) error {
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
@@ -53,20 +53,20 @@ func (c *client) CheckAndSet(sid services.ServiceID, p services.Placement, versi
 		return err
 	}
 
-	kvm, err := c.getKVManager(sid.Zone())
+	kvm, err := s.getKVManager(sid.Zone())
 	if err != nil {
 		return err
 	}
 
 	_, err = kvm.kv.CheckAndSet(
-		c.placementKeyFn(sid),
+		placementKey(sid),
 		version,
 		&placementProto,
 	)
 	return err
 }
 
-func (c *client) SetIfNotExist(sid services.ServiceID, p services.Placement) error {
+func (s *client) SetIfNotExist(sid services.ServiceID, p services.Placement) error {
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
@@ -76,38 +76,38 @@ func (c *client) SetIfNotExist(sid services.ServiceID, p services.Placement) err
 		return err
 	}
 
-	kvm, err := c.getKVManager(sid.Zone())
+	kvm, err := s.getKVManager(sid.Zone())
 	if err != nil {
 		return err
 	}
 
 	_, err = kvm.kv.SetIfNotExists(
-		c.placementKeyFn(sid),
+		placementKey(sid),
 		&placementProto,
 	)
 	return err
 }
 
-func (c *client) Delete(sid services.ServiceID) error {
+func (s *client) Delete(sid services.ServiceID) error {
 	if err := validateServiceID(sid); err != nil {
 		return err
 	}
 
-	kvm, err := c.getKVManager(sid.Zone())
+	kvm, err := s.getKVManager(sid.Zone())
 	if err != nil {
 		return err
 	}
 
-	_, err = kvm.kv.Delete(c.placementKeyFn(sid))
+	_, err = kvm.kv.Delete(placementKey(sid))
 	return err
 }
 
-func (c *client) Placement(sid services.ServiceID) (services.Placement, int, error) {
+func (s *client) Placement(sid services.ServiceID) (services.Placement, int, error) {
 	if err := validateServiceID(sid); err != nil {
 		return nil, 0, err
 	}
 
-	v, err := c.getPlacementValue(sid)
+	v, err := s.getPlacementValue(sid)
 	if err != nil {
 		return nil, 0, err
 	}
