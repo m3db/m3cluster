@@ -23,10 +23,21 @@ package shard
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
 	placementproto "github.com/m3db/m3cluster/generated/proto/placement"
+)
+
+const (
+	// DefaultShardCutoverNanos is the default shard-level cutover nanos
+	// if the value is not set in the proto message.
+	DefaultShardCutoverNanos = 0
+
+	// DefaultShardCutoffNanos is the default shard-level cutoff nanos
+	// if the value is not set in the proto message.
+	DefaultShardCutoffNanos = math.MaxInt64
 )
 
 var (
@@ -132,10 +143,28 @@ func (s *shard) State() State                      { return s.state }
 func (s *shard) SetState(state State) Shard        { s.state = state; return s }
 func (s *shard) SourceID() string                  { return s.sourceID }
 func (s *shard) SetSourceID(sourceID string) Shard { s.sourceID = sourceID; return s }
-func (s *shard) CutoverNanos() int64               { return s.cutoverNanos }
+
+func (s *shard) CutoverNanos() int64 {
+	if s.cutoverNanos != 0 {
+		return s.cutoverNanos
+	}
+
+	// NB(xichen): if the value is not set, we return the default cutover nanos.
+	return DefaultShardCutoverNanos
+}
+
 func (s *shard) SetCutoverNanos(value int64) Shard { s.cutoverNanos = value; return s }
-func (s *shard) CutoffNanos() int64                { return s.cutoffNanos }
-func (s *shard) SetCutoffNanos(value int64) Shard  { s.cutoffNanos = value; return s }
+
+func (s *shard) CutoffNanos() int64 {
+	if s.cutoffNanos != 0 {
+		return s.cutoffNanos
+	}
+
+	// NB(xichen): if the value is not set, we return the default cutoff nanos.
+	return DefaultShardCutoffNanos
+}
+
+func (s *shard) SetCutoffNanos(value int64) Shard { s.cutoffNanos = value; return s }
 
 // SortableShardsByIDAsc are sortable shards by ID in ascending order
 type SortableShardsByIDAsc []Shard
