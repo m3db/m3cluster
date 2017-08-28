@@ -120,10 +120,6 @@ func TestClient(t *testing.T) {
 	sd1, err := c.Services()
 	require.NoError(t, err)
 
-	sd2, err := c.Services()
-	require.NoError(t, err)
-	require.Equal(t, sd1, sd2)
-
 	err = sd1.SetMetadata(
 		services.NewServiceID().SetName("service").SetZone("zone2"),
 		services.NewMetadata(),

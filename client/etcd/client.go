@@ -100,15 +100,7 @@ type csclient struct {
 	txnErr  error
 }
 
-func (c *csclient) Services() (services.Services, error) {
-	c.defaultServicesOnce.Do(func() {
-		c.defaultServices, c.defaultServicesErr = c.createServices(services.NewOptions())
-	})
-
-	return c.defaultServices, c.defaultServicesErr
-}
-
-func (c *csclient) ServiceDiscovery(opts services.Options) (services.Services, error) {
+func (c *csclient) Services(opts services.Options) (services.Services, error) {
 	return c.createServices(opts)
 }
 
