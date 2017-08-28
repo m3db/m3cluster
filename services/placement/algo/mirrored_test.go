@@ -76,7 +76,7 @@ func TestMirrorWorkflow(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := NewAlgorithm(placement.NewOptions().SetIsMirrored(true))
+	a := NewAlgorithm(services.NewPlacementOptions().SetIsMirrored(true))
 	p, err := a.InitialPlacement(instances, ids, 2)
 	assert.NoError(t, err)
 	assert.True(t, p.IsMirrored())
@@ -203,7 +203,7 @@ func TestMirrorInitError(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := NewAlgorithm(placement.NewOptions().SetIsMirrored(true))
+	a := NewAlgorithm(services.NewPlacementOptions().SetIsMirrored(true))
 	_, err := a.InitialPlacement(instances, ids, 2)
 	assert.Error(t, err)
 }
@@ -254,7 +254,7 @@ func TestMirrorAddInstancesError(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := NewAlgorithm(placement.NewOptions().SetIsMirrored(true))
+	a := NewAlgorithm(services.NewPlacementOptions().SetIsMirrored(true))
 	p, err := a.InitialPlacement(instances, ids, 2)
 	assert.NoError(t, err)
 
@@ -323,7 +323,7 @@ func TestMirrorRemoveInstancesError(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := NewAlgorithm(placement.NewOptions().SetIsMirrored(true))
+	a := NewAlgorithm(services.NewPlacementOptions().SetIsMirrored(true))
 	p, err := a.InitialPlacement(instances, ids, 2)
 	assert.NoError(t, err)
 
@@ -374,7 +374,7 @@ func TestMirrorReplaceInstancesError(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := NewAlgorithm(placement.NewOptions().SetIsMirrored(true))
+	a := NewAlgorithm(services.NewPlacementOptions().SetIsMirrored(true))
 	p, err := a.InitialPlacement(instances, ids, 2)
 	assert.NoError(t, err)
 
@@ -463,7 +463,7 @@ func TestMirrorReplaceWithLeavingShards(t *testing.T) {
 		SetIsMirrored(true).
 		SetIsSharded(true)
 
-	a := NewAlgorithm(placement.NewOptions().SetIsMirrored(true))
+	a := NewAlgorithm(services.NewPlacementOptions().SetIsMirrored(true))
 
 	replaceI1 := placement.NewInstance().
 		SetID("newI1").
@@ -509,7 +509,7 @@ func TestMirrorReplaceWithLeavingShards(t *testing.T) {
 }
 
 func TestIncompatibleWithMirroredAlgo(t *testing.T) {
-	a := newMirroredAlgorithm(placement.NewOptions())
+	a := newMirroredAlgorithm(services.NewPlacementOptions())
 	p := placement.NewPlacement()
 
 	err := a.IsCompatibleWith(p)

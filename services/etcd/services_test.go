@@ -18,7 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package client
+package etcd
 
 import (
 	"errors"
@@ -353,7 +353,7 @@ func TestQueryIncludeUnhealthy(t *testing.T) {
 			SetShards(shard.NewShards([]shard.Shard{shard.NewShard(1).SetState(shard.Initializing)})),
 	}).SetShards([]uint32{1}).SetReplicaFactor(2)
 
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions())
+	ps, err := newTestPlacementStorage(opts, services.NewPlacementOptions())
 	require.NoError(t, err)
 
 	err = ps.SetIfNotExist(sid, p)
@@ -394,7 +394,7 @@ func TestQueryNotIncludeUnhealthy(t *testing.T) {
 			SetShards(shard.NewShards([]shard.Shard{shard.NewShard(1).SetState(shard.Initializing)})),
 	}).SetShards([]uint32{1}).SetReplicaFactor(2)
 
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions())
+	ps, err := newTestPlacementStorage(opts, services.NewPlacementOptions())
 	require.NoError(t, err)
 
 	err = ps.SetIfNotExist(sid, p)
@@ -459,7 +459,7 @@ func TestWatchIncludeUnhealthy(t *testing.T) {
 		SetReplicaFactor(2).
 		SetIsSharded(true)
 
-	ps, err := sd.PlacementService(sid, placement.NewOptions())
+	ps, err := sd.PlacementService(sid, services.NewPlacementOptions())
 	require.NoError(t, err)
 	err = ps.SetPlacement(p)
 	require.NoError(t, err)
@@ -591,7 +591,7 @@ func TestWatchNotIncludeUnhealthy(t *testing.T) {
 		SetReplicaFactor(2).
 		SetIsSharded(true)
 
-	ps, err := sd.PlacementService(sid, placement.NewOptions())
+	ps, err := sd.PlacementService(sid, services.NewPlacementOptions())
 	require.NoError(t, err)
 	err = ps.SetPlacement(p)
 	require.NoError(t, err)
@@ -745,7 +745,7 @@ func TestMultipleWatches(t *testing.T) {
 			SetShards(shard.NewShards([]shard.Shard{shard.NewShard(1).SetState(shard.Initializing)})),
 	}).SetShards([]uint32{1}).SetReplicaFactor(2)
 
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions())
+	ps, err := newTestPlacementStorage(opts, services.NewPlacementOptions())
 	require.NoError(t, err)
 
 	err = ps.SetIfNotExist(sid, p)
@@ -841,7 +841,7 @@ func TestWatch_GetAfterTimeout(t *testing.T) {
 		SetReplicaFactor(2).
 		SetIsSharded(true)
 
-	ps, err := sd.PlacementService(sid, placement.NewOptions())
+	ps, err := sd.PlacementService(sid, services.NewPlacementOptions())
 	require.NoError(t, err)
 	err = ps.SetPlacement(p)
 	require.NoError(t, err)
@@ -952,7 +952,7 @@ func TestCacheCollisions_Watchables(t *testing.T) {
 		_, err := sd.HeartbeatService(id)
 		assert.NoError(t, err)
 
-		ps, err := sd.PlacementService(id, placement.NewOptions())
+		ps, err := sd.PlacementService(id, services.NewPlacementOptions())
 		require.NoError(t, err)
 
 		p := placement.NewPlacement().SetInstances([]services.PlacementInstance{

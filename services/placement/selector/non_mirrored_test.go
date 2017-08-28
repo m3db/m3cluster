@@ -252,7 +252,7 @@ func TestFilterZones(t *testing.T) {
 		{
 			p:          placement.NewPlacement(),
 			candidates: []services.PlacementInstance{i2},
-			opts:       placement.NewOptions().SetValidZone("z1"),
+			opts:       services.NewPlacementOptions().SetValidZone("z1"),
 		}: []services.PlacementInstance{i2},
 	}
 

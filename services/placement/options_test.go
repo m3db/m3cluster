@@ -18,21 +18,17 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package client
+package placement
 
 import (
 	"testing"
 
-	"github.com/m3db/m3cluster/services"
-
 	"github.com/stretchr/testify/assert"
 )
 
-func TestKeys(t *testing.T) {
-	sid := services.NewServiceID().SetName("m3db").SetEnvironment("production")
-	assert.Equal(t, "production/m3db", serviceKey(sid))
-	assert.Equal(t, "_sd.placement/production/m3db", keyFnWithNamespace(placementPrefix)(sid))
-	assert.Equal(t, "_sd.metadata/production/m3db", keyFnWithNamespace(metadataPrefix)(sid))
-	assert.Equal(t, "testns/production/m3db", keyFnWithNamespace("testns")(sid))
-	assert.Equal(t, "production/m3db/instance1", adKey(sid, "instance1"))
+func TestDeploymentOptions(t *testing.T) {
+	dopts := NewDeploymentOptions()
+	assert.Equal(t, defaultMaxStepSize, dopts.MaxStepSize())
+	dopts = dopts.SetMaxStepSize(5)
+	assert.Equal(t, 5, dopts.MaxStepSize())
 }

@@ -20,16 +20,8 @@
 
 package placement
 
-import (
-	"github.com/m3db/m3cluster/services"
-	"github.com/m3db/m3x/instrument"
-)
-
 const (
 	defaultMaxStepSize = 3
-	defaultIsSharded   = true
-	// by default partial replace should be allowed for better distribution
-	defaultAllowPartialReplace = true
 )
 
 type deploymentOptions struct {
@@ -47,97 +39,5 @@ func (o deploymentOptions) MaxStepSize() int {
 
 func (o deploymentOptions) SetMaxStepSize(stepSize int) DeploymentOptions {
 	o.maxStepSize = stepSize
-	return o
-}
-
-type options struct {
-	looseRackCheck      bool
-	allowPartialReplace bool
-	isSharded           bool
-	isMirrored          bool
-	isStaged            bool
-	iopts               instrument.Options
-	validZone           string
-	dryrun              bool
-}
-
-// NewOptions returns a default PlacementOptions
-func NewOptions() services.PlacementOptions {
-	return options{
-		allowPartialReplace: defaultAllowPartialReplace,
-		isSharded:           defaultIsSharded,
-		iopts:               instrument.NewOptions(),
-	}
-}
-
-func (o options) LooseRackCheck() bool {
-	return o.looseRackCheck
-}
-
-func (o options) SetLooseRackCheck(looseRackCheck bool) services.PlacementOptions {
-	o.looseRackCheck = looseRackCheck
-	return o
-}
-
-func (o options) AllowPartialReplace() bool {
-	return o.allowPartialReplace
-}
-
-func (o options) SetAllowPartialReplace(allowPartialReplace bool) services.PlacementOptions {
-	o.allowPartialReplace = allowPartialReplace
-	return o
-}
-
-func (o options) IsSharded() bool {
-	return o.isSharded
-}
-
-func (o options) SetIsSharded(sharded bool) services.PlacementOptions {
-	o.isSharded = sharded
-	return o
-}
-
-func (o options) IsMirrored() bool {
-	return o.isMirrored
-}
-
-func (o options) SetIsMirrored(v bool) services.PlacementOptions {
-	o.isMirrored = v
-	return o
-}
-
-func (o options) IsStaged() bool {
-	return o.isStaged
-}
-
-func (o options) SetIsStaged(v bool) services.PlacementOptions {
-	o.isStaged = v
-	return o
-}
-
-func (o options) Dryrun() bool {
-	return o.dryrun
-}
-
-func (o options) SetDryrun(d bool) services.PlacementOptions {
-	o.dryrun = d
-	return o
-}
-
-func (o options) InstrumentOptions() instrument.Options {
-	return o.iopts
-}
-
-func (o options) SetInstrumentOptions(iopts instrument.Options) services.PlacementOptions {
-	o.iopts = iopts
-	return o
-}
-
-func (o options) ValidZone() string {
-	return o.validZone
-}
-
-func (o options) SetValidZone(z string) services.PlacementOptions {
-	o.validZone = z
 	return o
 }

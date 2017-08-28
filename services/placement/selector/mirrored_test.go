@@ -95,7 +95,7 @@ func TestFilterInitialInstancesForMirror(t *testing.T) {
 		SetEndpoint("h4p2e").
 		SetWeight(1)
 
-	filter := newMirroredSelector(placement.NewOptions().SetValidZone("z1"))
+	filter := newMirroredSelector(services.NewPlacementOptions().SetValidZone("z1"))
 	res, err := filter.SelectInitialInstances(
 		[]services.PlacementInstance{h1p1, h1p2, h2p1, h2p2, h3p1, h3p2, h4p1, h4p2},
 		2,
@@ -191,7 +191,7 @@ func TestFilterInitialInstancesForMirrorRF2(t *testing.T) {
 		SetEndpoint("h3p3e").
 		SetWeight(2)
 
-	filter := newMirroredSelector(placement.NewOptions().SetValidZone("z1"))
+	filter := newMirroredSelector(services.NewPlacementOptions().SetValidZone("z1"))
 	res, err := filter.SelectInitialInstances(
 		[]services.PlacementInstance{h1p1, h1p2, h1p3, h2p1, h2p2, h2p3, h3p1, h3p2, h3p3},
 		2,
@@ -343,7 +343,7 @@ func TestFilterInitialInstancesForMirrorRF3(t *testing.T) {
 		SetEndpoint("h3p3e").
 		SetWeight(1)
 
-	filter := newMirroredSelector(placement.NewOptions().SetValidZone("z1"))
+	filter := newMirroredSelector(services.NewPlacementOptions().SetValidZone("z1"))
 	res, err := filter.SelectInitialInstances(
 		[]services.PlacementInstance{h1p1, h1p2, h1p3, h2p1, h2p2, h2p3, h3p1, h3p2, h3p3},
 		3,
@@ -431,7 +431,7 @@ func TestFilterReplaceInstanceForMirror(t *testing.T) {
 		SetEndpoint("h3p2e").
 		SetWeight(1)
 
-	filter := newMirroredSelector(placement.NewOptions().SetValidZone("z1"))
+	filter := newMirroredSelector(services.NewPlacementOptions().SetValidZone("z1"))
 	res, err := filter.SelectReplaceInstances(
 		[]services.PlacementInstance{h3p1, h3p2},
 		[]string{h1p1.ID(), h1p2.ID()},
@@ -547,7 +547,7 @@ func TestFilterAddingInstanceForMirror(t *testing.T) {
 		SetEndpoint("h4p2e").
 		SetWeight(1)
 
-	filter := newMirroredSelector(placement.NewOptions().SetValidZone("z1"))
+	filter := newMirroredSelector(services.NewPlacementOptions().SetValidZone("z1"))
 	res, err := filter.SelectAddingInstances(
 		[]services.PlacementInstance{h3p1, h3p2, h4p1, h4p2},
 		p,

@@ -18,38 +18,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package selector
+package etcd
 
 import (
 	"testing"
-
-	"github.com/m3db/m3cluster/services"
-	"github.com/m3db/m3cluster/services/placement"
-	"github.com/m3db/m3cluster/shard"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetValidCandidates(t *testing.T) {
-	i1 := placement.NewInstance().SetID("i1").SetZone("z1")
-	i1.Shards().Add(shard.NewShard(0).SetState(shard.Available))
+func TestConfig(t *testing.T) {
+	cf := Configuration{}
+	require.Equal(t, defaultInitTimeout, cf.NewOptions().InitTimeout())
 
-	i2 := placement.NewInstance().SetID("i2").SetZone("z1")
-	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i2"))
-
-	i3 := placement.NewInstance().SetID("i3").SetZone("z1")
-	i3.Shards().Add(shard.NewShard(0).SetState(shard.Leaving))
-
-	p := placement.NewPlacement().
-		SetInstances([]services.PlacementInstance{i1, i2, i3}).
-		SetIsSharded(true).
-		SetReplicaFactor(2).
-		SetShards([]uint32{0})
-
-	emptyI3 := placement.NewInstance().SetID("i3").SetZone("z3")
-	i4 := placement.NewInstance().SetID("i4").SetZone("z1")
-	candidates := []services.PlacementInstance{i3, emptyI3, i1, i4}
-	res, err := getValidCandidates(p, candidates, services.NewPlacementOptions().SetValidZone("z1"))
-	require.NoError(t, err)
-	require.Equal(t, []services.PlacementInstance{i3, i3, i4}, res)
+	cf = Configuration{InitTimeout: time.Second}
+	require.Equal(t, time.Second, cf.NewOptions().InitTimeout())
 }
