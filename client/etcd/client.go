@@ -91,10 +91,6 @@ type csclient struct {
 	logger  xlog.Logger
 	newFn   newClientFn
 
-	defaultServicesOnce sync.Once
-	defaultServices     services.Services
-	defaultServicesErr  error
-
 	txnOnce sync.Once
 	txn     kv.TxnStore
 	txnErr  error

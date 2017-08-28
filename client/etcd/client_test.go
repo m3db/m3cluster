@@ -117,7 +117,7 @@ func TestClient(t *testing.T) {
 	_, ok := c.clis["zone1"]
 	require.True(t, ok)
 
-	sd1, err := c.Services()
+	sd1, err := c.Services(services.NewOptions())
 	require.NoError(t, err)
 
 	err = sd1.SetMetadata(
@@ -150,11 +150,11 @@ func TestServicesWithNamespace(t *testing.T) {
 	defer closer()
 	c.newFn = fn
 
-	sd1, err := c.Services()
+	sd1, err := c.Services(services.NewOptions())
 	require.NoError(t, err)
 
 	nOpts := services.NewNamespaceOptions().SetPlacementNamespace("p").SetMetadataNamespace("m")
-	sd2, err := c.ServiceDiscovery(services.NewOptions().SetNamespaceOptions(nOpts))
+	sd2, err := c.Services(services.NewOptions().SetNamespaceOptions(nOpts))
 	require.NoError(t, err)
 
 	require.NotEqual(t, sd1, sd2)
