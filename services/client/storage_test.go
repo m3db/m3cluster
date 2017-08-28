@@ -23,19 +23,17 @@ package client
 import (
 	"testing"
 
-	schema "github.com/m3db/m3cluster/generated/proto/placement"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/placement"
-
 	"github.com/stretchr/testify/require"
 )
 
-func TestStorageWithSinglePlacement(t *testing.T) {
+func TestPlacementStorage(t *testing.T) {
 	opts, closer, _ := testSetup(t)
 	defer closer()
 
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions())
+	ps, err := newPlacementStorage(opts)
 	require.NoError(t, err)
 
 	sid := services.NewServiceID()
@@ -96,85 +94,6 @@ func TestStorageWithSinglePlacement(t *testing.T) {
 	require.Equal(t, 1, v)
 	require.Equal(t, p.SetVersion(1), pGet)
 
-	proto, v, err := ps.PlacementProto(sid)
-	require.NoError(t, err)
-	require.Equal(t, 1, v)
-
-	actualP, err := placement.NewPlacementFromProto(proto.(*schema.Placement))
-	require.NoError(t, err)
-	require.Equal(t, p.SetVersion(0), actualP)
-
-	// different zone or different env are different services
-	_, _, err = ps.Placement(services.NewServiceID().SetName("m3db").SetEnvironment("env"))
-	require.Error(t, err)
-	require.Equal(t, kv.ErrNotFound, err)
-
-	_, _, err = ps.Placement(services.NewServiceID().SetName("m3db").SetZone("zone"))
-	require.Error(t, err)
-	require.Equal(t, kv.ErrNotFound, err)
-}
-
-func TestStorageWithPlacementSnapshots(t *testing.T) {
-	opts, closer, _ := testSetup(t)
-	defer closer()
-
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions().SetIsStaged(true))
-	require.NoError(t, err)
-
-	sid := services.NewServiceID().SetName("m3db").SetZone("zone").SetEnvironment("env")
-	p := placement.NewPlacement().
-		SetInstances([]services.PlacementInstance{}).
-		SetShards([]uint32{}).
-		SetReplicaFactor(0)
-
-	err = ps.SetIfNotExist(sid, p)
-	require.NoError(t, err)
-
-	err = ps.SetIfNotExist(sid, p)
-	require.Error(t, err)
-	require.Equal(t, kv.ErrAlreadyExists, err)
-
-	pGet1, v, err := ps.Placement(sid)
-	require.NoError(t, err)
-	require.Equal(t, 1, v)
-	require.Equal(t, p.SetVersion(1), pGet1)
-
-	err = ps.CheckAndSet(sid, p, v)
-	require.NoError(t, err)
-
-	err = ps.CheckAndSet(sid, p, v)
-	require.Error(t, err)
-	require.Equal(t, kv.ErrVersionMismatch, err)
-
-	pGet2, v, err := ps.Placement(sid)
-	require.NoError(t, err)
-	require.Equal(t, 2, v)
-	require.Equal(t, p.SetVersion(2), pGet2)
-
-	newProto, v, err := ps.PlacementProto(sid)
-	require.NoError(t, err)
-	require.Equal(t, 2, v)
-
-	newPs, err := placement.NewPlacementsFromProto(newProto.(*schema.PlacementSnapshots))
-	require.NoError(t, err)
-	require.Equal(t, pGet1.SetVersion(0), newPs[0])
-	require.Equal(t, pGet2.SetVersion(0), newPs[1])
-
-	err = ps.Delete(sid)
-	require.NoError(t, err)
-
-	_, _, err = ps.Placement(sid)
-	require.Error(t, err)
-	require.Equal(t, kv.ErrNotFound, err)
-
-	err = ps.SetIfNotExist(sid, p)
-	require.NoError(t, err)
-
-	pGet3, v, err := ps.Placement(sid)
-	require.NoError(t, err)
-	require.Equal(t, 1, v)
-	require.Equal(t, p.SetVersion(1), pGet3)
-
 	// different zone or different env are different services
 	_, _, err = ps.Placement(services.NewServiceID().SetName("m3db").SetEnvironment("env"))
 	require.Error(t, err)
@@ -189,12 +108,9 @@ func TestPlacementNamespaceOverride(t *testing.T) {
 	opts, closer, _ := testSetup(t)
 	defer closer()
 
-	ps, err := newTestPlacementStorage(
-		opts.SetNamespaceOptions(
-			services.NewNamespaceOptions().SetPlacementNamespace("test_ns"),
-		),
-		placement.NewOptions(),
-	)
+	ps, err := newPlacementStorage(opts.SetNamespaceOptions(
+		services.NewNamespaceOptions().SetPlacementNamespace("test_ns"),
+	))
 	require.NoError(t, err)
 
 	sid := services.NewServiceID().SetName("m3db")
@@ -212,21 +128,23 @@ func TestPlacementNamespaceOverride(t *testing.T) {
 	require.Equal(t, 1, v)
 	require.Equal(t, newP, p.SetVersion(v))
 
-	ps2, err := newTestPlacementStorage(opts, placement.NewOptions())
+	ps2, err := newPlacementStorage(opts)
 	require.NoError(t, err)
 
 	_, _, err = ps2.Placement(sid)
 	require.Error(t, err)
 }
 
-func newTestPlacementStorage(opts Options, pOpts services.PlacementOptions) (services.PlacementStorage, error) {
+// newPlacementStorage returns a client of placement.Storage
+func newPlacementStorage(opts Options) (placement.Storage, error) {
 	if opts.KVGen() == nil {
 		return nil, errNoKVGen
 	}
 
-	return newPlacementStorage(
-		keyFnWithNamespace(placementNamespace(opts.NamespaceOptions().PlacementNamespace())),
-		opts.KVGen(),
-		newHelper(pOpts),
-	), nil
+	return &client{
+		opts:           opts,
+		placementKeyFn: keyFnWithNamespace(placementNamespace(opts.NamespaceOptions().PlacementNamespace())),
+		metadataKeyFn:  keyFnWithNamespace(metadataNamespace(opts.NamespaceOptions().MetadataNamespace())),
+		kvManagers:     map[string]*kvManager{},
+	}, nil
 }

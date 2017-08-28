@@ -53,9 +53,8 @@ func (o deploymentOptions) SetMaxStepSize(stepSize int) DeploymentOptions {
 type options struct {
 	looseRackCheck      bool
 	allowPartialReplace bool
-	isSharded           bool
-	isMirrored          bool
-	isStaged            bool
+	sharded             bool
+	mirrored            bool
 	iopts               instrument.Options
 	validZone           string
 	dryrun              bool
@@ -65,7 +64,7 @@ type options struct {
 func NewOptions() services.PlacementOptions {
 	return options{
 		allowPartialReplace: defaultAllowPartialReplace,
-		isSharded:           defaultIsSharded,
+		sharded:             defaultIsSharded,
 		iopts:               instrument.NewOptions(),
 	}
 }
@@ -89,29 +88,20 @@ func (o options) SetAllowPartialReplace(allowPartialReplace bool) services.Place
 }
 
 func (o options) IsSharded() bool {
-	return o.isSharded
+	return o.sharded
 }
 
 func (o options) SetIsSharded(sharded bool) services.PlacementOptions {
-	o.isSharded = sharded
+	o.sharded = sharded
 	return o
 }
 
 func (o options) IsMirrored() bool {
-	return o.isMirrored
+	return o.mirrored
 }
 
 func (o options) SetIsMirrored(v bool) services.PlacementOptions {
-	o.isMirrored = v
-	return o
-}
-
-func (o options) IsStaged() bool {
-	return o.isStaged
-}
-
-func (o options) SetIsStaged(v bool) services.PlacementOptions {
-	o.isStaged = v
+	o.mirrored = v
 	return o
 }
 

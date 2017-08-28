@@ -353,7 +353,7 @@ func TestQueryIncludeUnhealthy(t *testing.T) {
 			SetShards(shard.NewShards([]shard.Shard{shard.NewShard(1).SetState(shard.Initializing)})),
 	}).SetShards([]uint32{1}).SetReplicaFactor(2)
 
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions())
+	ps, err := newPlacementStorage(opts)
 	require.NoError(t, err)
 
 	err = ps.SetIfNotExist(sid, p)
@@ -394,7 +394,7 @@ func TestQueryNotIncludeUnhealthy(t *testing.T) {
 			SetShards(shard.NewShards([]shard.Shard{shard.NewShard(1).SetState(shard.Initializing)})),
 	}).SetShards([]uint32{1}).SetReplicaFactor(2)
 
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions())
+	ps, err := newPlacementStorage(opts)
 	require.NoError(t, err)
 
 	err = ps.SetIfNotExist(sid, p)
@@ -745,7 +745,7 @@ func TestMultipleWatches(t *testing.T) {
 			SetShards(shard.NewShards([]shard.Shard{shard.NewShard(1).SetState(shard.Initializing)})),
 	}).SetShards([]uint32{1}).SetReplicaFactor(2)
 
-	ps, err := newTestPlacementStorage(opts, placement.NewOptions())
+	ps, err := newPlacementStorage(opts)
 	require.NoError(t, err)
 
 	err = ps.SetIfNotExist(sid, p)

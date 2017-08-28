@@ -32,6 +32,7 @@ import (
 )
 
 var (
+	errNilPlacementSnapshotsProto  = errors.New("nil placement snapshots proto")
 	errNoApplicablePlacement       = errors.New("no applicable placement found")
 	errActiveStagedPlacementClosed = errors.New("active staged placement is closed")
 )
@@ -154,7 +155,7 @@ func (p *activeStagedPlacement) expire() {
 
 type stagedPlacement struct {
 	version    int
-	placements services.Placements
+	placements []services.Placement
 	opts       services.ActiveStagedPlacementOptions
 }
 
@@ -169,10 +170,18 @@ func NewStagedPlacementFromProto(
 	p *placementproto.PlacementSnapshots,
 	opts services.ActiveStagedPlacementOptions,
 ) (services.StagedPlacement, error) {
-	placements, err := NewPlacementsFromProto(p)
-	if err != nil {
-		return nil, err
+	if p == nil {
+		return nil, errNilPlacementSnapshotsProto
 	}
+	placements := make([]services.Placement, 0, len(p.Snapshots))
+	for _, snapshot := range p.Snapshots {
+		placement, err := NewPlacementFromProto(snapshot)
+		if err != nil {
+			return nil, err
+		}
+		placements = append(placements, placement)
+	}
+	sort.Sort(placementsByCutoverAsc(placements))
 
 	return &stagedPlacement{
 		version:    version,
@@ -199,7 +208,7 @@ func (sp *stagedPlacement) SetVersion(version int) services.StagedPlacement {
 	return sp
 }
 
-func (sp *stagedPlacement) Placements() services.Placements { return sp.placements }
+func (sp *stagedPlacement) Placements() []services.Placement { return sp.placements }
 
 func (sp *stagedPlacement) SetPlacements(placements []services.Placement) services.StagedPlacement {
 	sort.Sort(placementsByCutoverAsc(placements))
