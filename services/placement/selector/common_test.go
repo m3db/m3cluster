@@ -49,7 +49,7 @@ func TestGetValidCandidates(t *testing.T) {
 	emptyI3 := placement.NewInstance().SetID("i3").SetZone("z3")
 	i4 := placement.NewInstance().SetID("i4").SetZone("z1")
 	candidates := []services.PlacementInstance{i3, emptyI3, i1, i4}
-	res, err := getValidCandidates(p, candidates, services.NewPlacementOptions().SetValidZone("z1"))
+	res, err := getValidCandidates(p, candidates, placement.NewOptions().SetValidZone("z1"))
 	require.NoError(t, err)
 	require.Equal(t, []services.PlacementInstance{i3, i3, i4}, res)
 }

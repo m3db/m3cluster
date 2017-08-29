@@ -35,7 +35,7 @@ func TestStorageWithSinglePlacement(t *testing.T) {
 	opts, closer, _ := testSetup(t)
 	defer closer()
 
-	ps, err := newTestPlacementStorage(opts, services.NewPlacementOptions())
+	ps, err := newTestPlacementStorage(opts, placement.NewOptions())
 	require.NoError(t, err)
 
 	sid := services.NewServiceID()
@@ -118,7 +118,7 @@ func TestStorageWithPlacementSnapshots(t *testing.T) {
 	opts, closer, _ := testSetup(t)
 	defer closer()
 
-	ps, err := newTestPlacementStorage(opts, services.NewPlacementOptions().SetIsStaged(true))
+	ps, err := newTestPlacementStorage(opts, placement.NewOptions().SetIsStaged(true))
 	require.NoError(t, err)
 
 	sid := services.NewServiceID().SetName("m3db").SetZone("zone").SetEnvironment("env")
@@ -193,7 +193,7 @@ func TestPlacementNamespaceOverride(t *testing.T) {
 		opts.SetNamespaceOptions(
 			services.NewNamespaceOptions().SetPlacementNamespace("test_ns"),
 		),
-		services.NewPlacementOptions(),
+		placement.NewOptions(),
 	)
 	require.NoError(t, err)
 
@@ -212,7 +212,7 @@ func TestPlacementNamespaceOverride(t *testing.T) {
 	require.Equal(t, 1, v)
 	require.Equal(t, newP, p.SetVersion(v))
 
-	ps2, err := newTestPlacementStorage(opts, services.NewPlacementOptions())
+	ps2, err := newTestPlacementStorage(opts, placement.NewOptions())
 	require.NoError(t, err)
 
 	_, _, err = ps2.Placement(sid)

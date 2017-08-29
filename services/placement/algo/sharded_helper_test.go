@@ -42,7 +42,7 @@ func TestMoveInitializingShard(t *testing.T) {
 
 	instances := []services.PlacementInstance{i1, i2, i3}
 	p := placement.NewPlacement().SetInstances(instances).SetShards([]uint32{1, 2, 3}).SetReplicaFactor(1)
-	ph := newHelper(p, 3, services.NewPlacementOptions()).(*placementHelper)
+	ph := newHelper(p, 3, placement.NewOptions()).(*placementHelper)
 
 	// move an Initializing shard
 	s3, ok := i3.Shards().Shard(3)
@@ -66,7 +66,7 @@ func TestMoveInitializingShardBackToSource(t *testing.T) {
 
 	instances := []services.PlacementInstance{i1, i2}
 	p := placement.NewPlacement().SetInstances(instances).SetShards([]uint32{1}).SetReplicaFactor(1)
-	ph := newHelper(p, 3, services.NewPlacementOptions()).(*placementHelper)
+	ph := newHelper(p, 3, placement.NewOptions()).(*placementHelper)
 
 	s1, ok := i2.Shards().Shard(1)
 	assert.True(t, ok)
@@ -93,7 +93,7 @@ func TestMoveLeavingShard(t *testing.T) {
 
 	instances := []services.PlacementInstance{i1, i2, i3}
 	p := placement.NewPlacement().SetInstances(instances).SetShards([]uint32{1, 2, 3}).SetReplicaFactor(1)
-	ph := newHelper(p, 3, services.NewPlacementOptions()).(*placementHelper)
+	ph := newHelper(p, 3, placement.NewOptions()).(*placementHelper)
 
 	// make sure Leaving shard could not be moved
 	s3, ok := i1.Shards().Shard(3)
@@ -113,7 +113,7 @@ func TestMoveAvailableShard(t *testing.T) {
 
 	instances := []services.PlacementInstance{i1, i2, i3}
 	p := placement.NewPlacement().SetInstances(instances).SetShards([]uint32{1, 2, 3}).SetReplicaFactor(1)
-	ph := newHelper(p, 3, services.NewPlacementOptions()).(*placementHelper)
+	ph := newHelper(p, 3, placement.NewOptions()).(*placementHelper)
 
 	s3, ok := i3.Shards().Shard(3)
 	assert.True(t, ok)
@@ -164,13 +164,13 @@ func TestAssignShard(t *testing.T) {
 		SetShards([]uint32{1, 2, 3, 4, 5, 6}).
 		SetReplicaFactor(3)
 
-	ph := newHelper(p, 3, services.NewPlacementOptions()).(*placementHelper)
+	ph := newHelper(p, 3, placement.NewOptions()).(*placementHelper)
 	assert.True(t, ph.canAssignInstance(2, i6, i5))
 	assert.True(t, ph.canAssignInstance(1, i1, i6))
 	assert.False(t, ph.canAssignInstance(2, i6, i1))
 	// rack check
 	assert.False(t, ph.canAssignInstance(2, i6, i3))
-	ph = newHelper(p, 3, services.NewPlacementOptions().SetLooseRackCheck(true)).(*placementHelper)
+	ph = newHelper(p, 3, placement.NewOptions().SetLooseRackCheck(true)).(*placementHelper)
 	assert.True(t, ph.canAssignInstance(2, i6, i3))
 }
 
@@ -254,7 +254,7 @@ func TestReturnInitShardToSource(t *testing.T) {
 			SetReplicaFactor(1).
 			SetShards([]uint32{0, 1, 2}).
 			SetIsSharded(true),
-		services.NewPlacementOptions(),
+		placement.NewOptions(),
 	).(*placementHelper)
 
 	ph.returnInitializingShardsToSource(getShardMap(i1.Shards().All()), i1, ph.Instances())
@@ -287,7 +287,7 @@ func TestReturnInitShardToSource_SourceIsLeaving(t *testing.T) {
 			SetReplicaFactor(1).
 			SetShards([]uint32{0}).
 			SetIsSharded(true),
-		services.NewPlacementOptions(),
+		placement.NewOptions(),
 	).(*placementHelper)
 
 	ph.returnInitializingShardsToSource(getShardMap(i1.Shards().All()), i1, ph.Instances())
@@ -316,7 +316,7 @@ func TestGeneratePlacement(t *testing.T) {
 			SetReplicaFactor(1).
 			SetShards([]uint32{0}).
 			SetIsSharded(true),
-		services.NewPlacementOptions(),
+		placement.NewOptions(),
 	)
 
 	p := ph.GeneratePlacement()
@@ -343,7 +343,7 @@ func TestReturnInitShardToSource_RackConflict(t *testing.T) {
 			SetReplicaFactor(2).
 			SetShards([]uint32{0}).
 			SetIsSharded(true),
-		services.NewPlacementOptions(),
+		placement.NewOptions(),
 	).(*placementHelper)
 
 	ph.returnInitializingShardsToSource(getShardMap(i1.Shards().All()), i1, ph.Instances())
@@ -378,7 +378,7 @@ func TestReturnInitShardToSource_RackConflict(t *testing.T) {
 			SetReplicaFactor(2).
 			SetShards([]uint32{0}).
 			SetIsSharded(true),
-		services.NewPlacementOptions(),
+		placement.NewOptions(),
 	).(*placementHelper)
 
 	err := ph.PlaceShards(i1.Shards().All(), i1, ph.Instances())

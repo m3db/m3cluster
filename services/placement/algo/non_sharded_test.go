@@ -105,7 +105,7 @@ func TestIncompatibleWithNonShardedAlgo(t *testing.T) {
 	i2 := placement.NewInstance().SetID("i2").SetEndpoint("e2").SetWeight(1)
 	i3 := placement.NewInstance().SetID("i3").SetEndpoint("e3").SetWeight(1)
 	i4 := placement.NewInstance().SetID("i4").SetEndpoint("e4").SetWeight(1)
-	p, err := newShardedAlgorithm(services.NewPlacementOptions()).InitialPlacement([]services.PlacementInstance{i1, i2}, []uint32{1, 2}, 1)
+	p, err := newShardedAlgorithm(placement.NewOptions()).InitialPlacement([]services.PlacementInstance{i1, i2}, []uint32{1, 2}, 1)
 	assert.NoError(t, err)
 
 	a := newNonShardedAlgorithm()

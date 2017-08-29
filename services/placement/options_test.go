@@ -23,6 +23,7 @@ package placement
 import (
 	"testing"
 
+	"github.com/m3db/m3x/instrument"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,4 +32,37 @@ func TestDeploymentOptions(t *testing.T) {
 	assert.Equal(t, defaultMaxStepSize, dopts.MaxStepSize())
 	dopts = dopts.SetMaxStepSize(5)
 	assert.Equal(t, 5, dopts.MaxStepSize())
+}
+
+func TestPlacementOptions(t *testing.T) {
+	o := NewOptions()
+	assert.False(t, o.LooseRackCheck())
+	assert.True(t, o.AllowPartialReplace())
+	assert.True(t, o.IsSharded())
+	assert.False(t, o.Dryrun())
+	assert.False(t, o.IsMirrored())
+	assert.False(t, o.IsStaged())
+	assert.Equal(t, instrument.NewOptions(), o.InstrumentOptions())
+
+	o = o.SetLooseRackCheck(true)
+	assert.True(t, o.LooseRackCheck())
+
+	o = o.SetAllowPartialReplace(false)
+	assert.False(t, o.AllowPartialReplace())
+
+	o = o.SetIsSharded(false)
+	assert.False(t, o.IsSharded())
+
+	o = o.SetDryrun(true)
+	assert.True(t, o.Dryrun())
+
+	o = o.SetIsMirrored(true)
+	assert.True(t, o.IsMirrored())
+
+	o = o.SetIsStaged(true)
+	assert.True(t, o.IsStaged())
+
+	iopts := instrument.NewOptions().SetMetricsSamplingRate(0.5)
+	o = o.SetInstrumentOptions(iopts)
+	assert.Equal(t, iopts, o.InstrumentOptions())
 }
