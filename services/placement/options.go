@@ -50,7 +50,7 @@ func (o deploymentOptions) SetMaxStepSize(stepSize int) DeploymentOptions {
 	return o
 }
 
-type placementOptions struct {
+type options struct {
 	looseRackCheck      bool
 	allowPartialReplace bool
 	isSharded           bool
@@ -63,81 +63,81 @@ type placementOptions struct {
 
 // NewOptions returns a default services.PlacementOptions.
 func NewOptions() services.PlacementOptions {
-	return placementOptions{
+	return options{
 		allowPartialReplace: defaultAllowPartialReplace,
 		isSharded:           defaultIsSharded,
 		iopts:               instrument.NewOptions(),
 	}
 }
 
-func (o placementOptions) LooseRackCheck() bool {
+func (o options) LooseRackCheck() bool {
 	return o.looseRackCheck
 }
 
-func (o placementOptions) SetLooseRackCheck(looseRackCheck bool) services.PlacementOptions {
+func (o options) SetLooseRackCheck(looseRackCheck bool) services.PlacementOptions {
 	o.looseRackCheck = looseRackCheck
 	return o
 }
 
-func (o placementOptions) AllowPartialReplace() bool {
+func (o options) AllowPartialReplace() bool {
 	return o.allowPartialReplace
 }
 
-func (o placementOptions) SetAllowPartialReplace(allowPartialReplace bool) services.PlacementOptions {
+func (o options) SetAllowPartialReplace(allowPartialReplace bool) services.PlacementOptions {
 	o.allowPartialReplace = allowPartialReplace
 	return o
 }
 
-func (o placementOptions) IsSharded() bool {
+func (o options) IsSharded() bool {
 	return o.isSharded
 }
 
-func (o placementOptions) SetIsSharded(sharded bool) services.PlacementOptions {
+func (o options) SetIsSharded(sharded bool) services.PlacementOptions {
 	o.isSharded = sharded
 	return o
 }
 
-func (o placementOptions) IsMirrored() bool {
+func (o options) IsMirrored() bool {
 	return o.isMirrored
 }
 
-func (o placementOptions) SetIsMirrored(v bool) services.PlacementOptions {
+func (o options) SetIsMirrored(v bool) services.PlacementOptions {
 	o.isMirrored = v
 	return o
 }
 
-func (o placementOptions) IsStaged() bool {
+func (o options) IsStaged() bool {
 	return o.isStaged
 }
 
-func (o placementOptions) SetIsStaged(v bool) services.PlacementOptions {
+func (o options) SetIsStaged(v bool) services.PlacementOptions {
 	o.isStaged = v
 	return o
 }
 
-func (o placementOptions) Dryrun() bool {
+func (o options) Dryrun() bool {
 	return o.dryrun
 }
 
-func (o placementOptions) SetDryrun(d bool) services.PlacementOptions {
+func (o options) SetDryrun(d bool) services.PlacementOptions {
 	o.dryrun = d
 	return o
 }
 
-func (o placementOptions) InstrumentOptions() instrument.Options {
+func (o options) InstrumentOptions() instrument.Options {
 	return o.iopts
 }
 
-func (o placementOptions) SetInstrumentOptions(iopts instrument.Options) services.PlacementOptions {
+func (o options) SetInstrumentOptions(iopts instrument.Options) services.PlacementOptions {
 	o.iopts = iopts
 	return o
 }
 
-func (o placementOptions) ValidZone() string {
+func (o options) ValidZone() string {
 	return o.validZone
 }
 
-func (o placementOptions) SetValidZone(z string) services.PlacementOptions {
+func (o options) SetValidZone(z string) services.PlacementOptions {
 	o.validZone = z
 	return o
 }
