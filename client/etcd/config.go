@@ -22,7 +22,7 @@ package etcd
 
 import (
 	"github.com/m3db/m3cluster/client"
-	etcdsd "github.com/m3db/m3cluster/services/etcd"
+	etcdsd "github.com/m3db/m3cluster/services/client/etcd"
 	"github.com/m3db/m3x/instrument"
 )
 

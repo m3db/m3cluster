@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	etcdsd "github.com/m3db/m3cluster/services/etcd"
+	etcdsd "github.com/m3db/m3cluster/services/client/etcd"
 	"github.com/m3db/m3x/instrument"
 
 	"github.com/stretchr/testify/assert"

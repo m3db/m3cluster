@@ -32,7 +32,7 @@ import (
 	"github.com/m3db/m3cluster/kv"
 	etcdkv "github.com/m3db/m3cluster/kv/etcd"
 	"github.com/m3db/m3cluster/services"
-	etcdsd "github.com/m3db/m3cluster/services/etcd"
+	etcdsd "github.com/m3db/m3cluster/services/client/etcd"
 	etcdheartbeat "github.com/m3db/m3cluster/services/heartbeat/etcd"
 	"github.com/m3db/m3cluster/services/leader"
 	"github.com/m3db/m3x/instrument"

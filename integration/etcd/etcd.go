@@ -31,7 +31,7 @@ import (
 
 	"github.com/m3db/m3cluster/client"
 	etcdclient "github.com/m3db/m3cluster/client/etcd"
-	etcdsd "github.com/m3db/m3cluster/services/etcd"
+	etcdsd "github.com/m3db/m3cluster/services/client/etcd"
 	xclock "github.com/m3db/m3x/clock"
 	"github.com/m3db/m3x/errors"
 
