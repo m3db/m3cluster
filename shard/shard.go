@@ -105,6 +105,9 @@ func (s *shard) CutoverNanos() int64 {
 }
 
 func (s *shard) SetCutoverNanos(value int64) Shard {
+	// NB(cw): We use UnInitializedValue to represent the DefaultShardCutoverNanos
+	// so that we can save some space in the proto representation for the
+	// default value of cutover time.
 	if value == DefaultShardCutoverNanos {
 		value = UnInitializedValue
 	}
