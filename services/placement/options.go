@@ -22,6 +22,7 @@ package placement
 
 import (
 	"github.com/m3db/m3cluster/services"
+	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/instrument"
 )
 
@@ -50,7 +51,7 @@ func (o deploymentOptions) SetMaxStepSize(stepSize int) DeploymentOptions {
 	return o
 }
 
-func defaultTimeNanosFn() int64 { return 0 }
+func defaultTimeNanosFn() int64 { return shard.UnInitializedValue }
 
 type options struct {
 	looseRackCheck      bool

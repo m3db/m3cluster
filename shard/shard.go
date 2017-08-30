@@ -104,7 +104,14 @@ func (s *shard) CutoverNanos() int64 {
 	return DefaultShardCutoverNanos
 }
 
-func (s *shard) SetCutoverNanos(value int64) Shard { s.cutoverNanos = value; return s }
+func (s *shard) SetCutoverNanos(value int64) Shard {
+	if value == DefaultShardCutoverNanos {
+		value = UnInitializedValue
+	}
+
+	s.cutoverNanos = value
+	return s
+}
 
 func (s *shard) CutoffNanos() int64 {
 	if s.cutoffNanos != UnInitializedValue {
@@ -116,6 +123,9 @@ func (s *shard) CutoffNanos() int64 {
 }
 
 func (s *shard) SetCutoffNanos(value int64) Shard {
+	// NB(cw): We use UnInitializedValue to represent the DefaultShardCutoffNanos
+	// so that we can save some space in the proto representation for the
+	// default value of cutoff time.
 	if value == DefaultShardCutoffNanos {
 		value = UnInitializedValue
 	}
@@ -245,7 +255,7 @@ func (s shards) ShardsForState(state State) []Shard {
 
 func (s shards) String() string {
 	var strs []string
-	for _, state := range states() {
+	for _, state := range validStates() {
 		ids := NewShards(s.ShardsForState(state)).AllIDs()
 		str := fmt.Sprintf("%s=%v", state.String(), ids)
 		strs = append(strs, str)
@@ -274,8 +284,8 @@ func (su SortableShardProtosByIDAsc) Len() int           { return len(su) }
 func (su SortableShardProtosByIDAsc) Less(i, j int) bool { return su[i].Id < su[j].Id }
 func (su SortableShardProtosByIDAsc) Swap(i, j int)      { su[i], su[j] = su[j], su[i] }
 
-// states returns all the possible states.
-func states() []State {
+// validStates returns all the valid states.
+func validStates() []State {
 	return []State{
 		Initializing,
 		Available,
