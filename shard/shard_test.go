@@ -124,3 +124,48 @@ func TestShardCutoffTimes(t *testing.T) {
 		require.Equal(t, input.storedNanos, s.cutoffNanos)
 	}
 }
+
+func TestShardStateToProtoError(t *testing.T) {
+	_, err := Unknown.Proto()
+	assert.Error(t, err)
+}
+
+func TestShardsToProto(t *testing.T) {
+	shardSet := []Shard{
+		NewShard(0).SetState(Initializing).SetCutoverNanos(1234).SetCutoffNanos(5678),
+		NewShard(1).SetState(Initializing).SetCutoverNanos(0).SetCutoffNanos(5678),
+		NewShard(2).SetState(Initializing).SetCutoverNanos(math.MaxInt64).SetCutoffNanos(5678),
+		NewShard(3).SetState(Initializing).SetCutoverNanos(1234).SetCutoffNanos(0),
+		NewShard(4).SetState(Initializing).SetCutoverNanos(1234).SetCutoffNanos(math.MaxInt64),
+	}
+	shards := NewShards(shardSet)
+	proto, err := shards.Proto()
+	require.NoError(t, err)
+
+	expected := []struct {
+		cutoverNanos int64
+		cutoffNanos  int64
+	}{
+		{cutoverNanos: 1234, cutoffNanos: 5678},
+		{cutoverNanos: 0, cutoffNanos: 5678},
+		{cutoverNanos: math.MaxInt64, cutoffNanos: 5678},
+		{cutoverNanos: 1234, cutoffNanos: 0},
+		{cutoverNanos: 1234, cutoffNanos: 0},
+	}
+	for i, shardProto := range proto {
+		require.Equal(t, expected[i].cutoverNanos, shardProto.CutoverNanos)
+		require.Equal(t, expected[i].cutoffNanos, shardProto.CutoffNanos)
+	}
+
+	reconstructed, err := NewShardsFromProto(proto)
+	require.NoError(t, err)
+	require.Equal(t, shards.NumShards(), reconstructed.NumShards())
+	for i := 0; i < shards.NumShards(); i++ {
+		shardID := uint32(i)
+		expected, found := shards.Shard(shardID)
+		require.True(t, found)
+		actual, found := shards.Shard(shardID)
+		require.True(t, found)
+		require.Equal(t, expected, actual)
+	}
+}
