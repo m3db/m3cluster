@@ -33,11 +33,11 @@ import (
 const (
 	// DefaultShardCutoverNanos is the default shard-level cutover nanos
 	// if the value is not set in the proto message.
-	DefaultShardCutoverNanos = 0
+	DefaultShardCutoverNanos = int64(0)
 
 	// DefaultShardCutoffNanos is the default shard-level cutoff nanos
 	// if the value is not set in the proto message.
-	DefaultShardCutoffNanos = math.MaxInt64
+	DefaultShardCutoffNanos = int64(math.MaxInt64)
 )
 
 var (
@@ -164,7 +164,13 @@ func (s *shard) CutoffNanos() int64 {
 	return DefaultShardCutoffNanos
 }
 
-func (s *shard) SetCutoffNanos(value int64) Shard { s.cutoffNanos = value; return s }
+func (s *shard) SetCutoffNanos(value int64) Shard {
+	if value == DefaultShardCutoffNanos {
+		value = 0
+	}
+	s.cutoffNanos = value
+	return s
+}
 
 // SortableShardsByIDAsc are sortable shards by ID in ascending order
 type SortableShardsByIDAsc []Shard

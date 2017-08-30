@@ -191,35 +191,6 @@ func TestNonLeavingInstances(t *testing.T) {
 	assert.Equal(t, "i2", r[1].ID())
 }
 
-func TestCopy(t *testing.T) {
-	i1 := placement.NewEmptyInstance("i1", "r1", "z1", "endpoint", 1)
-	i1.Shards().Add(shard.NewShard(1).SetState(shard.Available))
-	i1.Shards().Add(shard.NewShard(2).SetState(shard.Available))
-	i1.Shards().Add(shard.NewShard(3).SetState(shard.Available))
-
-	i2 := placement.NewEmptyInstance("i2", "r2", "z1", "endpoint", 1)
-	i2.Shards().Add(shard.NewShard(4).SetState(shard.Available))
-	i2.Shards().Add(shard.NewShard(5).SetState(shard.Available))
-	i2.Shards().Add(shard.NewShard(6).SetState(shard.Available))
-
-	instances := []services.PlacementInstance{i1, i2}
-
-	ids := []uint32{1, 2, 3, 4, 5, 6}
-	s := placement.NewPlacement().SetInstances(instances).SetShards(ids).SetReplicaFactor(1)
-	copy := placement.ClonePlacement(s)
-	assert.Equal(t, s.NumInstances(), copy.NumInstances())
-	assert.Equal(t, s.Shards(), copy.Shards())
-	assert.Equal(t, s.ReplicaFactor(), copy.ReplicaFactor())
-	for _, i := range s.Instances() {
-		copiedInstance, exist := copy.Instance(i.ID())
-		assert.True(t, exist)
-		assert.Equal(t, copiedInstance, i)
-		// make sure they are different objects, updating one won't update the other
-		i.Shards().Add(shard.NewShard(100).SetState(shard.Available))
-		assert.NotEqual(t, copiedInstance, i)
-	}
-}
-
 func TestLoadOnInstance(t *testing.T) {
 	i1 := placement.NewEmptyInstance("i1", "r1", "z1", "endpoint", 1)
 	i1.Shards().Add(shard.NewShard(1).SetState(shard.Initializing))
@@ -299,29 +270,29 @@ func TestReturnInitShardToSource_SourceIsLeaving(t *testing.T) {
 	assert.Equal(t, 0, i3.Shards().NumShards())
 }
 
-func TestGeneratePlacement(t *testing.T) {
-	i1 := placement.NewInstance().SetID("i1").SetRack("r1").SetEndpoint("e1").SetWeight(1).SetShards(shard.NewShards(
-		[]shard.Shard{shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i2")},
-	))
-	i2 := placement.NewInstance().SetID("i2").SetRack("r2").SetEndpoint("e2").SetWeight(1).SetShards(shard.NewShards(
-		[]shard.Shard{shard.NewShard(0).SetState(shard.Leaving)},
-	))
-	i3 := placement.NewInstance().SetID("i3").SetRack("r3").SetEndpoint("e3").SetWeight(1).SetShards(shard.NewShards(
-		[]shard.Shard{},
-	))
+// func TestGeneratePlacement(t *testing.T) {
+// 	i1 := placement.NewInstance().SetID("i1").SetRack("r1").SetEndpoint("e1").SetWeight(1).SetShards(shard.NewShards(
+// 		[]shard.Shard{shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i2")},
+// 	))
+// 	i2 := placement.NewInstance().SetID("i2").SetRack("r2").SetEndpoint("e2").SetWeight(1).SetShards(shard.NewShards(
+// 		[]shard.Shard{shard.NewShard(0).SetState(shard.Leaving)},
+// 	))
+// 	i3 := placement.NewInstance().SetID("i3").SetRack("r3").SetEndpoint("e3").SetWeight(1).SetShards(shard.NewShards(
+// 		[]shard.Shard{},
+// 	))
 
-	ph := NewPlacementHelper(
-		placement.NewPlacement().
-			SetInstances([]services.PlacementInstance{i1, i2, i3}).
-			SetReplicaFactor(1).
-			SetShards([]uint32{0}).
-			SetIsSharded(true),
-		placement.NewOptions(),
-	)
+// 	ph := NewPlacementHelper(
+// 		placement.NewPlacement().
+// 			SetInstances([]services.PlacementInstance{i1, i2, i3}).
+// 			SetReplicaFactor(1).
+// 			SetShards([]uint32{0}).
+// 			SetIsSharded(true),
+// 		placement.NewOptions(),
+// 	)
 
-	p := ph.GeneratePlacement()
-	assert.Equal(t, 2, p.NumInstances())
-}
+// 	p := ph.GeneratePlacement()
+// 	assert.Equal(t, 2, p.NumInstances())
+// }
 
 func TestReturnInitShardToSource_RackConflict(t *testing.T) {
 	i1 := placement.NewInstance().SetID("i1").SetRack("r1").SetEndpoint("e1").SetWeight(1).SetShards(shard.NewShards(
