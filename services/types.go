@@ -274,6 +274,7 @@ type PlacementService interface {
 	Delete() error
 }
 
+// TimeNanosFn returns the time in the format of Unix nanoseconds.
 type TimeNanosFn func() int64
 
 // PlacementOptions is the interface for placement options.
