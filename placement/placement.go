@@ -553,13 +553,15 @@ func IsInstanceLeaving(instance Instance) bool {
 // Instances is a slice of instances that can produce a debug string.
 type Instances []Instance
 
-func (i Instances) String() string {
-	if len(i) == 0 {
+func (instances Instances) String() string {
+	if len(instances) == 0 {
 		return "[]"
 	}
-	var strs []string
+	// 256 should be pretty sufficient for the string representation
+	// of each instance.
+	strs := make([]string, 0, len(instances)*256)
 	strs = append(strs, "[\n")
-	for _, elem := range i {
+	for _, elem := range instances {
 		strs = append(strs, "\t"+elem.String()+",\n")
 	}
 	strs = append(strs, "]")
