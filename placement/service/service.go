@@ -31,7 +31,7 @@ import (
 )
 
 type placementService struct {
-	s        placement.Storage
+	placement.Storage
 	opts     placement.Options
 	algo     placement.Algorithm
 	selector placement.InstanceSelector
@@ -40,8 +40,8 @@ type placementService struct {
 
 // NewPlacementService returns an instance of placement service.
 func NewPlacementService(s placement.Storage, opts placement.Options) placement.Service {
-	return placementService{
-		s:        s,
+	return &placementService{
+		Storage:  s,
 		opts:     opts,
 		algo:     algo.NewAlgorithm(opts),
 		selector: selector.NewInstanceSelector(opts),
@@ -49,7 +49,7 @@ func NewPlacementService(s placement.Storage, opts placement.Options) placement.
 	}
 }
 
-func (ps placementService) BuildInitialPlacement(
+func (ps *placementService) BuildInitialPlacement(
 	candidates []placement.Instance,
 	numShards int,
 	rf int,
@@ -88,16 +88,11 @@ func (ps placementService) BuildInitialPlacement(
 		return nil, err
 	}
 
-	if ps.opts.Dryrun() {
-		ps.logger.Info("this is a dryrun, the operation is not persisted")
-		return p, err
-	}
-
-	return p, ps.s.SetIfNotExist(p)
+	return p, ps.Storage.SetIfNotExist(p)
 }
 
-func (ps placementService) AddReplica() (placement.Placement, error) {
-	p, v, err := ps.s.Placement()
+func (ps *placementService) AddReplica() (placement.Placement, error) {
+	p, v, err := ps.Storage.Placement()
 	if err != nil {
 		return nil, err
 	}
@@ -110,18 +105,13 @@ func (ps placementService) AddReplica() (placement.Placement, error) {
 		return nil, err
 	}
 
-	if ps.opts.Dryrun() {
-		ps.logger.Info("this is a dryrun, the operation is not persisted")
-		return p, err
-	}
-
-	return p, ps.s.CheckAndSet(p, v)
+	return p, ps.Storage.CheckAndSet(p, v)
 }
 
-func (ps placementService) AddInstances(
+func (ps *placementService) AddInstances(
 	candidates []placement.Instance,
 ) (placement.Placement, []placement.Instance, error) {
-	p, v, err := ps.s.Placement()
+	p, v, err := ps.Storage.Placement()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -147,16 +137,11 @@ func (ps placementService) AddInstances(
 		addingInstances[i] = addingInstance
 	}
 
-	if ps.opts.Dryrun() {
-		ps.logger.Info("this is a dryrun, the operation is not persisted")
-		return p, addingInstances, err
-	}
-
-	return p, addingInstances, ps.s.CheckAndSet(p, v)
+	return p, addingInstances, ps.Storage.CheckAndSet(p, v)
 }
 
-func (ps placementService) RemoveInstances(instanceIDs []string) (placement.Placement, error) {
-	p, v, err := ps.s.Placement()
+func (ps *placementService) RemoveInstances(instanceIDs []string) (placement.Placement, error) {
+	p, v, err := ps.Storage.Placement()
 	if err != nil {
 		return nil, err
 	}
@@ -169,19 +154,14 @@ func (ps placementService) RemoveInstances(instanceIDs []string) (placement.Plac
 		return nil, err
 	}
 
-	if ps.opts.Dryrun() {
-		ps.logger.Info("this is a dryrun, the operation is not persisted")
-		return p, err
-	}
-
-	return p, ps.s.CheckAndSet(p, v)
+	return p, ps.Storage.CheckAndSet(p, v)
 }
 
-func (ps placementService) ReplaceInstances(
+func (ps *placementService) ReplaceInstances(
 	leavingInstanceIDs []string,
 	candidates []placement.Instance,
 ) (placement.Placement, []placement.Instance, error) {
-	p, v, err := ps.s.Placement()
+	p, v, err := ps.Storage.Placement()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -208,16 +188,11 @@ func (ps placementService) ReplaceInstances(
 		addedInstances = append(addedInstances, addedInstance)
 	}
 
-	if ps.opts.Dryrun() {
-		ps.logger.Info("this is a dryrun, the operation is not persisted")
-		return p, addedInstances, err
-	}
-
-	return p, addedInstances, ps.s.CheckAndSet(p, v)
+	return p, addedInstances, ps.Storage.CheckAndSet(p, v)
 }
 
-func (ps placementService) MarkShardAvailable(instanceID string, shardID uint32) error {
-	p, v, err := ps.s.Placement()
+func (ps *placementService) MarkShardAvailable(instanceID string, shardID uint32) error {
+	p, v, err := ps.Storage.Placement()
 	if err != nil {
 		return err
 	}
@@ -231,11 +206,11 @@ func (ps placementService) MarkShardAvailable(instanceID string, shardID uint32)
 		return err
 	}
 
-	return ps.s.CheckAndSet(p, v)
+	return ps.Storage.CheckAndSet(p, v)
 }
 
-func (ps placementService) MarkInstanceAvailable(instanceID string) error {
-	p, v, err := ps.s.Placement()
+func (ps *placementService) MarkInstanceAvailable(instanceID string) error {
+	p, v, err := ps.Storage.Placement()
 	if err != nil {
 		return err
 	}
@@ -258,31 +233,5 @@ func (ps placementService) MarkInstanceAvailable(instanceID string) error {
 		return err
 	}
 
-	return ps.s.CheckAndSet(p, v)
-}
-
-func (ps placementService) Placement() (placement.Placement, int, error) {
-	return ps.s.Placement()
-}
-
-func (ps placementService) SetPlacement(p placement.Placement) error {
-	if err := placement.Validate(p); err != nil {
-		return err
-	}
-
-	if ps.opts.Dryrun() {
-		ps.logger.Info("this is a dryrun, the operation is not persisted")
-		return nil
-	}
-
-	return ps.s.Set(p)
-}
-
-func (ps placementService) Delete() error {
-	if ps.opts.Dryrun() {
-		ps.logger.Info("this is a dryrun, the placement is not deleted")
-		return nil
-	}
-
-	return ps.s.Delete()
+	return ps.Storage.CheckAndSet(p, v)
 }
