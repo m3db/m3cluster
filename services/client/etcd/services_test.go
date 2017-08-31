@@ -460,7 +460,7 @@ func TestWatchIncludeUnhealthy(t *testing.T) {
 		SetReplicaFactor(2).
 		SetIsSharded(true)
 
-	ps, err := sd.Service(sid, placement.NewOptions())
+	ps, err := sd.PlacementService(sid, placement.NewOptions())
 	require.NoError(t, err)
 	err = ps.SetPlacement(p)
 	require.NoError(t, err)
@@ -592,7 +592,7 @@ func TestWatchNotIncludeUnhealthy(t *testing.T) {
 		SetReplicaFactor(2).
 		SetIsSharded(true)
 
-	ps, err := sd.Service(sid, placement.NewOptions())
+	ps, err := sd.PlacementService(sid, placement.NewOptions())
 	require.NoError(t, err)
 	err = ps.SetPlacement(p)
 	require.NoError(t, err)
@@ -842,7 +842,7 @@ func TestWatch_GetAfterTimeout(t *testing.T) {
 		SetReplicaFactor(2).
 		SetIsSharded(true)
 
-	ps, err := sd.Service(sid, placement.NewOptions())
+	ps, err := sd.PlacementService(sid, placement.NewOptions())
 	require.NoError(t, err)
 	err = ps.SetPlacement(p)
 	require.NoError(t, err)
@@ -953,7 +953,7 @@ func TestCacheCollisions_Watchables(t *testing.T) {
 		_, err := sd.HeartbeatService(id)
 		assert.NoError(t, err)
 
-		ps, err := sd.Service(id, placement.NewOptions())
+		ps, err := sd.PlacementService(id, placement.NewOptions())
 		require.NoError(t, err)
 
 		p := placement.NewPlacement().SetInstances([]placement.Instance{

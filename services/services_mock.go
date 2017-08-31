@@ -219,26 +219,26 @@ func (_mr *_MockServicesRecorder) SetMetadata(arg0, arg1 interface{}) *gomock.Ca
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetMetadata", arg0, arg1)
 }
 
-func (_m *MockServices) Service(sid ServiceID, popts placement.Options) (placement.Service, error) {
-	ret := _m.ctrl.Call(_m, "Service", sid, popts)
+func (_m *MockServices) PlacementService(sid ServiceID, popts placement.Options) (placement.Service, error) {
+	ret := _m.ctrl.Call(_m, "PlacementService", sid, popts)
 	ret0, _ := ret[0].(placement.Service)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockServicesRecorder) Service(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Service", arg0, arg1)
+func (_mr *_MockServicesRecorder) PlacementService(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlacementService", arg0, arg1)
 }
 
-func (_m *MockServices) Storage(sid ServiceID, popts placement.Options) (placement.Storage, error) {
-	ret := _m.ctrl.Call(_m, "Storage", sid, popts)
+func (_m *MockServices) PlacementStorage(sid ServiceID, popts placement.Options) (placement.Storage, error) {
+	ret := _m.ctrl.Call(_m, "PlacementStorage", sid, popts)
 	ret0, _ := ret[0].(placement.Storage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockServicesRecorder) Storage(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Storage", arg0, arg1)
+func (_mr *_MockServicesRecorder) PlacementStorage(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlacementStorage", arg0, arg1)
 }
 
 func (_m *MockServices) HeartbeatService(service ServiceID) (HeartbeatService, error) {
@@ -619,14 +619,14 @@ func (_mr *_MockAdvertisementRecorder) SetHealth(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetHealth", arg0)
 }
 
-func (_m *MockAdvertisement) Instance() placement.Instance {
-	ret := _m.ctrl.Call(_m, "Instance")
+func (_m *MockAdvertisement) PlacementInstance() placement.Instance {
+	ret := _m.ctrl.Call(_m, "PlacementInstance")
 	ret0, _ := ret[0].(placement.Instance)
 	return ret0
 }
 
-func (_mr *_MockAdvertisementRecorder) Instance() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Instance")
+func (_mr *_MockAdvertisementRecorder) PlacementInstance() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlacementInstance")
 }
 
 func (_m *MockAdvertisement) SetPlacementInstance(p placement.Instance) Advertisement {

@@ -41,7 +41,7 @@ var (
 	errInstanceNotFound          = errors.New("instance not found")
 	errNilPlacementProto         = errors.New("nil placement proto")
 	errNilPlacementInstanceProto = errors.New("nil placement instance proto")
-	errNilMetadataProto          = errors.New("nil meta proto")
+	errNilMetadataProto          = errors.New("nil metadata proto")
 )
 
 // NewService creates a new Service
@@ -197,7 +197,7 @@ type advertisement struct {
 
 func (a *advertisement) ServiceID() ServiceID                   { return a.service }
 func (a *advertisement) Health() func() error                   { return a.health }
-func (a *advertisement) Instance() placement.Instance           { return a.instance }
+func (a *advertisement) PlacementInstance() placement.Instance  { return a.instance }
 func (a *advertisement) SetServiceID(s ServiceID) Advertisement { a.service = s; return a }
 func (a *advertisement) SetHealth(h func() error) Advertisement { a.health = h; return a }
 func (a *advertisement) SetPlacementInstance(p placement.Instance) Advertisement {

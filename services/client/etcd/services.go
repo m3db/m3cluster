@@ -120,12 +120,12 @@ func (c *client) SetMetadata(sid services.ServiceID, meta services.Metadata) err
 	return err
 }
 
-func (c *client) Service(sid services.ServiceID, opts placement.Options) (placement.Service, error) {
+func (c *client) PlacementService(sid services.ServiceID, opts placement.Options) (placement.Service, error) {
 	if err := validateServiceID(sid); err != nil {
 		return nil, err
 	}
 
-	ps, err := c.Storage(sid, opts)
+	ps, err := c.PlacementStorage(sid, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (c *client) Service(sid services.ServiceID, opts placement.Options) (placem
 	return service.NewPlacementService(ps, opts), nil
 }
 
-func (c *client) Storage(sid services.ServiceID, opts placement.Options) (placement.Storage, error) {
+func (c *client) PlacementStorage(sid services.ServiceID, opts placement.Options) (placement.Storage, error) {
 	if err := validateServiceID(sid); err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (c *client) Storage(sid services.ServiceID, opts placement.Options) (placem
 }
 
 func (c *client) Advertise(ad services.Advertisement) error {
-	pi := ad.Instance()
+	pi := ad.PlacementInstance()
 	if pi == nil {
 		return errAdPlacementMissing
 	}

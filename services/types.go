@@ -75,11 +75,11 @@ type Services interface {
 	// SetMetadata sets the metadata for a given service
 	SetMetadata(sid ServiceID, m Metadata) error
 
-	// Service returns a client of Placement Service
-	Service(sid ServiceID, popts placement.Options) (placement.Service, error)
+	// PlacementService returns a client of placement.Service
+	PlacementService(sid ServiceID, popts placement.Options) (placement.Service, error)
 
-	// Storage returns a client of Placement Storage.
-	Storage(sid ServiceID, popts placement.Options) (placement.Storage, error)
+	// PlacementStorage returns a client of placement.Storage.
+	PlacementStorage(sid ServiceID, popts placement.Options) (placement.Storage, error)
 
 	// HeartbeatService returns a heartbeat store for the given service.
 	HeartbeatService(service ServiceID) (HeartbeatService, error)
@@ -178,11 +178,11 @@ type Advertisement interface {
 	// sets the health function for the advertised instance.
 	SetHealth(health func() error) Advertisement
 
-	// Returns the placement instance associated with this advertisement, which
+	// PlacementInstance returns the placement instance associated with this advertisement, which
 	// contains the ID of the instance advertising and all other relevant fields.
-	Instance() placement.Instance
+	PlacementInstance() placement.Instance
 
-	// Sets the Instance that is advertising.
+	// SetPlacementInstance sets the Instance that is advertising.
 	SetPlacementInstance(p placement.Instance) Advertisement
 }
 
