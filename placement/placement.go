@@ -212,6 +212,9 @@ func (p *placement) Proto() (*placementpb.Placement, error) {
 	}, nil
 }
 
+// Placements represents a list of placements.
+type Placements []Placement
+
 // NewPlacementsFromProto creates a list of placements from proto.
 func NewPlacementsFromProto(p *placementpb.PlacementSnapshots) (Placements, error) {
 	if p == nil {

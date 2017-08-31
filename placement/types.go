@@ -23,12 +23,13 @@ package placement
 import (
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/generated/proto/placementpb"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/clock"
 	"github.com/m3db/m3x/instrument"
+
+	"github.com/golang/protobuf/proto"
 )
 
 // Instance represents an instance in a placement.
@@ -160,9 +161,6 @@ type Placement interface {
 	// Proto returns the proto representation for the Placement.
 	Proto() (*placementpb.Placement, error)
 }
-
-// Placements represents a list of placements.
-type Placements []Placement
 
 // DoneFn is called when caller is done using the resource.
 type DoneFn func()
