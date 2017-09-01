@@ -29,8 +29,14 @@ import (
 	"time"
 
 	"github.com/m3db/m3cluster/generated/proto/commonpb"
+	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/kv/mem"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+var (
+	testNow = time.Now()
 )
 
 func TestWatchAndUpdateBool(t *testing.T) {
@@ -48,8 +54,23 @@ func TestWatchAndUpdateBool(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, true, nil, nil)
+	err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
 	require.NoError(t, err)
+
+	// Valid update.
+	_, err = store.Set("foo", &commonpb.BoolProto{Value: false})
+	require.NoError(t, err)
+	for {
+		if !valueFn() {
+			break
+		}
+	}
+
+	// Malformed updates should not be applied.
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 20})
+	require.NoError(t, err)
+	time.Sleep(100 * time.Millisecond)
+	require.False(t, valueFn())
 
 	_, err = store.Set("foo", &commonpb.BoolProto{Value: true})
 	require.NoError(t, err)
@@ -59,46 +80,19 @@ func TestWatchAndUpdateBool(t *testing.T) {
 		}
 	}
 
-	_, err = store.Set("foo", &commonpb.BoolProto{Value: false})
-	require.NoError(t, err)
-	for {
-		if !valueFn() {
-			break
-		}
-	}
-
-	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 20})
-	require.NoError(t, err)
-	for {
-		if valueFn() {
-			break
-		}
-	}
-
-	_, err = store.Set("foo", &commonpb.BoolProto{Value: false})
-	require.NoError(t, err)
-	for {
-		if !valueFn() {
-			break
-		}
-	}
-
+	// Nil updates should not be applied.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
-	for {
-		if valueFn() {
-			break
-		}
-	}
-
-	w.Close()
+	time.Sleep(100 * time.Millisecond)
+	require.True(t, valueFn())
 
 	_, err = store.Set("foo", &commonpb.BoolProto{Value: false})
 	require.NoError(t, err)
-
-	// No longer receives update.
-	time.Sleep(100 * time.Millisecond)
-	require.True(t, valueFn())
+	for {
+		if !valueFn() {
+			break
+		}
+	}
 }
 
 func TestWatchAndUpdateFloat64(t *testing.T) {
@@ -116,16 +110,22 @@ func TestWatchAndUpdateFloat64(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateFloat64(store, "foo", &testConfig.v, &testConfig.RWMutex, 12.3, nil, nil)
+	err := WatchAndUpdateFloat64(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
 	require.NoError(t, err)
 
-	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 3.7})
 	require.NoError(t, err)
 	for {
-		if valueFn() == 12.3 {
+		if valueFn() == 3.7 {
 			break
 		}
 	}
+
+	// Malformed updates should not be applied.
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
+	require.NoError(t, err)
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, 3.7, valueFn())
 
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 1.2})
 	require.NoError(t, err)
@@ -135,22 +135,19 @@ func TestWatchAndUpdateFloat64(t *testing.T) {
 		}
 	}
 
+	// Nil updates should not be applied.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, 1.2, valueFn())
+
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 6.2})
+	require.NoError(t, err)
 	for {
-		if valueFn() == 12.3 {
+		if valueFn() == 6.2 {
 			break
 		}
 	}
-
-	w.Close()
-
-	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 1.2})
-	require.NoError(t, err)
-
-	// No longer receives update.
-	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, 12.3, valueFn())
 }
 
 func TestWatchAndUpdateInt64(t *testing.T) {
@@ -168,16 +165,8 @@ func TestWatchAndUpdateInt64(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateInt64(store, "foo", &testConfig.v, &testConfig.RWMutex, 12, nil, nil)
+	err := WatchAndUpdateInt64(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
 	require.NoError(t, err)
-
-	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 100})
-	require.NoError(t, err)
-	for {
-		if valueFn() == 12 {
-			break
-		}
-	}
 
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
 	require.NoError(t, err)
@@ -187,22 +176,33 @@ func TestWatchAndUpdateInt64(t *testing.T) {
 		}
 	}
 
-	_, err = store.Delete("foo")
+	// Malformed updates should not be applied.
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 100})
+	require.NoError(t, err)
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, int64(1), valueFn())
+
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 7})
 	require.NoError(t, err)
 	for {
-		if valueFn() == 12 {
+		if valueFn() == 7 {
 			break
 		}
 	}
 
-	w.Close()
-
-	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
+	// Nil updates should not be applied.
+	_, err = store.Delete("foo")
 	require.NoError(t, err)
-
-	// No longer receives update.
 	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, int64(12), valueFn())
+	require.Equal(t, int64(7), valueFn())
+
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 21})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 21 {
+			break
+		}
+	}
 }
 
 func TestWatchAndUpdateString(t *testing.T) {
@@ -220,41 +220,99 @@ func TestWatchAndUpdateString(t *testing.T) {
 
 	store := mem.NewStore()
 
-	w, err := WatchAndUpdateString(store, "foo", &testConfig.v, &testConfig.RWMutex, "bar", nil, nil)
+	err := WatchAndUpdateString(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
 	require.NoError(t, err)
 
+	_, err = store.Set("foo", &commonpb.StringProto{Value: "fizz"})
+	require.NoError(t, err)
+	for {
+		if valueFn() == "fizz" {
+			break
+		}
+	}
+
+	// Malformed updates should not be applied.
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 100})
 	require.NoError(t, err)
-	for {
-		if valueFn() == "bar" {
-			break
-		}
-	}
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, "fizz", valueFn())
 
-	_, err = store.Set("foo", &commonpb.StringProto{Value: "baz"})
+	_, err = store.Set("foo", &commonpb.StringProto{Value: "buzz"})
 	require.NoError(t, err)
 	for {
-		if valueFn() == "baz" {
+		if valueFn() == "buzz" {
 			break
 		}
 	}
 
+	// Nil updates should not be applied.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
-	for {
-		if valueFn() == "bar" {
-			break
-		}
-	}
-
-	w.Close()
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, "buzz", valueFn())
 
 	_, err = store.Set("foo", &commonpb.StringProto{Value: "lol"})
 	require.NoError(t, err)
+	for {
+		if valueFn() == "lol" {
+			break
+		}
+	}
+}
 
-	// No longer receives update.
+func TestWatchAndUpdateStringArray(t *testing.T) {
+	testConfig := struct {
+		sync.RWMutex
+		v []string
+	}{}
+
+	valueFn := func() []string {
+		testConfig.RLock()
+		defer testConfig.RUnlock()
+
+		return testConfig.v
+	}
+
+	store := mem.NewStore()
+
+	err := WatchAndUpdateStringArray(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
+	require.NoError(t, err)
+
+	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"fizz", "buzz"}})
+	require.NoError(t, err)
+	for {
+		if stringSliceEquals(valueFn(), []string{"fizz", "buzz"}) {
+			break
+		}
+	}
+
+	// Malformed updates should not be applied.
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 12.3})
+	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, "bar", valueFn())
+	require.Equal(t, []string{"fizz", "buzz"}, valueFn())
+
+	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"foo", "bar"}})
+	require.NoError(t, err)
+	for {
+		if stringSliceEquals(valueFn(), []string{"foo", "bar"}) {
+			break
+		}
+	}
+
+	// Nil updates should not be applied.
+	_, err = store.Delete("foo")
+	require.NoError(t, err)
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, []string{"foo", "bar"}, valueFn())
+
+	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"jim", "jam"}})
+	require.NoError(t, err)
+	for {
+		if stringSliceEquals(valueFn(), []string{"jim", "jam"}) {
+			break
+		}
+	}
 }
 
 func TestWatchAndUpdateTime(t *testing.T) {
@@ -271,46 +329,51 @@ func TestWatchAndUpdateTime(t *testing.T) {
 	}
 
 	var (
-		store       = mem.NewStore()
-		now         = time.Now()
-		defaultTime = now.Add(time.Hour)
+		store = mem.NewStore()
+		now   = time.Now()
 	)
 
-	w, err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, defaultTime, nil, nil)
+	err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
 	require.NoError(t, err)
 
+	newTime := now.Add(time.Minute)
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: newTime.Unix()})
+	require.NoError(t, err)
+	for {
+		if valueFn().Unix() == newTime.Unix() {
+			break
+		}
+	}
+
+	// Malformed updates should not be applied.
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 100})
 	require.NoError(t, err)
-	for {
-		if valueFn() == defaultTime {
-			break
-		}
-	}
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, newTime.Unix(), valueFn().Unix())
 
-	_, err = store.Set("foo", &commonpb.Int64Proto{Value: now.Unix()})
+	newTime = newTime.Add(time.Minute)
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: newTime.Unix()})
 	require.NoError(t, err)
 	for {
-		if valueFn().Unix() == now.Unix() {
+		if valueFn().Unix() == newTime.Unix() {
 			break
 		}
 	}
 
+	// Nil updates should not be applied.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, newTime.Unix(), valueFn().Unix())
+
+	newTime = newTime.Add(time.Minute)
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: newTime.Unix()})
+	require.NoError(t, err)
 	for {
-		if valueFn() == defaultTime {
+		if valueFn().Unix() == newTime.Unix() {
 			break
 		}
 	}
-
-	w.Close()
-
-	_, err = store.Set("foo", &commonpb.Int64Proto{Value: now.Unix()})
-	require.NoError(t, err)
-
-	// No longer receives update.
-	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, defaultTime, valueFn())
 }
 
 func TestWatchAndUpdateWithValidationBool(t *testing.T) {
@@ -326,22 +389,12 @@ func TestWatchAndUpdateWithValidationBool(t *testing.T) {
 		return testConfig.v
 	}
 
-	validateFn := func(val interface{}) error {
-		v, ok := val.(bool)
-		if !ok {
-			return fmt.Errorf("invalid type for val, expected boll, received %T", val)
-		}
+	var (
+		store = mem.NewStore()
+		opts  = NewOptions().SetValidateFn(testValidateBoolFn)
+	)
 
-		if !v {
-			return errors.New("value of update is false, must be true")
-		}
-
-		return nil
-	}
-
-	store := mem.NewStore()
-
-	w, err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, true, validateFn, nil)
+	err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.BoolProto{Value: true})
@@ -377,8 +430,6 @@ func TestWatchAndUpdateWithValidationBool(t *testing.T) {
 		}
 	}
 
-	w.Close()
-
 	require.NoError(t, err)
 }
 
@@ -395,24 +446,12 @@ func TestWatchAndUpdateWithValidationFloat64(t *testing.T) {
 		return testConfig.v
 	}
 
-	validateFn := func(val interface{}) error {
-		v, ok := val.(float64)
-		if !ok {
-			return fmt.Errorf("invalid type for val, expected float64, received %T", val)
-		}
-
-		if v > 20 {
-			return fmt.Errorf("val must be < 20, is %v", v)
-		}
-
-		return nil
-	}
-
-	store := mem.NewStore()
-
-	w, err := WatchAndUpdateFloat64(
-		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, validateFn, nil,
+	var (
+		store = mem.NewStore()
+		opts  = NewOptions().SetValidateFn(testValidateFloat64Fn)
 	)
+
+	err := WatchAndUpdateFloat64(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 17})
@@ -423,39 +462,19 @@ func TestWatchAndUpdateWithValidationFloat64(t *testing.T) {
 		}
 	}
 
-	// Invalid update.
+	// Invalid updates should not be applied.
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 22})
 	require.NoError(t, err)
-	for {
-		if valueFn() == 17 {
-			break
-		}
-	}
-
-	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
-	require.NoError(t, err)
-	for {
-		if valueFn() == 17 {
-			break
-		}
-	}
-
-	_, err = store.Delete("foo")
-	require.NoError(t, err)
-	for {
-		if valueFn() == 15 {
-			break
-		}
-	}
-
-	w.Close()
-
-	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 13})
-	require.NoError(t, err)
-
-	// No longer receives update.
 	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, float64(15), valueFn())
+	require.Equal(t, float64(17), valueFn())
+
+	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 1})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 1 {
+			break
+		}
+	}
 }
 
 func TestWatchAndUpdateWithValidationInt64(t *testing.T) {
@@ -471,24 +490,12 @@ func TestWatchAndUpdateWithValidationInt64(t *testing.T) {
 		return testConfig.v
 	}
 
-	validateFn := func(val interface{}) error {
-		v, ok := val.(int64)
-		if !ok {
-			return fmt.Errorf("invalid type for val, expected int64, received %T", val)
-		}
-
-		if v > 20 {
-			return fmt.Errorf("val must be < 20, is %v", v)
-		}
-
-		return nil
-	}
-
-	store := mem.NewStore()
-
-	w, err := WatchAndUpdateInt64(
-		store, "foo", &testConfig.v, &testConfig.RWMutex, 15, validateFn, nil,
+	var (
+		store = mem.NewStore()
+		opts  = NewOptions().SetValidateFn(testValidateInt64Fn)
 	)
+
+	err := WatchAndUpdateInt64(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 17})
@@ -499,39 +506,19 @@ func TestWatchAndUpdateWithValidationInt64(t *testing.T) {
 		}
 	}
 
-	// Invalid update.
+	// Invalid updates should not be applied.
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 22})
 	require.NoError(t, err)
-	for {
-		if valueFn() == 17 {
-			break
-		}
-	}
-
-	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 1})
-	require.NoError(t, err)
-	for {
-		if valueFn() == 17 {
-			break
-		}
-	}
-
-	_, err = store.Delete("foo")
-	require.NoError(t, err)
-	for {
-		if valueFn() == 15 {
-			break
-		}
-	}
-
-	w.Close()
-
-	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 13})
-	require.NoError(t, err)
-
-	// No longer receives update.
 	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, int64(15), valueFn())
+	require.Equal(t, int64(17), valueFn())
+
+	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
+	require.NoError(t, err)
+	for {
+		if valueFn() == 1 {
+			break
+		}
+	}
 }
 
 func TestWatchAndUpdateWithValidationString(t *testing.T) {
@@ -547,67 +534,79 @@ func TestWatchAndUpdateWithValidationString(t *testing.T) {
 		return testConfig.v
 	}
 
-	validateFn := func(val interface{}) error {
-		v, ok := val.(string)
-		if !ok {
-			return fmt.Errorf("invalid type for val, expected string, received %T", val)
-		}
+	var (
+		store = mem.NewStore()
+		opts  = NewOptions().SetValidateFn(testValidateStringFn)
+	)
 
-		if !strings.HasPrefix(v, "b") {
-			return fmt.Errorf("val must start with 'b', is %v", v)
-		}
+	err := WatchAndUpdateString(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
+	require.NoError(t, err)
 
-		return nil
+	_, err = store.Set("foo", &commonpb.StringProto{Value: "bar"})
+	require.NoError(t, err)
+	for {
+		if valueFn() == "bar" {
+			break
+		}
 	}
 
-	store := mem.NewStore()
-
-	w, err := WatchAndUpdateString(
-		store, "foo", &testConfig.v, &testConfig.RWMutex, "bar", validateFn, nil,
-	)
+	// Invalid updates should not be applied.
+	_, err = store.Set("foo", &commonpb.StringProto{Value: "cat"})
 	require.NoError(t, err)
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, "bar", valueFn())
 
 	_, err = store.Set("foo", &commonpb.StringProto{Value: "baz"})
 	require.NoError(t, err)
 	for {
-		if valueFn() == "baz" {
-			break
-		}
-	}
-
-	// Invalid update.
-	_, err = store.Set("foo", &commonpb.StringProto{Value: "cat"})
-	require.NoError(t, err)
-	for {
-		if valueFn() == "baz" {
-			break
-		}
-	}
-
-	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 100})
-	require.NoError(t, err)
-	for {
 		if valueFn() == "bar" {
 			break
 		}
 	}
+}
 
-	_, err = store.Delete("foo")
+func TestWatchAndUpdateWithValidationStringArray(t *testing.T) {
+	testConfig := struct {
+		sync.RWMutex
+		v []string
+	}{}
+
+	valueFn := func() []string {
+		testConfig.RLock()
+		defer testConfig.RUnlock()
+
+		return testConfig.v
+	}
+
+	var (
+		store = mem.NewStore()
+		opts  = NewOptions().SetValidateFn(testValidateStringArrayFn)
+	)
+
+	err := WatchAndUpdateStringArray(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
+	require.NoError(t, err)
+
+	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"fizz", "buzz"}})
 	require.NoError(t, err)
 	for {
-		if valueFn() == "bar" {
+		if stringSliceEquals([]string{"fizz", "buzz"}, valueFn()) {
 			break
 		}
 	}
 
-	w.Close()
-
-	_, err = store.Set("foo", &commonpb.StringProto{Value: "lol"})
+	// Invalid updates should not be applied.
+	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"cat"}})
 	require.NoError(t, err)
-
-	// No longer receives update.
 	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, "bar", valueFn())
+	require.Equal(t, []string{"fizz", "buzz"}, valueFn())
+
+	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"jim", "jam"}})
+	require.NoError(t, err)
+	for {
+		if stringSliceEquals([]string{"jim", "jam"}, valueFn()) {
+			break
+		}
+	}
 }
 
 func TestWatchAndUpdateWithValidationTime(t *testing.T) {
@@ -624,34 +623,14 @@ func TestWatchAndUpdateWithValidationTime(t *testing.T) {
 	}
 
 	var (
-		store       = mem.NewStore()
-		defaultTime = time.Now()
+		store = mem.NewStore()
+		opts  = NewOptions().SetValidateFn(testValidateTimeFn)
 	)
 
-	validateFn := func(val interface{}) error {
-		v, ok := val.(time.Time)
-		if !ok {
-			return fmt.Errorf("invalid type for val, expected time.Time, received %T", val)
-		}
-
-		bound := defaultTime.Add(time.Minute)
-		if v.After(bound) {
-			return fmt.Errorf("val must be before %v, is %v", bound, v)
-		}
-
-		return nil
-	}
-
-	w, err := WatchAndUpdateTime(
-		store, "foo", &testConfig.v, &testConfig.RWMutex, defaultTime, validateFn, nil,
-	)
+	err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
 	require.NoError(t, err)
 
-	newTime := defaultTime.Add(30 * time.Second)
-
-	fmt.Println(defaultTime)
-	fmt.Println(newTime)
-
+	newTime := testNow.Add(30 * time.Second)
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: newTime.Unix()})
 	require.NoError(t, err)
 	for {
@@ -660,70 +639,369 @@ func TestWatchAndUpdateWithValidationTime(t *testing.T) {
 		}
 	}
 
-	// Invalid update.
-	invalidTime := defaultTime.Add(2 * time.Minute)
+	// Invalid updates should not be applied.
+	invalidTime := testNow.Add(2 * time.Minute)
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: invalidTime.Unix()})
 	require.NoError(t, err)
-	for {
-		if valueFn().Unix() == newTime.Unix() {
-			break
-		}
-	}
+	time.Sleep(100 * time.Millisecond)
+	require.Equal(t, newTime.Unix(), valueFn().Unix())
 
-	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 1})
-	require.NoError(t, err)
-	for {
-		if valueFn().Unix() == newTime.Unix() {
-			break
-		}
-	}
-
-	_, err = store.Delete("foo")
-	require.NoError(t, err)
-	for {
-		if valueFn().Unix() == defaultTime.Unix() {
-			break
-		}
-	}
-
-	w.Close()
-
+	newTime = testNow.Add(45 * time.Second)
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: newTime.Unix()})
 	require.NoError(t, err)
-
-	// No longer receives update.
-	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, defaultTime, valueFn())
+	for {
+		if valueFn().Unix() == newTime.Unix() {
+			break
+		}
+	}
 }
 
 func TestBoolFromValue(t *testing.T) {
-	require.True(t, BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: true}), "key", false, nil))
-	require.False(t, BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: false}), "key", true, nil))
+	tests := []struct {
+		input       kv.Value
+		expectedErr bool
+		expectedVal bool
+	}{
+		{
+			input:       mem.NewValue(0, &commonpb.BoolProto{Value: true}),
+			expectedErr: false,
+			expectedVal: true,
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.BoolProto{Value: false}),
+			expectedErr: false,
+			expectedVal: false,
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 123}),
+			expectedErr: true,
+		},
+		{
+			input:       nil,
+			expectedErr: true,
+		},
+	}
 
-	require.True(t, BoolFromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", true, nil))
-	require.False(t, BoolFromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", false, nil))
+	for _, test := range tests {
+		v, err := BoolFromValue(test.input, "key", nil)
+		if test.expectedErr {
+			require.Error(t, err)
+			continue
+		}
+		assert.NoError(t, err)
+		assert.Equal(t, test.expectedVal, v)
+	}
 
-	require.True(t, BoolFromValue(nil, "key", true, nil))
-	require.False(t, BoolFromValue(nil, "key", false, nil))
+	// Invalid updates should return an error.
+	opts := NewOptions().SetValidateFn(testValidateBoolFn)
+	_, err := BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: false}), "key", opts)
+	assert.Error(t, err)
 }
 
 func TestFloat64FromValue(t *testing.T) {
-	require.Equal(t, 20.5, Float64FromValue(mem.NewValue(0, &commonpb.Int64Proto{Value: 200}), "key", 20.5, nil))
-	require.Equal(t, 123.3, Float64FromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123.3}), "key", 20, nil))
-	require.Equal(t, 20.1, Float64FromValue(nil, "key", 20.1, nil))
+	tests := []struct {
+		input       kv.Value
+		expectedErr bool
+		expectedVal float64
+	}{
+		{
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 0}),
+			expectedErr: false,
+			expectedVal: 0,
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 13.2}),
+			expectedErr: false,
+			expectedVal: 13.2,
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.Int64Proto{Value: 123}),
+			expectedErr: true,
+		},
+		{
+			input:       nil,
+			expectedErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		v, err := Float64FromValue(test.input, "key", nil)
+		if test.expectedErr {
+			assert.Error(t, err)
+			continue
+		}
+		assert.NoError(t, err)
+		assert.Equal(t, test.expectedVal, v)
+	}
+
+	// Invalid updates should return an error.
+	opts := NewOptions().SetValidateFn(testValidateBoolFn)
+	_, err := Float64FromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 1.24}), "key", opts)
+	assert.Error(t, err)
 }
 
 func TestInt64FromValue(t *testing.T) {
-	require.Equal(t, int64(200), Int64FromValue(mem.NewValue(0, &commonpb.Int64Proto{Value: 200}), "key", 20, nil))
-	require.Equal(t, int64(20), Int64FromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", 20, nil))
-	require.Equal(t, int64(20), Int64FromValue(nil, "key", 20, nil))
+	tests := []struct {
+		input       kv.Value
+		expectedErr bool
+		expectedVal int64
+	}{
+		{
+			input:       mem.NewValue(0, &commonpb.Int64Proto{Value: 0}),
+			expectedErr: false,
+			expectedVal: 0,
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.Int64Proto{Value: 13}),
+			expectedErr: false,
+			expectedVal: 13,
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
+			expectedErr: true,
+		},
+		{
+			input:       nil,
+			expectedErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		v, err := Int64FromValue(test.input, "key", nil)
+		if test.expectedErr {
+			assert.Error(t, err)
+			continue
+		}
+		assert.NoError(t, err)
+		assert.Equal(t, test.expectedVal, v)
+	}
+
+	// Invalid updates should return an error.
+	opts := NewOptions().SetValidateFn(testValidateInt64Fn)
+	_, err := Int64FromValue(mem.NewValue(0, &commonpb.Int64Proto{Value: 22}), "key", opts)
+	assert.Error(t, err)
+}
+
+func TestTimeFromValue(t *testing.T) {
+	var (
+		zero = time.Time{}
+		now  = time.Now()
+	)
+
+	tests := []struct {
+		input       kv.Value
+		expectedErr bool
+		expectedVal time.Time
+	}{
+		{
+			input:       mem.NewValue(0, &commonpb.Int64Proto{Value: zero.Unix()}),
+			expectedErr: false,
+			expectedVal: zero,
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.Int64Proto{Value: now.Unix()}),
+			expectedErr: false,
+			expectedVal: now,
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
+			expectedErr: true,
+		},
+		{
+			input:       nil,
+			expectedErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		v, err := TimeFromValue(test.input, "key", nil)
+		if test.expectedErr {
+			assert.Error(t, err)
+			continue
+		}
+		assert.NoError(t, err)
+		assert.Equal(t, test.expectedVal.Unix(), v.Unix())
+	}
+
+	// Invalid updates should return an error.
+	opts := NewOptions().SetValidateFn(testValidateTimeFn)
+	_, err := BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: false}), "key", opts)
+	assert.Error(t, err)
+}
+
+func TestStringFromValue(t *testing.T) {
+	tests := []struct {
+		input       kv.Value
+		expectedErr bool
+		expectedVal string
+	}{
+		{
+			input:       mem.NewValue(0, &commonpb.StringProto{Value: ""}),
+			expectedErr: false,
+			expectedVal: "",
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.StringProto{Value: "foo"}),
+			expectedErr: false,
+			expectedVal: "foo",
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
+			expectedErr: true,
+		},
+		{
+			input:       nil,
+			expectedErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		v, err := StringFromValue(test.input, "key", nil)
+		if test.expectedErr {
+			assert.Error(t, err)
+			continue
+		}
+		assert.NoError(t, err)
+		assert.Equal(t, test.expectedVal, v)
+	}
+
+	// Invalid updates should return an error.
+	opts := NewOptions().SetValidateFn(testValidateStringFn)
+	_, err := StringFromValue(mem.NewValue(0, &commonpb.StringProto{Value: "abc"}), "key", opts)
+	assert.Error(t, err)
 }
 
 func TestStringArrayFromValue(t *testing.T) {
-	defaultValue := []string{"d1", "d2"}
-	v1 := []string{"s1", "s2"}
+	tests := []struct {
+		input       kv.Value
+		expectedErr bool
+		expectedVal []string
+	}{
+		{
+			input:       mem.NewValue(0, &commonpb.StringArrayProto{Values: nil}),
+			expectedErr: false,
+			expectedVal: nil,
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.StringArrayProto{Values: []string{"foo", "bar"}}),
+			expectedErr: false,
+			expectedVal: []string{"foo", "bar"},
+		},
+		{
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
+			expectedErr: true,
+		},
+		{
+			input:       nil,
+			expectedErr: true,
+		},
+	}
 
-	require.Equal(t, v1, StringArrayFromValue(mem.NewValue(0, &commonpb.StringArrayProto{Values: v1}), "key", defaultValue, nil))
-	require.Equal(t, defaultValue, StringArrayFromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 123}), "key", defaultValue, nil))
-	require.Equal(t, defaultValue, StringArrayFromValue(nil, "key", defaultValue, nil))
+	for _, test := range tests {
+		v, err := StringArrayFromValue(test.input, "key", nil)
+		if test.expectedErr {
+			assert.Error(t, err)
+			continue
+		}
+		assert.NoError(t, err)
+		assert.Equal(t, test.expectedVal, v)
+	}
+
+	// Invalid updates should return an error.
+	opts := NewOptions().SetValidateFn(testValidateStringArrayFn)
+	_, err := StringArrayFromValue(mem.NewValue(0, &commonpb.StringArrayProto{Values: []string{"abc"}}), "key", opts)
+	assert.Error(t, err)
+}
+
+func testValidateBoolFn(val interface{}) error {
+	v, ok := val.(bool)
+	if !ok {
+		return fmt.Errorf("invalid type for val, expected bool, received %T", val)
+	}
+
+	if !v {
+		return errors.New("value of update is false, must be true")
+	}
+
+	return nil
+}
+
+func testValidateFloat64Fn(val interface{}) error {
+	v, ok := val.(float64)
+	if !ok {
+		return fmt.Errorf("invalid type for val, expected float64, received %T", val)
+	}
+
+	if v > 20 {
+		return fmt.Errorf("val must be < 20, is %v", v)
+	}
+
+	return nil
+}
+
+func testValidateInt64Fn(val interface{}) error {
+	v, ok := val.(int64)
+	if !ok {
+		return fmt.Errorf("invalid type for val, expected int64, received %T", val)
+	}
+
+	if v > 20 {
+		return fmt.Errorf("val must be < 20, is %v", v)
+	}
+
+	return nil
+}
+
+func testValidateStringFn(val interface{}) error {
+	v, ok := val.(string)
+	if !ok {
+		return fmt.Errorf("invalid type for val, expected string, received %T", val)
+	}
+
+	if !strings.HasPrefix(v, "b") {
+		return fmt.Errorf("val must start with 'b', is %v", v)
+	}
+
+	return nil
+}
+
+func testValidateStringArrayFn(val interface{}) error {
+	v, ok := val.([]string)
+	if !ok {
+		return fmt.Errorf("invalid type for val, expected string, received %T", val)
+	}
+
+	if len(v) != 2 {
+		return fmt.Errorf("val must contain 2 entries, is %v", v)
+	}
+
+	return nil
+}
+
+func testValidateTimeFn(val interface{}) error {
+	v, ok := val.(time.Time)
+	if !ok {
+		return fmt.Errorf("invalid type for val, expected time.Time, received %T", val)
+	}
+
+	bound := testNow.Add(time.Minute)
+	if v.After(bound) {
+		return fmt.Errorf("val must be before %v, is %v", bound, v)
+	}
+
+	return nil
+}
+
+func stringSliceEquals(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
 }
