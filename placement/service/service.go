@@ -32,6 +32,7 @@ import (
 
 type placementService struct {
 	placement.Storage
+
 	opts     placement.Options
 	algo     placement.Algorithm
 	selector placement.InstanceSelector
@@ -88,11 +89,11 @@ func (ps *placementService) BuildInitialPlacement(
 		return nil, err
 	}
 
-	return p, ps.Storage.SetIfNotExist(p)
+	return p, ps.SetIfNotExist(p)
 }
 
 func (ps *placementService) AddReplica() (placement.Placement, error) {
-	p, v, err := ps.Storage.Placement()
+	p, v, err := ps.Placement()
 	if err != nil {
 		return nil, err
 	}
@@ -105,13 +106,13 @@ func (ps *placementService) AddReplica() (placement.Placement, error) {
 		return nil, err
 	}
 
-	return p, ps.Storage.CheckAndSet(p, v)
+	return p, ps.CheckAndSet(p, v)
 }
 
 func (ps *placementService) AddInstances(
 	candidates []placement.Instance,
 ) (placement.Placement, []placement.Instance, error) {
-	p, v, err := ps.Storage.Placement()
+	p, v, err := ps.Placement()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -137,11 +138,11 @@ func (ps *placementService) AddInstances(
 		addingInstances[i] = addingInstance
 	}
 
-	return p, addingInstances, ps.Storage.CheckAndSet(p, v)
+	return p, addingInstances, ps.CheckAndSet(p, v)
 }
 
 func (ps *placementService) RemoveInstances(instanceIDs []string) (placement.Placement, error) {
-	p, v, err := ps.Storage.Placement()
+	p, v, err := ps.Placement()
 	if err != nil {
 		return nil, err
 	}
@@ -154,14 +155,14 @@ func (ps *placementService) RemoveInstances(instanceIDs []string) (placement.Pla
 		return nil, err
 	}
 
-	return p, ps.Storage.CheckAndSet(p, v)
+	return p, ps.CheckAndSet(p, v)
 }
 
 func (ps *placementService) ReplaceInstances(
 	leavingInstanceIDs []string,
 	candidates []placement.Instance,
 ) (placement.Placement, []placement.Instance, error) {
-	p, v, err := ps.Storage.Placement()
+	p, v, err := ps.Placement()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -188,11 +189,11 @@ func (ps *placementService) ReplaceInstances(
 		addedInstances = append(addedInstances, addedInstance)
 	}
 
-	return p, addedInstances, ps.Storage.CheckAndSet(p, v)
+	return p, addedInstances, ps.CheckAndSet(p, v)
 }
 
 func (ps *placementService) MarkShardAvailable(instanceID string, shardID uint32) error {
-	p, v, err := ps.Storage.Placement()
+	p, v, err := ps.Placement()
 	if err != nil {
 		return err
 	}
@@ -206,11 +207,11 @@ func (ps *placementService) MarkShardAvailable(instanceID string, shardID uint32
 		return err
 	}
 
-	return ps.Storage.CheckAndSet(p, v)
+	return ps.CheckAndSet(p, v)
 }
 
 func (ps *placementService) MarkInstanceAvailable(instanceID string) error {
-	p, v, err := ps.Storage.Placement()
+	p, v, err := ps.Placement()
 	if err != nil {
 		return err
 	}
@@ -233,5 +234,5 @@ func (ps *placementService) MarkInstanceAvailable(instanceID string) error {
 		return err
 	}
 
-	return ps.Storage.CheckAndSet(p, v)
+	return ps.CheckAndSet(p, v)
 }
