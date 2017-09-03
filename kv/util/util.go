@@ -31,23 +31,18 @@ import (
 	"github.com/m3db/m3x/log"
 )
 
-const (
-	// watchRetryInterval is the time interval that the WatchAndUpdate functions
-	// wait when between attempts to reestablish watches.
-	watchRetryInterval = 10 * time.Second
-)
-
 var (
-	errNilStore  = errors.New("kv store is nil")
-	errNilUpdate = errors.New("update is nil")
+	errNilStore = errors.New("kv store is nil")
 )
 
 // WatchAndUpdateBool sets up a watch with validation for a bool property. Any
-// empty, malformed, or invalid updates are not applied.
+// malformed or invalid updates are not applied. The default value is applied
+// when the key is does not exist in KV.
 func WatchAndUpdateBool(
 	store kv.Store,
 	key string, property *bool,
 	lock sync.Locker,
+	defaultValue bool,
 	opts Options,
 ) error {
 	if opts == nil {
@@ -55,16 +50,20 @@ func WatchAndUpdateBool(
 	}
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(bool) }, lock)
 
-	return watchAndUpdate(store, key, getBool, updateFn, opts.ValidateFn(), opts.Logger())
+	return watchAndUpdate(
+		store, key, getBool, updateFn, opts.ValidateFn(), defaultValue, opts.Logger(),
+	)
 }
 
-// WatchAndUpdateFloat64 sets up a watch with validation for a float64 property. Any
-// empty, malformed, or invalid updates are not applied.
+// WatchAndUpdateFloat64 sets up a watch with validation for a float64 property.
+// Any malformed or invalid updates are not applied. The default value is applied
+// when the key is does not exist in KV.
 func WatchAndUpdateFloat64(
 	store kv.Store,
 	key string,
 	property *float64,
 	lock sync.Locker,
+	defaultValue float64,
 	opts Options,
 ) error {
 	if opts == nil {
@@ -72,16 +71,20 @@ func WatchAndUpdateFloat64(
 	}
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(float64) }, lock)
 
-	return watchAndUpdate(store, key, getFloat64, updateFn, opts.ValidateFn(), opts.Logger())
+	return watchAndUpdate(
+		store, key, getFloat64, updateFn, opts.ValidateFn(), defaultValue, opts.Logger(),
+	)
 }
 
 // WatchAndUpdateInt64 sets up a watch with validation for an int64 property. Any
-// empty, malformed, or invalid updates are not applied.
+// malformed or invalid updates are not applied. The default value is applied when
+// the key is does not exist in KV.
 func WatchAndUpdateInt64(
 	store kv.Store,
 	key string,
 	property *int64,
 	lock sync.Locker,
+	defaultValue int64,
 	opts Options,
 ) error {
 	if opts == nil {
@@ -89,16 +92,20 @@ func WatchAndUpdateInt64(
 	}
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(int64) }, lock)
 
-	return watchAndUpdate(store, key, getInt64, updateFn, opts.ValidateFn(), opts.Logger())
+	return watchAndUpdate(
+		store, key, getInt64, updateFn, opts.ValidateFn(), defaultValue, opts.Logger(),
+	)
 }
 
 // WatchAndUpdateString sets up a watch with validation for a string property. Any
-// empty, malformed, or invalid updates are not applied.
+// malformed or invalid updates are not applied. The default value is applied when
+// the key is does not exist in KV.
 func WatchAndUpdateString(
 	store kv.Store,
 	key string,
 	property *string,
 	lock sync.Locker,
+	defaultValue string,
 	opts Options,
 ) error {
 	if opts == nil {
@@ -106,16 +113,20 @@ func WatchAndUpdateString(
 	}
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(string) }, lock)
 
-	return watchAndUpdate(store, key, getString, updateFn, opts.ValidateFn(), opts.Logger())
+	return watchAndUpdate(
+		store, key, getString, updateFn, opts.ValidateFn(), defaultValue, opts.Logger(),
+	)
 }
 
 // WatchAndUpdateStringArray sets up a watch with validation for a string property.
-// Any empty, malformed, or invalid updates are not applied.
+// Any malformed, or invalid updates are not applied. The default value is applied
+// when the key is does not exist in KV.
 func WatchAndUpdateStringArray(
 	store kv.Store,
 	key string,
 	property *[]string,
 	lock sync.Locker,
+	defaultValue []string,
 	opts Options,
 ) error {
 	if opts == nil {
@@ -123,16 +134,20 @@ func WatchAndUpdateStringArray(
 	}
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.([]string) }, lock)
 
-	return watchAndUpdate(store, key, getStringArray, updateFn, opts.ValidateFn(), opts.Logger())
+	return watchAndUpdate(
+		store, key, getStringArray, updateFn, opts.ValidateFn(), defaultValue, opts.Logger(),
+	)
 }
 
 // WatchAndUpdateTime sets up a watch with validation for a time property. Any
-// empty, malformed, or invalid updates are not applied.
+// malformed, or invalid updates are not applied. The default value is applied
+// when the key is does not exist in KV.
 func WatchAndUpdateTime(
 	store kv.Store,
 	key string,
 	property *time.Time,
 	lock sync.Locker,
+	defaultValue time.Time,
 	opts Options,
 ) error {
 	if opts == nil {
@@ -140,11 +155,14 @@ func WatchAndUpdateTime(
 	}
 	updateFn := lockedUpdate(func(i interface{}) { *property = i.(time.Time) }, lock)
 
-	return watchAndUpdate(store, key, getTime, updateFn, opts.ValidateFn(), opts.Logger())
+	return watchAndUpdate(
+		store, key, getTime, updateFn, opts.ValidateFn(), defaultValue, opts.Logger(),
+	)
 }
 
-// BoolFromValue get a bool from kv.Value.
-func BoolFromValue(v kv.Value, key string, opts Options) (bool, error) {
+// BoolFromValue get a bool from kv.Value. If the value is nil, the default value
+// is returned.
+func BoolFromValue(v kv.Value, key string, defaultValue bool, opts Options) (bool, error) {
 	if opts == nil {
 		opts = NewOptions()
 	}
@@ -153,7 +171,7 @@ func BoolFromValue(v kv.Value, key string, opts Options) (bool, error) {
 	updateFn := func(i interface{}) { res = i.(bool) }
 
 	if err := updateWithKV(
-		getBool, updateFn, key, v, opts.ValidateFn(), opts.Logger(),
+		getBool, updateFn, opts.ValidateFn(), key, v, defaultValue, opts.Logger(),
 	); err != nil {
 		return false, err
 	}
@@ -161,8 +179,9 @@ func BoolFromValue(v kv.Value, key string, opts Options) (bool, error) {
 	return res, nil
 }
 
-// Float64FromValue gets a float64 from kv.Value.
-func Float64FromValue(v kv.Value, key string, opts Options) (float64, error) {
+// Float64FromValue gets a float64 from kv.Value. If the value is nil, the default
+// value is returned.
+func Float64FromValue(v kv.Value, key string, defaultValue float64, opts Options) (float64, error) {
 	if opts == nil {
 		opts = NewOptions()
 	}
@@ -171,7 +190,7 @@ func Float64FromValue(v kv.Value, key string, opts Options) (float64, error) {
 	updateFn := func(i interface{}) { res = i.(float64) }
 
 	if err := updateWithKV(
-		getFloat64, updateFn, key, v, opts.ValidateFn(), opts.Logger(),
+		getFloat64, updateFn, opts.ValidateFn(), key, v, defaultValue, opts.Logger(),
 	); err != nil {
 		return 0, err
 	}
@@ -179,8 +198,9 @@ func Float64FromValue(v kv.Value, key string, opts Options) (float64, error) {
 	return res, nil
 }
 
-// Int64FromValue gets an int64 from kv.Value.
-func Int64FromValue(v kv.Value, key string, opts Options) (int64, error) {
+// Int64FromValue gets an int64 from kv.Value. If the value is nil, the default
+// value is returned.
+func Int64FromValue(v kv.Value, key string, defaultValue int64, opts Options) (int64, error) {
 	if opts == nil {
 		opts = NewOptions()
 	}
@@ -189,7 +209,7 @@ func Int64FromValue(v kv.Value, key string, opts Options) (int64, error) {
 	updateFn := func(i interface{}) { res = i.(int64) }
 
 	if err := updateWithKV(
-		getInt64, updateFn, key, v, opts.ValidateFn(), opts.Logger(),
+		getInt64, updateFn, opts.ValidateFn(), key, v, defaultValue, opts.Logger(),
 	); err != nil {
 		return 0, err
 	}
@@ -197,8 +217,9 @@ func Int64FromValue(v kv.Value, key string, opts Options) (int64, error) {
 	return res, nil
 }
 
-// StringFromValue gets a string from kv.Value.
-func StringFromValue(v kv.Value, key string, opts Options) (string, error) {
+// StringFromValue gets a string from kv.Value. If the value is nil, the default
+// value is returned.
+func StringFromValue(v kv.Value, key string, defaultValue string, opts Options) (string, error) {
 	if opts == nil {
 		opts = NewOptions()
 	}
@@ -207,7 +228,7 @@ func StringFromValue(v kv.Value, key string, opts Options) (string, error) {
 	updateFn := func(i interface{}) { res = i.(string) }
 
 	if err := updateWithKV(
-		getString, updateFn, key, v, opts.ValidateFn(), opts.Logger(),
+		getString, updateFn, opts.ValidateFn(), key, v, defaultValue, opts.Logger(),
 	); err != nil {
 		return "", err
 	}
@@ -215,9 +236,10 @@ func StringFromValue(v kv.Value, key string, opts Options) (string, error) {
 	return res, nil
 }
 
-// StringArrayFromValue gets a string array from kv.Value.
+// StringArrayFromValue gets a string array from kv.Value. If the value is nil,
+// the default value is returned.
 func StringArrayFromValue(
-	v kv.Value, key string, opts Options,
+	v kv.Value, key string, defaultValue []string, opts Options,
 ) ([]string, error) {
 	if opts == nil {
 		opts = NewOptions()
@@ -227,7 +249,7 @@ func StringArrayFromValue(
 	updateFn := func(i interface{}) { res = i.([]string) }
 
 	if err := updateWithKV(
-		getStringArray, updateFn, key, v, opts.ValidateFn(), opts.Logger(),
+		getStringArray, updateFn, opts.ValidateFn(), key, v, defaultValue, opts.Logger(),
 	); err != nil {
 		return nil, err
 	}
@@ -235,8 +257,11 @@ func StringArrayFromValue(
 	return res, nil
 }
 
-// TimeFromValue gets a time.Time from kv.Value.
-func TimeFromValue(v kv.Value, key string, opts Options) (time.Time, error) {
+// TimeFromValue gets a time.Time from kv.Value. If the value is nil, the
+// default value is returned.
+func TimeFromValue(
+	v kv.Value, key string, defaultValue time.Time, opts Options,
+) (time.Time, error) {
 	if opts == nil {
 		opts = NewOptions()
 	}
@@ -245,7 +270,7 @@ func TimeFromValue(v kv.Value, key string, opts Options) (time.Time, error) {
 	updateFn := func(i interface{}) { res = i.(time.Time) }
 
 	if err := updateWithKV(
-		getTime, updateFn, key, v, opts.ValidateFn(), opts.Logger(),
+		getTime, updateFn, opts.ValidateFn(), key, v, defaultValue, opts.Logger(),
 	); err != nil {
 		return time.Time{}, err
 	}
@@ -321,6 +346,7 @@ func watchAndUpdate(
 	getValue getValueFn,
 	update updateFn,
 	validate ValidateFn,
+	defaultValue interface{},
 	logger xlog.Logger,
 ) error {
 	if store == nil {
@@ -338,22 +364,13 @@ func watchAndUpdate(
 	}
 
 	go func() {
-		for {
-			if watch == nil {
-				if watch, err = store.Watch(key); err != nil {
-					logger.Errorf("could not recreate etcd watch: %v", err)
-
-					watch = nil
-					time.Sleep(watchRetryInterval)
-					continue
-				}
-			}
-
-			for range watch.C() {
-				updateWithKV(getValue, update, key, watch.Get(), validate, logger)
-			}
-			watch = nil
+		for range watch.C() {
+			updateWithKV(getValue, update, validate, key, watch.Get(), defaultValue, logger)
 		}
+		// The channel for a ValueWatch should never close.
+		getLogger(logger).
+			WithFields(xlog.NewLogField("key", key)).
+			Errorf("watch unexpectedly closed")
 	}()
 
 	return err
@@ -362,14 +379,17 @@ func watchAndUpdate(
 func updateWithKV(
 	getValue getValueFn,
 	update updateFn,
+	validate ValidateFn,
 	key string,
 	v kv.Value,
-	validate ValidateFn,
+	defaultValue interface{},
 	logger xlog.Logger,
 ) error {
 	if v == nil {
-		logNilUpdate(logger, key)
-		return errNilUpdate
+		// The key is deleted from kv, use the default value.
+		update(defaultValue)
+		logNilUpdate(logger, key, defaultValue)
+		return nil
 	}
 
 	newValue, err := getValue(v)
@@ -390,10 +410,11 @@ func updateWithKV(
 	return nil
 }
 
-func logNilUpdate(logger xlog.Logger, k string) {
+func logNilUpdate(logger xlog.Logger, k string, v interface{}) {
 	getLogger(logger).WithFields(
 		xlog.NewLogField("key", k),
-	).Warnf("nil value from kv store, not applying update")
+		xlog.NewLogField("value", v),
+	).Warnf("nil value from kv store, applying default value")
 }
 
 func logMalformedUpdate(logger xlog.Logger, k string, ver int, v interface{}, err error) {

@@ -52,9 +52,12 @@ func TestWatchAndUpdateBool(t *testing.T) {
 		return testConfig.v
 	}
 
-	store := mem.NewStore()
+	var (
+		store        = mem.NewStore()
+		defaultValue = false
+	)
 
-	err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
+	err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, defaultValue, nil)
 	require.NoError(t, err)
 
 	// Valid update.
@@ -80,13 +83,16 @@ func TestWatchAndUpdateBool(t *testing.T) {
 		}
 	}
 
-	// Nil updates should not be applied.
+	// Nil updates should apply the default value.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
-	time.Sleep(100 * time.Millisecond)
-	require.True(t, valueFn())
+	for {
+		if !valueFn() {
+			break
+		}
+	}
 
-	_, err = store.Set("foo", &commonpb.BoolProto{Value: false})
+	_, err = store.Set("foo", &commonpb.BoolProto{Value: true})
 	require.NoError(t, err)
 	for {
 		if !valueFn() {
@@ -108,9 +114,12 @@ func TestWatchAndUpdateFloat64(t *testing.T) {
 		return testConfig.v
 	}
 
-	store := mem.NewStore()
+	var (
+		store        = mem.NewStore()
+		defaultValue = 1.35
+	)
 
-	err := WatchAndUpdateFloat64(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
+	err := WatchAndUpdateFloat64(store, "foo", &testConfig.v, &testConfig.RWMutex, defaultValue, nil)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 3.7})
@@ -135,11 +144,14 @@ func TestWatchAndUpdateFloat64(t *testing.T) {
 		}
 	}
 
-	// Nil updates should not be applied.
+	// Nil updates should apply the default value.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
-	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, 1.2, valueFn())
+	for {
+		if valueFn() == defaultValue {
+			break
+		}
+	}
 
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 6.2})
 	require.NoError(t, err)
@@ -163,9 +175,12 @@ func TestWatchAndUpdateInt64(t *testing.T) {
 		return testConfig.v
 	}
 
-	store := mem.NewStore()
+	var (
+		store              = mem.NewStore()
+		defaultValue int64 = 3
+	)
 
-	err := WatchAndUpdateInt64(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
+	err := WatchAndUpdateInt64(store, "foo", &testConfig.v, &testConfig.RWMutex, defaultValue, nil)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 1})
@@ -190,11 +205,14 @@ func TestWatchAndUpdateInt64(t *testing.T) {
 		}
 	}
 
-	// Nil updates should not be applied.
+	// Nil updates should apply the default value.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
-	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, int64(7), valueFn())
+	for {
+		if valueFn() == defaultValue {
+			break
+		}
+	}
 
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 21})
 	require.NoError(t, err)
@@ -218,9 +236,12 @@ func TestWatchAndUpdateString(t *testing.T) {
 		return testConfig.v
 	}
 
-	store := mem.NewStore()
+	var (
+		store        = mem.NewStore()
+		defaultValue = "abc"
+	)
 
-	err := WatchAndUpdateString(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
+	err := WatchAndUpdateString(store, "foo", &testConfig.v, &testConfig.RWMutex, defaultValue, nil)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.StringProto{Value: "fizz"})
@@ -245,11 +266,14 @@ func TestWatchAndUpdateString(t *testing.T) {
 		}
 	}
 
-	// Nil updates should not be applied.
+	// Nil updates should apply the default value.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
-	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, "buzz", valueFn())
+	for {
+		if valueFn() == defaultValue {
+			break
+		}
+	}
 
 	_, err = store.Set("foo", &commonpb.StringProto{Value: "lol"})
 	require.NoError(t, err)
@@ -273,9 +297,14 @@ func TestWatchAndUpdateStringArray(t *testing.T) {
 		return testConfig.v
 	}
 
-	store := mem.NewStore()
+	var (
+		store        = mem.NewStore()
+		defaultValue = []string{"abc", "def"}
+	)
 
-	err := WatchAndUpdateStringArray(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
+	err := WatchAndUpdateStringArray(
+		store, "foo", &testConfig.v, &testConfig.RWMutex, defaultValue, nil,
+	)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"fizz", "buzz"}})
@@ -300,11 +329,14 @@ func TestWatchAndUpdateStringArray(t *testing.T) {
 		}
 	}
 
-	// Nil updates should not be applied.
+	// Nil updates should apply the default value.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
-	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, []string{"foo", "bar"}, valueFn())
+	for {
+		if stringSliceEquals(valueFn(), defaultValue) {
+			break
+		}
+	}
 
 	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"jim", "jam"}})
 	require.NoError(t, err)
@@ -329,14 +361,14 @@ func TestWatchAndUpdateTime(t *testing.T) {
 	}
 
 	var (
-		store = mem.NewStore()
-		now   = time.Now()
+		store        = mem.NewStore()
+		defaultValue = time.Now()
 	)
 
-	err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, nil)
+	err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, defaultValue, nil)
 	require.NoError(t, err)
 
-	newTime := now.Add(time.Minute)
+	newTime := defaultValue.Add(time.Minute)
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: newTime.Unix()})
 	require.NoError(t, err)
 	for {
@@ -360,11 +392,14 @@ func TestWatchAndUpdateTime(t *testing.T) {
 		}
 	}
 
-	// Nil updates should not be applied.
+	// Nil updates should apply the default value.
 	_, err = store.Delete("foo")
 	require.NoError(t, err)
-	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, newTime.Unix(), valueFn().Unix())
+	for {
+		if valueFn().Unix() == defaultValue.Unix() {
+			break
+		}
+	}
 
 	newTime = newTime.Add(time.Minute)
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: newTime.Unix()})
@@ -394,7 +429,7 @@ func TestWatchAndUpdateWithValidationBool(t *testing.T) {
 		opts  = NewOptions().SetValidateFn(testValidateBoolFn)
 	)
 
-	err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
+	err := WatchAndUpdateBool(store, "foo", &testConfig.v, &testConfig.RWMutex, false, opts)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.BoolProto{Value: true})
@@ -451,7 +486,7 @@ func TestWatchAndUpdateWithValidationFloat64(t *testing.T) {
 		opts  = NewOptions().SetValidateFn(testValidateFloat64Fn)
 	)
 
-	err := WatchAndUpdateFloat64(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
+	err := WatchAndUpdateFloat64(store, "foo", &testConfig.v, &testConfig.RWMutex, 1.2, opts)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 17})
@@ -495,7 +530,7 @@ func TestWatchAndUpdateWithValidationInt64(t *testing.T) {
 		opts  = NewOptions().SetValidateFn(testValidateInt64Fn)
 	)
 
-	err := WatchAndUpdateInt64(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
+	err := WatchAndUpdateInt64(store, "foo", &testConfig.v, &testConfig.RWMutex, 16, opts)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 17})
@@ -539,7 +574,7 @@ func TestWatchAndUpdateWithValidationString(t *testing.T) {
 		opts  = NewOptions().SetValidateFn(testValidateStringFn)
 	)
 
-	err := WatchAndUpdateString(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
+	err := WatchAndUpdateString(store, "foo", &testConfig.v, &testConfig.RWMutex, "bcd", opts)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.StringProto{Value: "bar"})
@@ -583,7 +618,9 @@ func TestWatchAndUpdateWithValidationStringArray(t *testing.T) {
 		opts  = NewOptions().SetValidateFn(testValidateStringArrayFn)
 	)
 
-	err := WatchAndUpdateStringArray(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
+	err := WatchAndUpdateStringArray(
+		store, "foo", &testConfig.v, &testConfig.RWMutex, []string{"a", "b"}, opts,
+	)
 	require.NoError(t, err)
 
 	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"fizz", "buzz"}})
@@ -627,7 +664,7 @@ func TestWatchAndUpdateWithValidationTime(t *testing.T) {
 		opts  = NewOptions().SetValidateFn(testValidateTimeFn)
 	)
 
-	err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, opts)
+	err := WatchAndUpdateTime(store, "foo", &testConfig.v, &testConfig.RWMutex, testNow, opts)
 	require.NoError(t, err)
 
 	newTime := testNow.Add(30 * time.Second)
@@ -657,6 +694,8 @@ func TestWatchAndUpdateWithValidationTime(t *testing.T) {
 }
 
 func TestBoolFromValue(t *testing.T) {
+	defaultValue := true
+
 	tests := []struct {
 		input       kv.Value
 		expectedErr bool
@@ -673,17 +712,18 @@ func TestBoolFromValue(t *testing.T) {
 			expectedVal: false,
 		},
 		{
-			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 123}),
-			expectedErr: true,
+			input:       nil,
+			expectedErr: false,
+			expectedVal: defaultValue,
 		},
 		{
-			input:       nil,
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 123}),
 			expectedErr: true,
 		},
 	}
 
 	for _, test := range tests {
-		v, err := BoolFromValue(test.input, "key", nil)
+		v, err := BoolFromValue(test.input, "key", defaultValue, nil)
 		if test.expectedErr {
 			require.Error(t, err)
 			continue
@@ -694,11 +734,15 @@ func TestBoolFromValue(t *testing.T) {
 
 	// Invalid updates should return an error.
 	opts := NewOptions().SetValidateFn(testValidateBoolFn)
-	_, err := BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: false}), "key", opts)
+	_, err := BoolFromValue(
+		mem.NewValue(0, &commonpb.BoolProto{Value: false}), "key", defaultValue, opts,
+	)
 	assert.Error(t, err)
 }
 
 func TestFloat64FromValue(t *testing.T) {
+	defaultValue := 3.7
+
 	tests := []struct {
 		input       kv.Value
 		expectedErr bool
@@ -715,17 +759,18 @@ func TestFloat64FromValue(t *testing.T) {
 			expectedVal: 13.2,
 		},
 		{
-			input:       mem.NewValue(0, &commonpb.Int64Proto{Value: 123}),
-			expectedErr: true,
+			input:       nil,
+			expectedErr: false,
+			expectedVal: defaultValue,
 		},
 		{
-			input:       nil,
+			input:       mem.NewValue(0, &commonpb.Int64Proto{Value: 123}),
 			expectedErr: true,
 		},
 	}
 
 	for _, test := range tests {
-		v, err := Float64FromValue(test.input, "key", nil)
+		v, err := Float64FromValue(test.input, "key", defaultValue, nil)
 		if test.expectedErr {
 			assert.Error(t, err)
 			continue
@@ -736,11 +781,15 @@ func TestFloat64FromValue(t *testing.T) {
 
 	// Invalid updates should return an error.
 	opts := NewOptions().SetValidateFn(testValidateBoolFn)
-	_, err := Float64FromValue(mem.NewValue(0, &commonpb.Float64Proto{Value: 1.24}), "key", opts)
+	_, err := Float64FromValue(
+		mem.NewValue(0, &commonpb.Float64Proto{Value: 1.24}), "key", defaultValue, opts,
+	)
 	assert.Error(t, err)
 }
 
 func TestInt64FromValue(t *testing.T) {
+	var defaultValue int64 = 5
+
 	tests := []struct {
 		input       kv.Value
 		expectedErr bool
@@ -757,17 +806,18 @@ func TestInt64FromValue(t *testing.T) {
 			expectedVal: 13,
 		},
 		{
-			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
-			expectedErr: true,
+			input:       nil,
+			expectedErr: false,
+			expectedVal: defaultValue,
 		},
 		{
-			input:       nil,
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
 			expectedErr: true,
 		},
 	}
 
 	for _, test := range tests {
-		v, err := Int64FromValue(test.input, "key", nil)
+		v, err := Int64FromValue(test.input, "key", defaultValue, nil)
 		if test.expectedErr {
 			assert.Error(t, err)
 			continue
@@ -778,14 +828,17 @@ func TestInt64FromValue(t *testing.T) {
 
 	// Invalid updates should return an error.
 	opts := NewOptions().SetValidateFn(testValidateInt64Fn)
-	_, err := Int64FromValue(mem.NewValue(0, &commonpb.Int64Proto{Value: 22}), "key", opts)
+	_, err := Int64FromValue(
+		mem.NewValue(0, &commonpb.Int64Proto{Value: 22}), "key", defaultValue, opts,
+	)
 	assert.Error(t, err)
 }
 
 func TestTimeFromValue(t *testing.T) {
 	var (
-		zero = time.Time{}
-		now  = time.Now()
+		zero         = time.Time{}
+		defaultValue = time.Now()
+		customValue  = defaultValue.Add(time.Minute)
 	)
 
 	tests := []struct {
@@ -799,22 +852,23 @@ func TestTimeFromValue(t *testing.T) {
 			expectedVal: zero,
 		},
 		{
-			input:       mem.NewValue(0, &commonpb.Int64Proto{Value: now.Unix()}),
+			input:       mem.NewValue(0, &commonpb.Int64Proto{Value: customValue.Unix()}),
 			expectedErr: false,
-			expectedVal: now,
+			expectedVal: customValue,
+		},
+		{
+			input:       nil,
+			expectedErr: false,
+			expectedVal: defaultValue,
 		},
 		{
 			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
 			expectedErr: true,
 		},
-		{
-			input:       nil,
-			expectedErr: true,
-		},
 	}
 
 	for _, test := range tests {
-		v, err := TimeFromValue(test.input, "key", nil)
+		v, err := TimeFromValue(test.input, "key", defaultValue, nil)
 		if test.expectedErr {
 			assert.Error(t, err)
 			continue
@@ -825,11 +879,18 @@ func TestTimeFromValue(t *testing.T) {
 
 	// Invalid updates should return an error.
 	opts := NewOptions().SetValidateFn(testValidateTimeFn)
-	_, err := BoolFromValue(mem.NewValue(0, &commonpb.BoolProto{Value: false}), "key", opts)
+	_, err := TimeFromValue(
+		mem.NewValue(0, &commonpb.Int64Proto{Value: testNow.Add(time.Hour).Unix()}),
+		"key",
+		defaultValue,
+		opts,
+	)
 	assert.Error(t, err)
 }
 
 func TestStringFromValue(t *testing.T) {
+	defaultValue := "bcd"
+
 	tests := []struct {
 		input       kv.Value
 		expectedErr bool
@@ -846,17 +907,18 @@ func TestStringFromValue(t *testing.T) {
 			expectedVal: "foo",
 		},
 		{
-			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
-			expectedErr: true,
+			input:       nil,
+			expectedErr: false,
+			expectedVal: defaultValue,
 		},
 		{
-			input:       nil,
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
 			expectedErr: true,
 		},
 	}
 
 	for _, test := range tests {
-		v, err := StringFromValue(test.input, "key", nil)
+		v, err := StringFromValue(test.input, "key", defaultValue, nil)
 		if test.expectedErr {
 			assert.Error(t, err)
 			continue
@@ -867,11 +929,15 @@ func TestStringFromValue(t *testing.T) {
 
 	// Invalid updates should return an error.
 	opts := NewOptions().SetValidateFn(testValidateStringFn)
-	_, err := StringFromValue(mem.NewValue(0, &commonpb.StringProto{Value: "abc"}), "key", opts)
+	_, err := StringFromValue(
+		mem.NewValue(0, &commonpb.StringProto{Value: "abc"}), "key", defaultValue, opts,
+	)
 	assert.Error(t, err)
 }
 
 func TestStringArrayFromValue(t *testing.T) {
+	defaultValue := []string{"a", "b"}
+
 	tests := []struct {
 		input       kv.Value
 		expectedErr bool
@@ -888,17 +954,18 @@ func TestStringArrayFromValue(t *testing.T) {
 			expectedVal: []string{"foo", "bar"},
 		},
 		{
-			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
-			expectedErr: true,
+			input:       nil,
+			expectedErr: false,
+			expectedVal: defaultValue,
 		},
 		{
-			input:       nil,
+			input:       mem.NewValue(0, &commonpb.Float64Proto{Value: 1.23}),
 			expectedErr: true,
 		},
 	}
 
 	for _, test := range tests {
-		v, err := StringArrayFromValue(test.input, "key", nil)
+		v, err := StringArrayFromValue(test.input, "key", defaultValue, nil)
 		if test.expectedErr {
 			assert.Error(t, err)
 			continue
@@ -909,7 +976,9 @@ func TestStringArrayFromValue(t *testing.T) {
 
 	// Invalid updates should return an error.
 	opts := NewOptions().SetValidateFn(testValidateStringArrayFn)
-	_, err := StringArrayFromValue(mem.NewValue(0, &commonpb.StringArrayProto{Values: []string{"abc"}}), "key", opts)
+	_, err := StringArrayFromValue(
+		mem.NewValue(0, &commonpb.StringArrayProto{Values: []string{"abc"}}), "key", defaultValue, opts,
+	)
 	assert.Error(t, err)
 }
 
