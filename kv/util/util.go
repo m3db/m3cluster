@@ -37,10 +37,11 @@ var (
 
 // WatchAndUpdateBool sets up a watch with validation for a bool property. Any
 // malformed or invalid updates are not applied. The default value is applied
-// when the key is does not exist in KV.
+// when the key does not exist in KV.
 func WatchAndUpdateBool(
 	store kv.Store,
-	key string, property *bool,
+	key string,
+	property *bool,
 	lock sync.Locker,
 	defaultValue bool,
 	opts Options,
@@ -57,7 +58,7 @@ func WatchAndUpdateBool(
 
 // WatchAndUpdateFloat64 sets up a watch with validation for a float64 property.
 // Any malformed or invalid updates are not applied. The default value is applied
-// when the key is does not exist in KV.
+// when the key does not exist in KV.
 func WatchAndUpdateFloat64(
 	store kv.Store,
 	key string,
@@ -78,7 +79,7 @@ func WatchAndUpdateFloat64(
 
 // WatchAndUpdateInt64 sets up a watch with validation for an int64 property. Any
 // malformed or invalid updates are not applied. The default value is applied when
-// the key is does not exist in KV.
+// the key does not exist in KV.
 func WatchAndUpdateInt64(
 	store kv.Store,
 	key string,
@@ -99,7 +100,7 @@ func WatchAndUpdateInt64(
 
 // WatchAndUpdateString sets up a watch with validation for a string property. Any
 // malformed or invalid updates are not applied. The default value is applied when
-// the key is does not exist in KV.
+// the key does not exist in KV.
 func WatchAndUpdateString(
 	store kv.Store,
 	key string,
@@ -118,9 +119,9 @@ func WatchAndUpdateString(
 	)
 }
 
-// WatchAndUpdateStringArray sets up a watch with validation for a string property.
-// Any malformed, or invalid updates are not applied. The default value is applied
-// when the key is does not exist in KV.
+// WatchAndUpdateStringArray sets up a watch with validation for a string array
+// property. Any malformed, or invalid updates are not applied. The default value
+// is applied when the key does not exist in KV.
 func WatchAndUpdateStringArray(
 	store kv.Store,
 	key string,
@@ -141,7 +142,7 @@ func WatchAndUpdateStringArray(
 
 // WatchAndUpdateTime sets up a watch with validation for a time property. Any
 // malformed, or invalid updates are not applied. The default value is applied
-// when the key is does not exist in KV.
+// when the key does not exist in KV.
 func WatchAndUpdateTime(
 	store kv.Store,
 	key string,
@@ -413,7 +414,7 @@ func updateWithKV(
 func logNilUpdate(logger xlog.Logger, k string, v interface{}) {
 	getLogger(logger).WithFields(
 		xlog.NewLogField("key", k),
-		xlog.NewLogField("value", v),
+		xlog.NewLogField("default-value", v),
 	).Warnf("nil value from kv store, applying default value")
 }
 
