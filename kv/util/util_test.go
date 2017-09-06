@@ -31,6 +31,7 @@ import (
 	"github.com/m3db/m3cluster/generated/proto/commonpb"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/kv/mem"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
