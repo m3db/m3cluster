@@ -449,24 +449,6 @@ func TestWatchAndUpdateWithValidationBool(t *testing.T) {
 			break
 		}
 	}
-
-	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 20})
-	require.NoError(t, err)
-	for {
-		if valueFn() {
-			break
-		}
-	}
-
-	_, err = store.Delete("foo")
-	require.NoError(t, err)
-	for {
-		if valueFn() {
-			break
-		}
-	}
-
-	require.NoError(t, err)
 }
 
 func TestWatchAndUpdateWithValidationFloat64(t *testing.T) {
