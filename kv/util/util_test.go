@@ -441,7 +441,7 @@ func TestWatchAndUpdateWithValidationBool(t *testing.T) {
 		}
 	}
 
-	// Invalid update.
+	// Invalid updates should not be applied.
 	_, err = store.Set("foo", &commonpb.BoolProto{Value: false})
 	require.NoError(t, err)
 	for {
