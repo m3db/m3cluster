@@ -138,27 +138,11 @@ func (s *shard) SetCutoffNanos(value int64) Shard {
 }
 
 func (s *shard) Equals(other Shard) bool {
-	if s.ID() != other.ID() {
-		return false
-	}
-
-	if s.State() != other.State() {
-		return false
-	}
-
-	if s.SourceID() != other.SourceID() {
-		return false
-	}
-
-	if s.CutoverNanos() != other.CutoverNanos() {
-		return false
-	}
-
-	if s.CutoffNanos() != other.CutoffNanos() {
-		return false
-	}
-
-	return true
+	return s.ID() == other.ID() &&
+		s.State() == other.State() &&
+		s.SourceID() == other.SourceID() &&
+		s.CutoverNanos() == other.CutoverNanos() &&
+		s.CutoffNanos() == other.CutoffNanos()
 }
 
 func (s *shard) Proto() (*placementpb.Shard, error) {

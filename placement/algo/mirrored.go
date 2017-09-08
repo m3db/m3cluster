@@ -146,15 +146,8 @@ func (a mirroredAlgorithm) AddInstances(
 	}
 
 	// At this point, all leaving instances in the placement are cleaned up.
-	for i, instance := range addingInstances {
-		if _, exist := p.Instance(instance.ID()); exist {
-			return nil, fmt.Errorf("instance %s already exist in the placement", instance.ID())
-		}
-		if placement.IsInstanceLeaving(instance) {
-			// The instance was leaving in placement, after MarkAllShardsAsAvailable it is now removed
-			// from the placement, so we should treat them as fresh new instances.
-			addingInstances[i] = instance.SetShards(shard.NewShards(nil))
-		}
+	if addingInstances, err = validAddingInstances(p, addingInstances); err != nil {
+		return nil, err
 	}
 
 	mirrorPlacement, err := mirrorFromPlacement(p)
@@ -198,15 +191,8 @@ func (a mirroredAlgorithm) ReplaceInstances(
 	}
 
 	// At this point, all leaving instances in the placement are cleaned up.
-	for i, instance := range addingInstances {
-		if _, exist := p.Instance(instance.ID()); exist {
-			return nil, fmt.Errorf("instance %s already exist in the placement", instance.ID())
-		}
-		if placement.IsInstanceLeaving(instance) {
-			// The instance was leaving in placement, after MarkAllShardsAsAvailable it is now removed
-			// from the placement, so we should treat them as fresh new instances.
-			addingInstances[i] = instance.SetShards(shard.NewShards(nil))
-		}
+	if addingInstances, err = validAddingInstances(p, addingInstances); err != nil {
+		return nil, err
 	}
 
 	for i := range leavingInstanceIDs {
@@ -217,6 +203,20 @@ func (a mirroredAlgorithm) ReplaceInstances(
 		}
 	}
 	return p, nil
+}
+
+func validAddingInstances(p placement.Placement, addingInstances []placement.Instance) ([]placement.Instance, error) {
+	for i, instance := range addingInstances {
+		if _, exist := p.Instance(instance.ID()); exist {
+			return nil, fmt.Errorf("instance %s already exist in the placement", instance.ID())
+		}
+		if placement.IsInstanceLeaving(instance) {
+			// The instance was leaving in placement, after MarkAllShardsAsAvailable it is now removed
+			// from the placement, so we should treat them as fresh new instances.
+			addingInstances[i] = instance.SetShards(shard.NewShards(nil))
+		}
+	}
+	return addingInstances, nil
 }
 
 func groupInstancesByShardSetID(
