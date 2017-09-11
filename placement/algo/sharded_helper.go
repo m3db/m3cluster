@@ -111,9 +111,22 @@ func newAddReplicaHelper(p placement.Placement, opts placement.Options) Placemen
 	return newHelper(p, p.ReplicaFactor()+1, opts)
 }
 
-func newAddInstanceHelper(p placement.Placement, instance placement.Instance, opts placement.Options) PlacementHelper {
-	p = placement.ClonePlacement(p).SetInstances(append(p.Instances(), instance))
-	return newHelper(p, p.ReplicaFactor(), opts)
+func newAddInstanceHelper(
+	p placement.Placement,
+	instance placement.Instance,
+	opts placement.Options,
+) (PlacementHelper, placement.Instance, error) {
+	instanceInPlacement, exist := p.Instance(instance.ID())
+	if !exist {
+		return newHelper(p.SetInstances(append(p.Instances(), instance)), p.ReplicaFactor(), opts), instance, nil
+	}
+
+	if !instanceInPlacement.IsLeaving() {
+		return nil, nil, errAddingInstanceAlreadyExist
+	}
+
+	return newHelper(p, p.ReplicaFactor(), opts), instanceInPlacement, nil
+
 }
 
 func newRemoveInstanceHelper(
@@ -586,12 +599,6 @@ func newHeap(
 	targetLoad map[string]int,
 	rackToWeightMap map[string]uint32,
 ) (*instanceHeap, error) {
-	for _, instance := range instances {
-		id := instance.ID()
-		if _, ok := targetLoad[id]; !ok {
-			return nil, fmt.Errorf("could not build instance heap for instance: %s", id)
-		}
-	}
 	h := &instanceHeap{
 		capacityAscending: capacityAscending,
 		instances:         instances,

@@ -131,18 +131,15 @@ func (a rackAwarePlacementAlgorithm) AddInstances(
 
 	p = placement.ClonePlacement(p)
 	for _, instance := range instances {
-		addingInstance := placement.CloneInstance(instance)
-		instance, exist := p.Instance(instance.ID())
-		if exist {
-			if !instance.IsLeaving() {
-				return nil, errAddingInstanceAlreadyExist
-			}
-			addingInstance = instance
+		ph, addingInstance, err := newAddInstanceHelper(p, instance, a.opts)
+		if err != nil {
+			return nil, err
 		}
 
-		ph := newAddInstanceHelper(p, addingInstance, a.opts)
+		if err := ph.AddInstance(addingInstance); err != nil {
+			return nil, err
+		}
 
-		ph.AddInstance(addingInstance)
 		p = ph.GeneratePlacement()
 	}
 

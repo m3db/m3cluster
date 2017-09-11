@@ -159,11 +159,10 @@ func (a mirroredAlgorithm) AddInstances(
 	// We just need to get their shards back.
 	if allLeaving(addingInstances, p) {
 		for _, instance := range addingInstances {
-			instance, ok := p.Instance(instance.ID())
-			if !ok {
-				return nil, fmt.Errorf("instance %s not found in placement", instance.ID())
+			ph, instance, err := newAddInstanceHelper(p, instance, a.opts)
+			if err != nil {
+				return nil, err
 			}
-			ph := newAddInstanceHelper(p, instance, a.opts)
 			ph.CleanUpLeavingShards(instance)
 			p = ph.GeneratePlacement()
 		}
@@ -195,8 +194,16 @@ func (a mirroredAlgorithm) AddInstances(
 		if _, ok := mirrorPlacement.Instance(instance.ID()); ok {
 			return nil, fmt.Errorf("shard set id %d already exist in current placement", instance.ShardSetID())
 		}
-		ph := newAddInstanceHelper(mirrorPlacement, instance, a.opts)
-		ph.AddInstance(instance)
+
+		ph, instance, err := newAddInstanceHelper(mirrorPlacement, instance, a.opts)
+		if err != nil {
+			return nil, err
+		}
+
+		if err = ph.AddInstance(instance); err != nil {
+			return nil, err
+		}
+
 		mirrorPlacement = ph.GeneratePlacement()
 	}
 
@@ -212,7 +219,6 @@ func (a mirroredAlgorithm) ReplaceInstances(
 		return nil, err
 	}
 
-	// if allLeaving(addingInstances, p) && allInitializing(instanceIDs, p){
 	if len(addingInstances) != len(leavingInstanceIDs) {
 		return nil, fmt.Errorf("could not replace %d instances with %d instances for mirrored replace", len(leavingInstanceIDs), len(addingInstances))
 	}
