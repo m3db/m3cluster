@@ -657,13 +657,13 @@ func TestRemoveMultipleInstances(t *testing.T) {
 
 	i1, ok := p.Instance("i1")
 	assert.True(t, ok)
-	assert.True(t, placement.IsInstanceLeaving(i1))
+	assert.True(t, i1.IsLeaving())
 	i2, ok = p.Instance("i2")
 	assert.True(t, ok)
-	assert.True(t, placement.IsInstanceLeaving(i2))
+	assert.True(t, i2.IsLeaving())
 	i3, ok = p.Instance("i3")
 	assert.True(t, ok)
-	assert.True(t, placement.IsInstanceLeaving(i3))
+	assert.True(t, i3.IsLeaving())
 }
 
 func TestRemoveAbsentInstance(t *testing.T) {

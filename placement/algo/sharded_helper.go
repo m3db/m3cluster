@@ -48,27 +48,35 @@ const (
 	unsafe
 )
 
-type assignLoadFn func(instance placement.Instance)
+type assignLoadFn func(instance placement.Instance) error
 
-// PlacementHelper helps the algorithm to place shards
+// PlacementHelper helps the algorithm to place shards.
 type PlacementHelper interface {
-	// Instances returns the list of instances managed by the PlacementHelper
+	// Instances returns the list of instances managed by the PlacementHelper.
 	Instances() []placement.Instance
 
-	// HasRackConflict checks if the rack constraint is violated when moving the shard to the target rack
+	// HasRackConflict checks if the rack constraint is violated when moving the shard to the target rack.
 	HasRackConflict(shard uint32, from placement.Instance, toRack string) bool
 
-	// PlaceShards distributes shards to the instances in the helper, with aware of where are the shards coming from
+	// PlaceShards distributes shards to the instances in the helper, with aware of where are the shards coming from.
 	PlaceShards(shards []shard.Shard, from placement.Instance, candidates []placement.Instance) error
 
-	// AddInstance adds an instance to the placement
-	AddInstance(addingInstance placement.Instance)
+	// AddInstance adds an instance to the placement.
+	AddInstance(addingInstance placement.Instance) error
 
-	// Optimize rebalances the load distribution in the cluster
-	Optimize(t optimizeType)
+	// Optimize rebalances the load distribution in the cluster.
+	Optimize(t optimizeType) error
 
-	// GeneratePlacement generates a placement
+	// GeneratePlacement generates a placement.
 	GeneratePlacement() placement.Placement
+
+	// CleanUpLeavingShards cleans up all the leaving shards on the given instance
+	// by pulling them back from the rest of the cluster.
+	CleanUpLeavingShards(instance placement.Instance)
+
+	// CleanUpInitializingShards cleans up all the initializing shards on the given instance
+	// by returning them back to the original owners.
+	CleanUpInitializingShards(instance placement.Instance)
 }
 
 type placementHelper struct {
@@ -176,6 +184,11 @@ func (ph *placementHelper) scanCurrentLoad() {
 		}
 		ph.rackToInstancesMap[instance.Rack()][instance] = struct{}{}
 
+		if instance.IsLeaving() {
+			// Leaving instances are not counted as usable capacities in the placement.
+			continue
+		}
+
 		ph.rackToWeightMap[instance.Rack()] = ph.rackToWeightMap[instance.Rack()] + instance.Weight()
 		totalWeight += instance.Weight()
 
@@ -199,8 +212,12 @@ func (ph *placementHelper) buildTargetLoad() {
 		}
 	}
 
-	targetLoad := make(map[string]int)
+	targetLoad := make(map[string]int, len(ph.instances))
 	for _, instance := range ph.instances {
+		if instance.IsLeaving() {
+			// We should not set a target load for leaving instances.
+			continue
+		}
 		rackWeight := ph.rackToWeightMap[instance.Rack()]
 		if isRackOverWeight(rackWeight, ph.totalWeight, ph.rf) {
 			// if the instance is on a over-sized rack, the target load is topped at shardLen / rackSize
@@ -230,10 +247,15 @@ func (ph *placementHelper) targetLoadForInstance(id string) int {
 }
 
 func (ph *placementHelper) moveOneShard(from, to placement.Instance) bool {
-	for _, s := range from.Shards().All() {
-		if s.State() != shard.Leaving && ph.moveShard(s, from, to) {
-			return true
-		}
+	// Prefer to move a Unknown shard first, then Initializing, then Available.
+	if ph.moveOneShardInState(from, to, shard.Unknown) {
+		return true
+	}
+	if ph.moveOneShardInState(from, to, shard.Initializing) {
+		return true
+	}
+	if ph.moveOneShardInState(from, to, shard.Available) {
+		return true
 	}
 	return false
 }
@@ -354,14 +376,7 @@ func (ph *placementHelper) PlaceShards(
 		// NB(cw) when removing an adding instance that has not finished bootstrapping its
 		// Initializing shards, prefer to return those Initializing shards back to the leaving instance
 		// to reduce some bootstrapping work in the cluster.
-		if err := ph.returnInitializingShardsToSource(shardSet, from, candidates); err != nil {
-			return err
-		}
-		// prefer to distribute "some" of the load to other racks first
-		// because the load from a leaving instance can always get assigned to a instance on the same rack
-		if err := ph.placeToRacksOtherThanOrigin(shardSet, from, candidates); err != nil {
-			return err
-		}
+		ph.returnInitializingShardsToSource(shardSet, from, candidates)
 	}
 
 	instanceHeap, err := ph.buildInstanceHeap(nonLeavingInstances(candidates), true)
@@ -395,11 +410,16 @@ func (ph *placementHelper) PlaceShards(
 	return nil
 }
 
+func (ph *placementHelper) CleanUpInitializingShards(instance placement.Instance) {
+	shardSet := getShardMap(instance.Shards().All())
+	ph.returnInitializingShardsToSource(shardSet, instance, ph.Instances())
+}
+
 func (ph *placementHelper) returnInitializingShardsToSource(
 	shardSet map[uint32]shard.Shard,
 	from placement.Instance,
 	candidates []placement.Instance,
-) error {
+) {
 	candidateMap := make(map[string]placement.Instance, len(candidates))
 	for _, candidate := range candidates {
 		candidateMap[candidate.ID()] = candidate
@@ -414,60 +434,17 @@ func (ph *placementHelper) returnInitializingShardsToSource(
 		}
 		sourceInstance, ok := candidateMap[sourceID]
 		if !ok {
-			return fmt.Errorf("could not find sourceID %s for instance %s, shard %d", sourceID, from.ID(), s.ID())
+			// NB(cw): This is not an error because the candidates are not
+			// necessarily all the instances in the placement.
+			continue
 		}
-		if placement.IsInstanceLeaving(sourceInstance) {
+		if sourceInstance.IsLeaving() {
 			continue
 		}
 		if ph.moveShard(s, from, sourceInstance) {
 			delete(shardSet, s.ID())
 		}
 	}
-	return nil
-}
-
-// placeToRacksOtherThanOrigin move shards from a instance to the rest of the cluster
-// the goal of this function is to assign "some" of the shards to the instances in other racks
-func (ph *placementHelper) placeToRacksOtherThanOrigin(
-	shardsSet map[uint32]shard.Shard,
-	from placement.Instance,
-	candidates []placement.Instance,
-) error {
-	otherRack := make([]placement.Instance, 0, len(candidates))
-	rack := from.Rack()
-	for _, instance := range candidates {
-		if instance.Rack() == rack {
-			continue
-		}
-		otherRack = append(otherRack, instance)
-	}
-
-	instanceHeap, err := ph.buildInstanceHeap(nonLeavingInstances(otherRack), true)
-	if err != nil {
-		return err
-	}
-	var triedInstances []placement.Instance
-	for shardID, s := range shardsSet {
-		for instanceHeap.Len() > 0 {
-			tryInstance := heap.Pop(instanceHeap).(placement.Instance)
-			if ph.targetLoadForInstance(tryInstance.ID())-tryInstance.Shards().NumShards() <= 0 {
-				// this is where "some" is, at this point the best instance option in the cluster
-				// from a different rack has reached its target load, time to break out of the loop
-				return nil
-			}
-			triedInstances = append(triedInstances, tryInstance)
-			if ph.moveShard(s, from, tryInstance) {
-				delete(shardsSet, shardID)
-				break
-			}
-		}
-
-		for _, triedInstance := range triedInstances {
-			heap.Push(instanceHeap, triedInstance)
-		}
-		triedInstances = triedInstances[:0]
-	}
-	return nil
 }
 
 func (ph *placementHelper) mostUnderLoadedInstance() (placement.Instance, bool) {
@@ -490,7 +467,7 @@ func (ph *placementHelper) mostUnderLoadedInstance() (placement.Instance, bool) 
 	return nil, false
 }
 
-func (ph *placementHelper) Optimize(t optimizeType) {
+func (ph *placementHelper) Optimize(t optimizeType) error {
 	var fn assignLoadFn
 	switch t {
 	case safe:
@@ -498,50 +475,43 @@ func (ph *placementHelper) Optimize(t optimizeType) {
 	case unsafe:
 		fn = ph.assignLoadToInstanceUnsafe
 	}
-	ph.optimize(fn)
+	return ph.optimize(fn)
 }
 
-func (ph *placementHelper) optimize(fn assignLoadFn) {
+func (ph *placementHelper) optimize(fn assignLoadFn) error {
 	uniq := make(map[string]struct{}, len(ph.instances))
 	for {
 		ins, ok := ph.mostUnderLoadedInstance()
 		if !ok {
-			return
+			return nil
 		}
 		if _, exist := uniq[ins.ID()]; exist {
-			return
+			return nil
 		}
 
 		uniq[ins.ID()] = struct{}{}
-		fn(ins)
+		if err := fn(ins); err != nil {
+			return err
+		}
 	}
 }
 
-func (ph *placementHelper) assignLoadToInstanceSafe(addingInstance placement.Instance) {
-	if err := ph.assignTargetLoad(addingInstance, func(from, to placement.Instance) bool {
+func (ph *placementHelper) assignLoadToInstanceSafe(addingInstance placement.Instance) error {
+	return ph.assignTargetLoad(addingInstance, func(from, to placement.Instance) bool {
 		return ph.moveOneShardInState(from, to, shard.Unknown)
-	}); err != nil {
-		ph.log.
-			WithFields(xlog.NewLogErrField(err)).
-			Error("failed to assign target load to instance")
-	}
+	})
 }
 
-func (ph *placementHelper) assignLoadToInstanceUnsafe(addingInstance placement.Instance) {
-	if err := ph.assignTargetLoad(addingInstance, func(from, to placement.Instance) bool {
+func (ph *placementHelper) assignLoadToInstanceUnsafe(addingInstance placement.Instance) error {
+	return ph.assignTargetLoad(addingInstance, func(from, to placement.Instance) bool {
 		return ph.moveOneShard(from, to)
-	}); err != nil {
-		ph.log.
-			WithFields(xlog.NewLogErrField(err)).
-			Error("failed to assign target load to instance")
-	}
+	})
 }
 
-func (ph *placementHelper) AddInstance(addingInstance placement.Instance) {
-	id := addingInstance.ID()
-
-	for _, instance := range ph.instances {
-		for _, s := range instance.Shards().ShardsForState(shard.Initializing) {
+func (ph *placementHelper) CleanUpLeavingShards(instance placement.Instance) {
+	id := instance.ID()
+	for _, i := range ph.instances {
+		for _, s := range i.Shards().ShardsForState(shard.Initializing) {
 			if s.SourceID() == id {
 				// NB(cw) in very rare case, the leaving shards could not be taken back.
 				// For example: in a RF=2 case, instance a and b on rack1, instance c on rack2,
@@ -549,28 +519,31 @@ func (ph *placementHelper) AddInstance(addingInstance placement.Instance) {
 				// b got assigned shard1, now if we try to add instance a back to the topology, a can
 				// no longer take shard1 back.
 				// But it's fine, the algo will fil up those load with other shards from the cluster
-				ph.moveShard(s, instance, addingInstance)
+				ph.moveShard(s, i, instance)
 			}
 		}
 	}
+}
 
-	ph.assignLoadToInstanceUnsafe(addingInstance)
+func (ph *placementHelper) AddInstance(addingInstance placement.Instance) error {
+	ph.CleanUpLeavingShards(addingInstance)
+	return ph.assignLoadToInstanceUnsafe(addingInstance)
 }
 
 func (ph *placementHelper) assignTargetLoad(
-	addingInstance placement.Instance,
-	fn func(from, to placement.Instance) bool,
+	targetInstance placement.Instance,
+	moveOneShardFn func(from, to placement.Instance) bool,
 ) error {
-	targetLoad := ph.targetLoadForInstance(addingInstance.ID())
+	targetLoad := ph.targetLoadForInstance(targetInstance.ID())
 	// try to take shards from the most loaded instances until the adding instance reaches target load
 	instanceHeap, err := ph.buildInstanceHeap(nonLeavingInstances(ph.Instances()), false)
 	if err != nil {
 		return err
 	}
-	for addingInstance.Shards().NumShards() < targetLoad && instanceHeap.Len() > 0 {
-		tryInstance := heap.Pop(instanceHeap).(placement.Instance)
-		if moved := fn(tryInstance, addingInstance); moved {
-			heap.Push(instanceHeap, tryInstance)
+	for targetInstance.Shards().NumShards() < targetLoad && instanceHeap.Len() > 0 {
+		fromInstance := heap.Pop(instanceHeap).(placement.Instance)
+		if moved := moveOneShardFn(fromInstance, targetInstance); moved {
+			heap.Push(instanceHeap, fromInstance)
 		}
 	}
 	return nil
@@ -712,7 +685,7 @@ func loadOnInstance(instance placement.Instance) int {
 func nonLeavingInstances(instances []placement.Instance) []placement.Instance {
 	r := make([]placement.Instance, 0, len(instances))
 	for _, instance := range instances {
-		if placement.IsInstanceLeaving(instance) {
+		if instance.IsLeaving() {
 			continue
 		}
 		r = append(r, instance)

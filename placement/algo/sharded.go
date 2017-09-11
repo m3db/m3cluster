@@ -65,7 +65,9 @@ func (a rackAwarePlacementAlgorithm) InitialPlacement(
 		if err := ph.PlaceShards(newShards(p.Shards()), nil, ph.Instances()); err != nil {
 			return nil, err
 		}
-		ph.Optimize(safe)
+		if err := ph.Optimize(safe); err != nil {
+			return nil, err
+		}
 		p = ph.GeneratePlacement()
 	}
 	return p, nil
@@ -82,7 +84,9 @@ func (a rackAwarePlacementAlgorithm) AddReplica(p placement.Placement) (placemen
 		return nil, err
 	}
 
-	ph.Optimize(safe)
+	if err := ph.Optimize(safe); err != nil {
+		return nil, err
+	}
 
 	return ph.GeneratePlacement(), nil
 }
@@ -106,6 +110,10 @@ func (a rackAwarePlacementAlgorithm) RemoveInstances(
 			return nil, err
 		}
 
+		if err := ph.Optimize(safe); err != nil {
+			return nil, err
+		}
+
 		if p, _, err = addInstanceToPlacement(ph.GeneratePlacement(), leavingInstance, nonEmptyOnly); err != nil {
 			return nil, err
 		}
@@ -126,7 +134,7 @@ func (a rackAwarePlacementAlgorithm) AddInstances(
 		addingInstance := placement.CloneInstance(instance)
 		instance, exist := p.Instance(instance.ID())
 		if exist {
-			if !placement.IsInstanceLeaving(instance) {
+			if !instance.IsLeaving() {
 				return nil, errAddingInstanceAlreadyExist
 			}
 			addingInstance = instance
@@ -182,7 +190,9 @@ func (a rackAwarePlacementAlgorithm) ReplaceInstances(
 			}
 		}
 
-		ph.Optimize(unsafe)
+		if err := ph.Optimize(unsafe); err != nil {
+			return nil, err
+		}
 	}
 
 	for _, leavingInstance := range leavingInstances {

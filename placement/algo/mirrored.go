@@ -91,6 +91,21 @@ func (a mirroredAlgorithm) RemoveInstances(
 		return nil, err
 	}
 
+	// If the instances being removed are all the initializing instances in the placement.
+	// We just need to return these shards back to their sources.
+	if allInitializing(instanceIDs, p) {
+		for _, id := range instanceIDs {
+			ph, instance, err := newRemoveInstanceHelper(p, id, a.opts)
+			if err != nil {
+				return nil, err
+			}
+			ph.CleanUpInitializingShards(instance)
+			p = ph.GeneratePlacement()
+		}
+
+		return p, nil
+	}
+
 	p, err := placement.MarkAllShardsAsAvailable(p)
 	if err != nil {
 		return nil, err
@@ -140,6 +155,22 @@ func (a mirroredAlgorithm) AddInstances(
 		return nil, err
 	}
 
+	// If the instances being added are all the leaving instances in the placement.
+	// We just need to get their shards back.
+	if allLeaving(addingInstances, p) {
+		for _, instance := range addingInstances {
+			instance, ok := p.Instance(instance.ID())
+			if !ok {
+				return nil, fmt.Errorf("instance %s not found in placement", instance.ID())
+			}
+			ph := newAddInstanceHelper(p, instance, a.opts)
+			ph.CleanUpLeavingShards(instance)
+			p = ph.GeneratePlacement()
+		}
+
+		return p, nil
+	}
+
 	p, err := placement.MarkAllShardsAsAvailable(p)
 	if err != nil {
 		return nil, err
@@ -181,6 +212,7 @@ func (a mirroredAlgorithm) ReplaceInstances(
 		return nil, err
 	}
 
+	// if allLeaving(addingInstances, p) && allInitializing(instanceIDs, p){
 	if len(addingInstances) != len(leavingInstanceIDs) {
 		return nil, fmt.Errorf("could not replace %d instances with %d instances for mirrored replace", len(leavingInstanceIDs), len(addingInstances))
 	}
@@ -194,7 +226,6 @@ func (a mirroredAlgorithm) ReplaceInstances(
 	if addingInstances, err = validAddingInstances(p, addingInstances); err != nil {
 		return nil, err
 	}
-
 	for i := range leavingInstanceIDs {
 		// We want full replacement for each instance.
 		p, err = a.shardedAlgo.ReplaceInstances(p, leavingInstanceIDs[i:i+1], addingInstances[i:i+1])
@@ -205,12 +236,54 @@ func (a mirroredAlgorithm) ReplaceInstances(
 	return p, nil
 }
 
+// allInitializing returns true when the given list of instances
+// matches all the initializing instances in the placement.
+func allInitializing(instances []string, p placement.Placement) bool {
+	ids := make(map[string]struct{}, len(instances))
+	for _, i := range instances {
+		ids[i] = struct{}{}
+	}
+
+	for _, i := range p.Instances() {
+		if !i.IsInitializing() {
+			continue
+		}
+		if _, ok := ids[i.ID()]; !ok {
+			return false
+		}
+		delete(ids, i.ID())
+	}
+
+	return len(ids) == 0
+}
+
+// allInitializing returns true when the given list of instances
+// matches all the leaving instances in the placement.
+func allLeaving(instances []placement.Instance, p placement.Placement) bool {
+	ids := make(map[string]struct{}, len(instances))
+	for _, i := range instances {
+		ids[i.ID()] = struct{}{}
+	}
+
+	for _, i := range p.Instances() {
+		if !i.IsLeaving() {
+			continue
+		}
+		if _, ok := ids[i.ID()]; !ok {
+			return false
+		}
+		delete(ids, i.ID())
+	}
+
+	return len(ids) == 0
+}
+
 func validAddingInstances(p placement.Placement, addingInstances []placement.Instance) ([]placement.Instance, error) {
 	for i, instance := range addingInstances {
 		if _, exist := p.Instance(instance.ID()); exist {
 			return nil, fmt.Errorf("instance %s already exist in the placement", instance.ID())
 		}
-		if placement.IsInstanceLeaving(instance) {
+		if instance.IsLeaving() {
 			// The instance was leaving in placement, after MarkAllShardsAsAvailable it is now removed
 			// from the placement, so we should treat them as fresh new instances.
 			addingInstances[i] = instance.SetShards(shard.NewShards(nil))
