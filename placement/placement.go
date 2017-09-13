@@ -28,19 +28,15 @@ import (
 
 	"github.com/m3db/m3cluster/generated/proto/placementpb"
 	"github.com/m3db/m3cluster/shard"
-
-	"github.com/golang/protobuf/proto"
 )
 
 var (
-	errNilPlacementProto              = errors.New("nil placement proto")
-	errInvalidPlacementProto          = errors.New("invalid placement proto")
-	errNilPlacementSnapshotsProto     = errors.New("nil placement snapshots proto")
-	errInvalidPlacementSnapshotsProto = errors.New("invalid placement snapshots proto")
-	errNilPlacementInstanceProto      = errors.New("nil placement instance proto")
-	errDuplicatedShards               = errors.New("invalid placement, there are duplicated shards in one replica")
-	errUnexpectedShards               = errors.New("invalid placement, there are unexpected shard ids on instance")
-	errMirrorNotSharded               = errors.New("invalid placement, mirrored placement must be sharded")
+	errNilPlacementProto          = errors.New("nil placement proto")
+	errNilPlacementSnapshotsProto = errors.New("nil placement snapshots proto")
+	errNilPlacementInstanceProto  = errors.New("nil placement instance proto")
+	errDuplicatedShards           = errors.New("invalid placement, there are duplicated shards in one replica")
+	errUnexpectedShards           = errors.New("invalid placement, there are unexpected shard ids on instance")
+	errMirrorNotSharded           = errors.New("invalid placement, mirrored placement must be sharded")
 )
 
 type placement struct {
@@ -60,17 +56,7 @@ func NewPlacement() Placement {
 }
 
 // NewPlacementFromProto creates a new placement from proto.
-func NewPlacementFromProto(pb proto.Message) (Placement, error) {
-	if pb == nil {
-		return nil, errNilPlacementProto
-	}
-
-	p, ok := pb.(*placementpb.Placement)
-	if !ok {
-		return nil, errInvalidPlacementProto
-	}
-
-	// If pb is a typed nil pointer, we may get a valid nil pointer for p.
+func NewPlacementFromProto(p *placementpb.Placement) (Placement, error) {
 	if p == nil {
 		return nil, errNilPlacementProto
 	}
@@ -241,16 +227,7 @@ func (p *placement) Clone() Placement {
 type Placements []Placement
 
 // NewPlacementsFromProto creates a list of placements from proto.
-func NewPlacementsFromProto(pb proto.Message) (Placements, error) {
-	if pb == nil {
-		return nil, errNilPlacementSnapshotsProto
-	}
-
-	p, ok := pb.(*placementpb.PlacementSnapshots)
-	if !ok {
-		return nil, errInvalidPlacementSnapshotsProto
-	}
-
+func NewPlacementsFromProto(p *placementpb.PlacementSnapshots) (Placements, error) {
 	// If pb is a typed nil pointer, we may get a valid nil pointer for p.
 	if p == nil {
 		return nil, errNilPlacementSnapshotsProto
