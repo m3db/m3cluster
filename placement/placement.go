@@ -228,7 +228,6 @@ type Placements []Placement
 
 // NewPlacementsFromProto creates a list of placements from proto.
 func NewPlacementsFromProto(p *placementpb.PlacementSnapshots) (Placements, error) {
-	// If pb is a typed nil pointer, we may get a valid nil pointer for p.
 	if p == nil {
 		return nil, errNilPlacementSnapshotsProto
 	}
