@@ -70,13 +70,13 @@ type PlacementHelper interface {
 	// GeneratePlacement generates a placement.
 	GeneratePlacement() placement.Placement
 
-	// CleanUpLeavingShards cleans up all the leaving shards on the given instance
+	// ReclaimLeavingShards reclaims all the leaving shards on the given instance
 	// by pulling them back from the rest of the cluster.
-	CleanUpLeavingShards(instance placement.Instance)
+	ReclaimLeavingShards(instance placement.Instance)
 
-	// CleanUpInitializingShards cleans up all the initializing shards on the given instance
+	// ReturnInitializingShards returns all the initializing shards on the given instance
 	// by returning them back to the original owners.
-	CleanUpInitializingShards(instance placement.Instance)
+	ReturnInitializingShards(instance placement.Instance)
 }
 
 type placementHelper struct {
@@ -260,17 +260,13 @@ func (ph *placementHelper) targetLoadForInstance(id string) int {
 }
 
 func (ph *placementHelper) moveOneShard(from, to placement.Instance) bool {
-	// Prefer to move a Unknown shard first, then Initializing, then Available.
-	if ph.moveOneShardInState(from, to, shard.Unknown) {
-		return true
-	}
-	if ph.moveOneShardInState(from, to, shard.Initializing) {
-		return true
-	}
-	if ph.moveOneShardInState(from, to, shard.Available) {
-		return true
-	}
-	return false
+	// The order matter here:
+	// The Unknown shards were just moved, so free to be moved around.
+	// The Initializing shards were still being initialized on the instance,
+	// so moving them are cheaper than moving those Available shards.
+	return ph.moveOneShardInState(from, to, shard.Unknown) ||
+		ph.moveOneShardInState(from, to, shard.Initializing) ||
+		ph.moveOneShardInState(from, to, shard.Available)
 }
 
 // nolint: unparam
@@ -423,7 +419,7 @@ func (ph *placementHelper) PlaceShards(
 	return nil
 }
 
-func (ph *placementHelper) CleanUpInitializingShards(instance placement.Instance) {
+func (ph *placementHelper) ReturnInitializingShards(instance placement.Instance) {
 	shardSet := getShardMap(instance.Shards().All())
 	ph.returnInitializingShardsToSource(shardSet, instance, ph.Instances())
 }
@@ -521,7 +517,7 @@ func (ph *placementHelper) assignLoadToInstanceUnsafe(addingInstance placement.I
 	})
 }
 
-func (ph *placementHelper) CleanUpLeavingShards(instance placement.Instance) {
+func (ph *placementHelper) ReclaimLeavingShards(instance placement.Instance) {
 	id := instance.ID()
 	for _, i := range ph.instances {
 		for _, s := range i.Shards().ShardsForState(shard.Initializing) {
@@ -539,7 +535,7 @@ func (ph *placementHelper) CleanUpLeavingShards(instance placement.Instance) {
 }
 
 func (ph *placementHelper) AddInstance(addingInstance placement.Instance) error {
-	ph.CleanUpLeavingShards(addingInstance)
+	ph.ReclaimLeavingShards(addingInstance)
 	return ph.assignLoadToInstanceUnsafe(addingInstance)
 }
 

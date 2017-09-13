@@ -99,7 +99,7 @@ func (a mirroredAlgorithm) RemoveInstances(
 			if err != nil {
 				return nil, err
 			}
-			ph.CleanUpInitializingShards(instance)
+			ph.ReturnInitializingShards(instance)
 			p = ph.GeneratePlacement()
 		}
 
@@ -163,7 +163,7 @@ func (a mirroredAlgorithm) AddInstances(
 			if err != nil {
 				return nil, err
 			}
-			ph.CleanUpLeavingShards(instance)
+			ph.ReclaimLeavingShards(instance)
 			p = ph.GeneratePlacement()
 		}
 
@@ -250,17 +250,9 @@ func allInitializing(instances []string, p placement.Placement) bool {
 		ids[i] = struct{}{}
 	}
 
-	for _, i := range p.Instances() {
-		if !i.IsInitializing() {
-			continue
-		}
-		if _, ok := ids[i.ID()]; !ok {
-			return false
-		}
-		delete(ids, i.ID())
-	}
-
-	return len(ids) == 0
+	return allInstancesInState(ids, p, func(i placement.Instance) bool {
+		return i.IsInitializing()
+	})
 }
 
 // allInitializing returns true when the given list of instances
@@ -271,19 +263,28 @@ func allLeaving(instances []placement.Instance, p placement.Placement) bool {
 		ids[i.ID()] = struct{}{}
 	}
 
-	for _, i := range p.Instances() {
-		if !i.IsLeaving() {
-			continue
-		}
-		if _, ok := ids[i.ID()]; !ok {
-			return false
-		}
-		delete(ids, i.ID())
-	}
-
-	return len(ids) == 0
+	return allInstancesInState(ids, p, func(i placement.Instance) bool {
+		return i.IsLeaving()
+	})
 }
 
+func allInstancesInState(
+	instanceIDs map[string]struct{},
+	p placement.Placement,
+	isInStateFn func(placement.Instance) bool,
+) bool {
+	for _, i := range p.Instances() {
+		if !isInStateFn(i) {
+			continue
+		}
+		if _, ok := instanceIDs[i.ID()]; !ok {
+			return false
+		}
+		delete(instanceIDs, i.ID())
+	}
+
+	return len(instanceIDs) == 0
+}
 func validAddingInstances(p placement.Placement, addingInstances []placement.Instance) ([]placement.Instance, error) {
 	for i, instance := range addingInstances {
 		if _, exist := p.Instance(instance.ID()); exist {
