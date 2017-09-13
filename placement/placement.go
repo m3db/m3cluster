@@ -26,9 +26,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/m3db/m3cluster/generated/proto/placementpb"
 	"github.com/m3db/m3cluster/shard"
+
+	"github.com/golang/protobuf/proto"
 )
 
 var (
