@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fortytw2/leaktest"
 	"github.com/m3db/m3cluster/generated/proto/commonpb"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/kv/mem"
@@ -103,13 +104,16 @@ func TestWatchAndUpdateBool(t *testing.T) {
 		}
 	}
 
-	// Updates should not be applied after the watch is closed.
+	// Updates should not be applied after the watch is closed and there should not
+	// be any goroutines still running.
 	watch.Close()
 	time.Sleep(100 * time.Millisecond)
 	_, err = store.Set("foo", &commonpb.BoolProto{Value: false})
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
 	require.True(t, valueFn())
+
+	leaktest.Check(t)()
 }
 
 func TestWatchAndUpdateFloat64(t *testing.T) {
@@ -174,13 +178,16 @@ func TestWatchAndUpdateFloat64(t *testing.T) {
 		}
 	}
 
-	// Updates should not be applied after the watch is closed.
+	// Updates should not be applied after the watch is closed and there should not
+	// be any goroutines still running.
 	watch.Close()
 	time.Sleep(100 * time.Millisecond)
 	_, err = store.Set("foo", &commonpb.Float64Proto{Value: 7.2})
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, 6.2, valueFn())
+
+	leaktest.Check(t)
 }
 
 func TestWatchAndUpdateInt64(t *testing.T) {
@@ -245,13 +252,16 @@ func TestWatchAndUpdateInt64(t *testing.T) {
 		}
 	}
 
-	// Updates should not be applied after the watch is closed.
+	// Updates should not be applied after the watch is closed and there should not
+	// be any goroutines still running.
 	watch.Close()
 	time.Sleep(100 * time.Millisecond)
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: 13})
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, int64(21), valueFn())
+
+	leaktest.Check(t)
 }
 
 func TestWatchAndUpdateString(t *testing.T) {
@@ -316,13 +326,16 @@ func TestWatchAndUpdateString(t *testing.T) {
 		}
 	}
 
-	// Updates should not be applied after the watch is closed.
+	// Updates should not be applied after the watch is closed and there should not
+	// be any goroutines still running.
 	watch.Close()
 	time.Sleep(100 * time.Millisecond)
 	_, err = store.Set("foo", &commonpb.StringProto{Value: "abc"})
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, "lol", valueFn())
+
+	leaktest.Check(t)
 }
 
 func TestWatchAndUpdateStringArray(t *testing.T) {
@@ -387,13 +400,16 @@ func TestWatchAndUpdateStringArray(t *testing.T) {
 		}
 	}
 
-	// Updates should not be applied after the watch is closed.
+	// Updates should not be applied after the watch is closed and there should not
+	// be any goroutines still running.
 	watch.Close()
 	time.Sleep(100 * time.Millisecond)
 	_, err = store.Set("foo", &commonpb.StringArrayProto{Values: []string{"abc", "def"}})
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, []string{"jim", "jam"}, valueFn())
+
+	leaktest.Check(t)
 }
 
 func TestWatchAndUpdateTime(t *testing.T) {
@@ -459,13 +475,16 @@ func TestWatchAndUpdateTime(t *testing.T) {
 		}
 	}
 
-	// Updates should not be applied after the watch is closed.
+	// Updates should not be applied after the watch is closed and there should not
+	// be any goroutines still running.
 	watch.Close()
 	time.Sleep(100 * time.Millisecond)
 	_, err = store.Set("foo", &commonpb.Int64Proto{Value: defaultValue.Unix()})
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
 	require.Equal(t, newTime.Unix(), valueFn().Unix())
+
+	leaktest.Check(t)
 }
 
 func TestWatchAndUpdateWithValidationBool(t *testing.T) {
