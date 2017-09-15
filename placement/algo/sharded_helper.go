@@ -22,12 +22,17 @@ package algo
 
 import (
 	"container/heap"
+	"errors"
 	"fmt"
 	"math"
 
 	"github.com/m3db/m3cluster/placement"
 	"github.com/m3db/m3cluster/shard"
 	"github.com/m3db/m3x/log"
+)
+
+var (
+	errAddingInstanceAlreadyExist = errors.New("the adding instance is already in the placement")
 )
 
 type includeInstanceType int
@@ -111,7 +116,7 @@ func newAddReplicaHelper(p placement.Placement, opts placement.Options) Placemen
 	return newHelper(p, p.ReplicaFactor()+1, opts)
 }
 
-func newAddInstanceHelper(
+func newAddEmptyInstanceHelper(
 	p placement.Placement,
 	instance placement.Instance,
 	opts placement.Options,
@@ -126,7 +131,19 @@ func newAddInstanceHelper(
 	}
 
 	return newHelper(p, p.ReplicaFactor(), opts), instanceInPlacement, nil
+}
 
+func newAddInstanceHelper(
+	p placement.Placement,
+	instance placement.Instance,
+	opts placement.Options,
+) (PlacementHelper, placement.Instance) {
+	instanceInPlacement, exist := p.Instance(instance.ID())
+	if !exist {
+		return newHelper(p.SetInstances(append(p.Instances(), instance)), p.ReplicaFactor(), opts), instance
+	}
+
+	return newHelper(p, p.ReplicaFactor(), opts), instanceInPlacement
 }
 
 func newRemoveInstanceHelper(
@@ -518,6 +535,10 @@ func (ph *placementHelper) assignLoadToInstanceUnsafe(addingInstance placement.I
 }
 
 func (ph *placementHelper) ReclaimLeavingShards(instance placement.Instance) {
+	if instance.Shards().NumShardsForState(shard.Leaving) == 0 {
+		// Shortcut if there is nothing to be reclaimed.
+		return
+	}
 	id := instance.ID()
 	for _, i := range ph.instances {
 		for _, s := range i.Shards().ShardsForState(shard.Initializing) {

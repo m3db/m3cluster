@@ -93,17 +93,8 @@ func (a mirroredAlgorithm) RemoveInstances(
 
 	// If the instances being removed are all the initializing instances in the placement.
 	// We just need to return these shards back to their sources.
-	if allInitializing(instanceIDs, p) {
-		for _, id := range instanceIDs {
-			ph, instance, err := newRemoveInstanceHelper(p, id, a.opts)
-			if err != nil {
-				return nil, err
-			}
-			ph.ReturnInitializingShards(instance)
-			p = ph.GeneratePlacement()
-		}
-
-		return p, nil
+	if allInitializing(p, instanceIDs) {
+		return a.returnInitializingShards(p, instanceIDs)
 	}
 
 	p, err := placement.MarkAllShardsAsAvailable(p)
@@ -157,17 +148,8 @@ func (a mirroredAlgorithm) AddInstances(
 
 	// If the instances being added are all the leaving instances in the placement.
 	// We just need to get their shards back.
-	if allLeaving(addingInstances, p) {
-		for _, instance := range addingInstances {
-			ph, instance, err := newAddInstanceHelper(p, instance, a.opts)
-			if err != nil {
-				return nil, err
-			}
-			ph.ReclaimLeavingShards(instance)
-			p = ph.GeneratePlacement()
-		}
-
-		return p, nil
+	if allLeaving(p, addingInstances) {
+		return a.reclaimLeavingShards(p, addingInstances)
 	}
 
 	p, err := placement.MarkAllShardsAsAvailable(p)
@@ -195,7 +177,7 @@ func (a mirroredAlgorithm) AddInstances(
 			return nil, fmt.Errorf("shard set id %d already exist in current placement", instance.ShardSetID())
 		}
 
-		ph, instance, err := newAddInstanceHelper(mirrorPlacement, instance, a.opts)
+		ph, instance, err := newAddEmptyInstanceHelper(mirrorPlacement, instance, a.opts)
 		if err != nil {
 			return nil, err
 		}
@@ -244,7 +226,7 @@ func (a mirroredAlgorithm) ReplaceInstances(
 
 // allInitializing returns true when the given list of instances
 // matches all the initializing instances in the placement.
-func allInitializing(instances []string, p placement.Placement) bool {
+func allInitializing(p placement.Placement, instances []string) bool {
 	ids := make(map[string]struct{}, len(instances))
 	for _, i := range instances {
 		ids[i] = struct{}{}
@@ -257,7 +239,7 @@ func allInitializing(instances []string, p placement.Placement) bool {
 
 // allInitializing returns true when the given list of instances
 // matches all the leaving instances in the placement.
-func allLeaving(instances []placement.Instance, p placement.Placement) bool {
+func allLeaving(p placement.Placement, instances []placement.Instance) bool {
 	ids := make(map[string]struct{}, len(instances))
 	for _, i := range instances {
 		ids[i.ID()] = struct{}{}
@@ -285,6 +267,83 @@ func allInstancesInState(
 
 	return len(instanceIDs) == 0
 }
+
+func (a mirroredAlgorithm) returnInitializingShards(
+	p placement.Placement,
+	instanceIDs []string,
+) (placement.Placement, error) {
+	shouldContinue := true
+	for shouldContinue {
+		shouldContinue = false
+		for _, id := range instanceIDs {
+			_, exist := p.Instance(id)
+			if !exist {
+				continue
+			}
+			ph, instance, err := newRemoveInstanceHelper(p, id, a.opts)
+			if err != nil {
+				return nil, err
+			}
+			numInitShards := instance.Shards().NumShardsForState(shard.Initializing)
+			ph.ReturnInitializingShards(instance)
+			if instance.Shards().NumShardsForState(shard.Initializing) < numInitShards {
+				// Made some progress on returning shards.
+				shouldContinue = true
+			}
+			p = ph.GeneratePlacement()
+			if instance.Shards().NumShards() > 0 {
+				p = p.SetInstances(append(p.Instances(), instance))
+			}
+		}
+	}
+
+	for _, id := range instanceIDs {
+		instance, ok := p.Instance(id)
+		if !ok {
+			continue
+		}
+		numInitializingShards := instance.Shards().NumShardsForState(shard.Initializing)
+		if numInitializingShards != 0 {
+			return nil, fmt.Errorf("there are %d initializing shards could not be returned for instance %s", numInitializingShards, id)
+		}
+	}
+
+	return p, nil
+}
+
+func (a mirroredAlgorithm) reclaimLeavingShards(
+	p placement.Placement,
+	addingInstances []placement.Instance,
+) (placement.Placement, error) {
+	shouldContinue := true
+	for shouldContinue {
+		shouldContinue = false
+		for _, instance := range addingInstances {
+			ph, instance := newAddInstanceHelper(p, instance, a.opts)
+			numLeavingShards := instance.Shards().NumShardsForState(shard.Leaving)
+			ph.ReclaimLeavingShards(instance)
+			if instance.Shards().NumShardsForState(shard.Leaving) < numLeavingShards {
+				// Made some progress on reclaiming shards.
+				shouldContinue = true
+			}
+			p = ph.GeneratePlacement()
+		}
+	}
+
+	for _, instance := range addingInstances {
+		instance, ok := p.Instance(instance.ID())
+		if !ok {
+			return nil, fmt.Errorf("could not find instance %s in placement after reclaiming leaving shards", instance.ID())
+		}
+		numLeavingShards := instance.Shards().NumShardsForState(shard.Leaving)
+		if numLeavingShards != 0 {
+			return nil, fmt.Errorf("there are %d leaving shards could not be reclaimed for instance %s", numLeavingShards, instance.ID())
+		}
+	}
+
+	return p, nil
+}
+
 func validAddingInstances(p placement.Placement, addingInstances []placement.Instance) ([]placement.Instance, error) {
 	for i, instance := range addingInstances {
 		if _, exist := p.Instance(instance.ID()); exist {

@@ -29,7 +29,6 @@ import (
 
 var (
 	errNotEnoughRacks              = errors.New("not enough racks to take shards, please make sure RF is less than number of racks")
-	errAddingInstanceAlreadyExist  = errors.New("the adding instance is already in the placement")
 	errIncompatibleWithShardedAlgo = errors.New("could not apply sharded algo on the placement")
 )
 
@@ -131,7 +130,7 @@ func (a rackAwarePlacementAlgorithm) AddInstances(
 
 	p = p.Clone()
 	for _, instance := range instances {
-		ph, addingInstance, err := newAddInstanceHelper(p, instance, a.opts)
+		ph, addingInstance, err := newAddEmptyInstanceHelper(p, instance, a.opts)
 		if err != nil {
 			return nil, err
 		}
