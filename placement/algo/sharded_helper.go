@@ -32,14 +32,18 @@ import (
 )
 
 var (
-	errAddingInstanceAlreadyExist = errors.New("the adding instance is already in the placement")
+	errAddingInstanceAlreadyExist         = errors.New("the adding instance is already in the placement")
+	errInstanceContainsNonLeavingShards   = errors.New("the adding instance contains non leaving shards")
+	errInstanceContainsInitializingShards = errors.New("the adding instance contains initializing shards")
 )
 
-type includeInstanceType int
+type instanceType int
 
 const (
-	includeEmpty includeInstanceType = iota
-	nonEmptyOnly
+	anyType instanceType = iota
+	withShards
+	withLeavingShardsOnly
+	withAvailableOrLeavingShardsOnly
 )
 
 type optimizeType int
@@ -116,34 +120,32 @@ func newAddReplicaHelper(p placement.Placement, opts placement.Options) Placemen
 	return newHelper(p, p.ReplicaFactor()+1, opts)
 }
 
-func newAddEmptyInstanceHelper(
+func newAddInstanceHelper(
 	p placement.Placement,
 	instance placement.Instance,
 	opts placement.Options,
+	t instanceType,
 ) (PlacementHelper, placement.Instance, error) {
 	instanceInPlacement, exist := p.Instance(instance.ID())
 	if !exist {
 		return newHelper(p.SetInstances(append(p.Instances(), instance)), p.ReplicaFactor(), opts), instance, nil
 	}
 
-	if !instanceInPlacement.IsLeaving() {
-		return nil, nil, errAddingInstanceAlreadyExist
+	switch t {
+	case withLeavingShardsOnly:
+		if !instanceInPlacement.IsLeaving() {
+			return nil, nil, errAddingInstanceAlreadyExist
+		}
+	case withAvailableOrLeavingShardsOnly:
+		shards := instanceInPlacement.Shards()
+		if shards.NumShards() != shards.NumShardsForState(shard.Available)+shards.NumShardsForState(shard.Leaving) {
+			return nil, nil, errInstanceContainsInitializingShards
+		}
+	default:
+		return nil, nil, fmt.Errorf("unexpected type %v", t)
 	}
 
 	return newHelper(p, p.ReplicaFactor(), opts), instanceInPlacement, nil
-}
-
-func newAddInstanceHelper(
-	p placement.Placement,
-	instance placement.Instance,
-	opts placement.Options,
-) (PlacementHelper, placement.Instance) {
-	instanceInPlacement, exist := p.Instance(instance.ID())
-	if !exist {
-		return newHelper(p.SetInstances(append(p.Instances(), instance)), p.ReplicaFactor(), opts), instance
-	}
-
-	return newHelper(p, p.ReplicaFactor(), opts), instanceInPlacement
 }
 
 func newRemoveInstanceHelper(
@@ -177,7 +179,7 @@ func newReplaceInstanceHelper(
 
 	newAddingInstances := make([]placement.Instance, len(addingInstances))
 	for i, instance := range addingInstances {
-		p, newAddingInstances[i], err = addInstanceToPlacement(p, instance, includeEmpty)
+		p, newAddingInstances[i], err = addInstanceToPlacement(p, instance, anyType)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -673,16 +675,27 @@ func isRackOverWeight(rackWeight, totalWeight uint32, rf int) bool {
 	return float64(rackWeight)/float64(totalWeight) >= 1.0/float64(rf)
 }
 
-func addInstanceToPlacement(p placement.Placement, i placement.Instance, includeInstance includeInstanceType) (placement.Placement, placement.Instance, error) {
+func addInstanceToPlacement(
+	p placement.Placement,
+	i placement.Instance,
+	t instanceType,
+) (placement.Placement, placement.Instance, error) {
 	if _, exist := p.Instance(i.ID()); exist {
 		return nil, nil, errAddingInstanceAlreadyExist
 	}
 
-	instance := i.Clone()
-	if includeInstance == includeEmpty || instance.Shards().NumShards() > 0 {
-		p = p.SetInstances(append(p.Instances(), instance))
+	switch t {
+	case anyType:
+	case withShards:
+		if i.Shards().NumShards() == 0 {
+			return p, i, nil
+		}
+	default:
+		return nil, nil, fmt.Errorf("unexpected type %v", t)
 	}
-	return p, instance, nil
+
+	instance := i.Clone()
+	return p.SetInstances(append(p.Instances(), instance)), instance, nil
 }
 
 func removeInstanceFromPlacement(p placement.Placement, id string) (placement.Placement, placement.Instance, error) {
