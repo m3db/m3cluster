@@ -134,7 +134,7 @@ func newAddInstanceHelper(
 	switch t {
 	case withLeavingShardsOnly:
 		if !instanceInPlacement.IsLeaving() {
-			return nil, nil, errAddingInstanceAlreadyExist
+			return nil, nil, errInstanceContainsNonLeavingShards
 		}
 	case withAvailableOrLeavingShardsOnly:
 		shards := instanceInPlacement.Shards()
