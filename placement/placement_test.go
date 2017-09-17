@@ -22,6 +22,7 @@ package placement
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"testing"
 
@@ -494,6 +495,24 @@ func TestMarkShardFailure(t *testing.T) {
 	_, err = MarkShardAvailable(p, "i2", 2)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not leaving instance")
+}
+
+func TestMarkShardWithCutoverInFuture(t *testing.T) {
+	timeInFuture := int64(math.MaxInt64)
+	i1 := NewEmptyInstance("i1", "", "", "e1", 1)
+	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving).SetCutoffNanos(timeInFuture))
+
+	i2 := NewEmptyInstance("i2", "", "", "e2", 1)
+	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(timeInFuture))
+
+	p := NewPlacement().
+		SetInstances([]Instance{i1, i2}).
+		SetShards([]uint32{0}).
+		SetReplicaFactor(1)
+
+	_, err := MarkShardAvailable(p, "i2", 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "is scheduled after now")
 }
 
 func TestRemoveInstanceFromArray(t *testing.T) {
