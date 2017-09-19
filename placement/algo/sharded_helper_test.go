@@ -23,6 +23,7 @@ package algo
 import (
 	"math"
 	"testing"
+	"time"
 
 	"github.com/m3db/m3cluster/placement"
 	"github.com/m3db/m3cluster/shard"
@@ -378,10 +379,11 @@ func TestMarkShardSuccess(t *testing.T) {
 		SetShards([]uint32{1, 2}).
 		SetReplicaFactor(2)
 
-	_, err := MarkShardAvailable(p, "i1", 1, placement.NewOptions())
+	nowNanos := time.Now().UnixNano()
+	_, err := markShardAvailable(p, "i1", 1, nowNanos, true)
 	assert.NoError(t, err)
 
-	_, err = MarkShardAvailable(p, "i1", 2, placement.NewOptions())
+	_, err = markShardAvailable(p, "i1", 2, nowNanos, true)
 	assert.NoError(t, err)
 }
 
@@ -400,27 +402,28 @@ func TestMarkShardFailure(t *testing.T) {
 		SetShards([]uint32{1, 2}).
 		SetReplicaFactor(2)
 
-	_, err := MarkShardAvailable(p, "i3", 1, placement.NewOptions())
+	nowNanos := time.Now().UnixNano()
+	_, err := markShardAvailable(p, "i3", 1, nowNanos, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist in placement")
 
-	_, err = MarkShardAvailable(p, "i1", 3, placement.NewOptions())
+	_, err = markShardAvailable(p, "i1", 3, nowNanos, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist in instance")
 
-	_, err = MarkShardAvailable(p, "i1", 1, placement.NewOptions())
+	_, err = markShardAvailable(p, "i1", 1, nowNanos, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not in Initializing state")
 
-	_, err = MarkShardAvailable(p, "i2", 1, placement.NewOptions())
+	_, err = markShardAvailable(p, "i2", 1, nowNanos, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist in placement")
 
-	_, err = MarkShardAvailable(p, "i2", 3, placement.NewOptions())
+	_, err = markShardAvailable(p, "i2", 3, nowNanos, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist in source instance")
 
-	_, err = MarkShardAvailable(p, "i2", 2, placement.NewOptions())
+	_, err = markShardAvailable(p, "i2", 2, nowNanos, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not leaving instance")
 }
@@ -438,7 +441,7 @@ func TestMarkShardWithCutoverInFuture(t *testing.T) {
 		SetShards([]uint32{0}).
 		SetReplicaFactor(1)
 
-	_, err := MarkShardAvailable(p, "i2", 0, placement.NewOptions())
+	_, err := markShardAvailable(p, "i2", 0, time.Now().UnixNano(), true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "is scheduled after now")
 }
@@ -467,7 +470,7 @@ func TestMarkAllAsAvailable(t *testing.T) {
 		SetShards([]uint32{1, 2}).
 		SetReplicaFactor(2)
 
-	_, err := markAllShardsAsAvailable(p, true, placement.NewOptions())
+	_, err := markAllShardsAvailable(p, true, 100)
 	assert.NoError(t, err)
 
 	i2.Shards().Add(shard.NewShard(3).SetState(shard.Initializing).SetSourceID("i3"))
@@ -475,6 +478,6 @@ func TestMarkAllAsAvailable(t *testing.T) {
 		SetInstances([]placement.Instance{i1, i2}).
 		SetShards([]uint32{1, 2}).
 		SetReplicaFactor(2)
-	_, err = markAllShardsAsAvailable(p, true, placement.NewOptions())
+	_, err = markAllShardsAvailable(p, true, 100)
 	assert.Contains(t, err.Error(), "does not exist in placement")
 }

@@ -72,7 +72,7 @@ func (a rackAwarePlacementAlgorithm) InitialPlacement(
 
 	// NB(r): All new placements should appear as available for
 	// proper client semantics when calculating consistency results
-	return markAllShardsAsAvailable(p, false, a.opts)
+	return markAllShardsAvailable(p, false, a.opts.NowFn()().UnixNano())
 }
 
 func (a rackAwarePlacementAlgorithm) AddReplica(p placement.Placement) (placement.Placement, error) {
@@ -197,4 +197,16 @@ func (a rackAwarePlacementAlgorithm) ReplaceInstances(
 		}
 	}
 	return p, nil
+}
+
+func (a rackAwarePlacementAlgorithm) MarkShardAvailable(
+	p placement.Placement,
+	instanceID string,
+	shardID uint32,
+) (placement.Placement, error) {
+	if err := a.IsCompatibleWith(p); err != nil {
+		return nil, err
+	}
+
+	return markShardAvailable(p.Clone(), instanceID, shardID, a.opts.NowFn()().UnixNano(), true)
 }

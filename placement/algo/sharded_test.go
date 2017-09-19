@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/m3db/m3cluster/placement"
 	"github.com/m3db/m3cluster/shard"
@@ -1108,10 +1109,51 @@ func TestIncompatibleWithShardedAlgo(t *testing.T) {
 	_, err = a.ReplaceInstances(p, []string{"i1"}, []placement.Instance{i3, i4})
 	assert.Error(t, err)
 	assert.Equal(t, errIncompatibleWithShardedAlgo, err)
+
+	_, err = a.MarkShardAvailable(p, "i2", 0)
+	assert.Error(t, err)
+	assert.Equal(t, errIncompatibleWithShardedAlgo, err)
+}
+
+func TestMarkFutureShardAsAvailableWithShardedAlgo(t *testing.T) {
+	timeInFuture := int64(math.MaxInt64)
+	i1 := placement.NewEmptyInstance("i1", "", "", "e1", 1)
+	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving).SetCutoffNanos(timeInFuture))
+
+	i2 := placement.NewEmptyInstance("i2", "", "", "e2", 1)
+	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(timeInFuture))
+
+	p := placement.NewPlacement().
+		SetInstances([]placement.Instance{i1, i2}).
+		SetShards([]uint32{0}).
+		SetReplicaFactor(1).
+		SetIsSharded(true)
+
+	a := newShardedAlgorithm(placement.NewOptions())
+	_, err := a.MarkShardAvailable(p, "i2", 0)
+	assert.Error(t, err)
+}
+
+func TestMarkPastShardAsAvailableWithShardedAlgo(t *testing.T) {
+	i1 := placement.NewEmptyInstance("i1", "", "", "e1", 1)
+	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving))
+
+	i2 := placement.NewEmptyInstance("i2", "", "", "e2", 1)
+	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1"))
+
+	p := placement.NewPlacement().
+		SetInstances([]placement.Instance{i1, i2}).
+		SetShards([]uint32{0}).
+		SetReplicaFactor(1).
+		SetIsSharded(true)
+
+	a := newShardedAlgorithm(placement.NewOptions())
+	_, err := a.MarkShardAvailable(p, "i2", 0)
+	assert.NoError(t, err)
 }
 
 func mustMarkAllShardsAsAvailable(t *testing.T, p placement.Placement) placement.Placement {
-	p, err := markAllShardsAsAvailable(p, true, placement.NewOptions())
+	p, err := markAllShardsAvailable(p, true, time.Now().UnixNano())
 	assert.NoError(t, err)
 	return p
 }

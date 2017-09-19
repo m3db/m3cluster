@@ -750,11 +750,6 @@ func removeInstanceFromList(list []placement.Instance, instanceID string) []plac
 	return list
 }
 
-// MarkShardAvailable marks a shard available on a clone of the placement.
-func MarkShardAvailable(p placement.Placement, instanceID string, shardID uint32, opts placement.Options) (placement.Placement, error) {
-	return markShardAvailable(p.Clone(), instanceID, shardID, opts.NowFn()().UnixNano(), true)
-}
-
 func markShardAvailable(p placement.Placement, instanceID string, shardID uint32, nowNanos int64, shouldCheckCutoverTime bool) (placement.Placement, error) {
 	instance, exist := p.Instance(instanceID)
 	if !exist {
@@ -805,12 +800,9 @@ func markShardAvailable(p placement.Placement, instanceID string, shardID uint32
 	return p, nil
 }
 
-func markAllShardsAsAvailable(p placement.Placement, shouldCheckCutoverTime bool, opts placement.Options) (placement.Placement, error) {
+func markAllShardsAvailable(p placement.Placement, shouldCheckCutoverTime bool, nowNanos int64) (placement.Placement, error) {
 	p = p.Clone()
-	var (
-		err      error
-		nowNanos = opts.NowFn()().UnixNano()
-	)
+	var err error
 	for _, instance := range p.Instances() {
 		for _, s := range instance.Shards().All() {
 			if s.State() == shard.Initializing {

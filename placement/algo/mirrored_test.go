@@ -21,6 +21,7 @@
 package algo
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -257,7 +258,7 @@ func TestMirrorTestAddRevert(t *testing.T) {
 	_, ok = p2.Instance("i6")
 	assert.False(t, ok)
 
-	pa, err := markAllShardsAsAvailable(p, true, opts)
+	pa, err := markAllShardsAvailable(p, true, nowNanos)
 	assert.NoError(t, err)
 	assert.Equal(t, pa, p2)
 }
@@ -410,7 +411,7 @@ func TestMirrorTestRemoveRevert(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, i6.Shards().NumShards(), i6.Shards().NumShardsForState(shard.Available))
 
-	pa, err := markAllShardsAsAvailable(p, true, opts)
+	pa, err := markAllShardsAvailable(p, true, nowNanos)
 	assert.NoError(t, err)
 	assert.Equal(t, pa, p2)
 }
@@ -1004,7 +1005,7 @@ func TestMirrorReplaceWithLeavingShards(t *testing.T) {
 	), newI4)
 	assert.NoError(t, placement.Validate(p2))
 
-	p2, err = markAllShardsAsAvailable(p2, true, opts)
+	p2, err = markAllShardsAvailable(p2, true, time.Now().UnixNano())
 	assert.NoError(t, err)
 	assert.NoError(t, placement.Validate(p2))
 }
@@ -1219,4 +1220,47 @@ func TestReclaimLeavingShardsWithAvailable(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 4, p2.NumInstances())
 	assert.NoError(t, placement.Validate(p2))
+}
+
+func TestMarkFutureShardAsAvailableWithMirroredAlgo(t *testing.T) {
+	timeInFuture := int64(math.MaxInt64)
+	i1 := placement.NewEmptyInstance("i1", "", "", "e1", 1)
+	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving).SetCutoffNanos(timeInFuture))
+
+	i2 := placement.NewEmptyInstance("i2", "", "", "e2", 1)
+	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(timeInFuture))
+
+	p := placement.NewPlacement().
+		SetInstances([]placement.Instance{i1, i2}).
+		SetShards([]uint32{0}).
+		SetReplicaFactor(1).
+		SetIsSharded(true).
+		SetIsMirrored(true)
+
+	a := newMirroredAlgorithm(placement.NewOptions())
+	_, err := a.MarkShardAvailable(p, "i2", 0)
+	assert.Error(t, err)
+}
+
+func TestMarkPastShardAsAvailableWithMirroredAlgo(t *testing.T) {
+	i1 := placement.NewEmptyInstance("i1", "", "", "e1", 1)
+	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving))
+
+	i2 := placement.NewEmptyInstance("i2", "", "", "e2", 1)
+	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1"))
+
+	p := placement.NewPlacement().
+		SetInstances([]placement.Instance{i1, i2}).
+		SetShards([]uint32{0}).
+		SetReplicaFactor(1).
+		SetIsSharded(true).
+		SetIsMirrored(true)
+
+	a := newMirroredAlgorithm(placement.NewOptions())
+	_, err := a.MarkShardAvailable(p, "i2", 0)
+	assert.NoError(t, err)
+
+	_, err = a.MarkShardAvailable(p.SetIsMirrored(false), "i2", 0)
+	assert.Error(t, err)
+	assert.Equal(t, errIncompatibleWithMirrorAlgo, err)
 }

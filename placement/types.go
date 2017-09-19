@@ -467,6 +467,9 @@ type Algorithm interface {
 
 	// IsCompatibleWith checks whether the algorithm could be applied to given placement.
 	IsCompatibleWith(p Placement) error
+
+	// MarkShardAvailable marks a shard as available.
+	MarkShardAvailable(p Placement, instanceID string, shardID uint32) (Placement, error)
 }
 
 // InstanceSelector selects valid instances for the placement change.

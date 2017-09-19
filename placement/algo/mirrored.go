@@ -81,7 +81,7 @@ func (a mirroredAlgorithm) InitialPlacement(
 
 	// NB(r): All new placements should appear as available for
 	// proper client semantics when calculating consistency results.
-	return markAllShardsAsAvailable(p, false, a.opts)
+	return markAllShardsAvailable(p, false, a.opts.NowFn()().UnixNano())
 }
 
 func (a mirroredAlgorithm) AddReplica(p placement.Placement) (placement.Placement, error) {
@@ -98,13 +98,14 @@ func (a mirroredAlgorithm) RemoveInstances(
 		return nil, err
 	}
 
+	nowNanos := a.opts.NowFn()().UnixNano()
 	// If the instances being removed are all the initializing instances in the placement.
 	// We just need to return these shards back to their sources.
-	if allInitializing(p, instanceIDs, a.opts.NowFn()().UnixNano()) {
+	if allInitializing(p, instanceIDs, nowNanos) {
 		return a.returnInitializingShards(p, instanceIDs)
 	}
 
-	p, err := markAllShardsAsAvailable(p, true, a.opts)
+	p, err := markAllShardsAvailable(p, true, nowNanos)
 	if err != nil {
 		return nil, err
 	}
@@ -153,13 +154,14 @@ func (a mirroredAlgorithm) AddInstances(
 		return nil, err
 	}
 
+	nowNanos := a.opts.NowFn()().UnixNano()
 	// If the instances being added are all the leaving instances in the placement.
 	// We just need to get their shards back.
-	if allLeaving(p, addingInstances, a.opts.NowFn()().UnixNano()) {
+	if allLeaving(p, addingInstances, nowNanos) {
 		return a.reclaimLeavingShards(p, addingInstances)
 	}
 
-	p, err := markAllShardsAsAvailable(p, true, a.opts)
+	p, err := markAllShardsAvailable(p, true, nowNanos)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +224,7 @@ func (a mirroredAlgorithm) ReplaceInstances(
 		shouldCheckCutoverTime = false
 	}
 
-	if p, err = markAllShardsAsAvailable(p, shouldCheckCutoverTime, a.opts); err != nil {
+	if p, err = markAllShardsAvailable(p, shouldCheckCutoverTime, nowNanos); err != nil {
 		return nil, err
 	}
 
@@ -238,6 +240,18 @@ func (a mirroredAlgorithm) ReplaceInstances(
 		}
 	}
 	return p, nil
+}
+
+func (a mirroredAlgorithm) MarkShardAvailable(
+	p placement.Placement,
+	instanceID string,
+	shardID uint32,
+) (placement.Placement, error) {
+	if err := a.IsCompatibleWith(p); err != nil {
+		return nil, err
+	}
+
+	return a.shardedAlgo.MarkShardAvailable(p, instanceID, shardID)
 }
 
 // allInitializing returns true when

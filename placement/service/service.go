@@ -191,8 +191,7 @@ func (ps *placementService) MarkShardAvailable(instanceID string, shardID uint32
 		return err
 	}
 
-	p, err = algo.MarkShardAvailable(p, instanceID, shardID, ps.opts)
-	if err != nil {
+	if p, err = ps.algo.MarkShardAvailable(p, instanceID, shardID); err != nil {
 		return err
 	}
 
@@ -213,11 +212,12 @@ func (ps *placementService) MarkInstanceAvailable(instanceID string) error {
 	if !exist {
 		return fmt.Errorf("could not find instance %s in placement", instanceID)
 	}
+
 	for _, s := range instance.Shards().All() {
 		if s.State() != shard.Initializing {
 			continue
 		}
-		p, err = algo.MarkShardAvailable(p, instanceID, s.ID(), ps.opts)
+		p, err = ps.algo.MarkShardAvailable(p, instanceID, s.ID())
 		if err != nil {
 			return err
 		}
