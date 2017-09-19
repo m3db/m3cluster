@@ -22,6 +22,7 @@ package placement
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"testing"
 
@@ -442,10 +443,11 @@ func TestVersion(t *testing.T) {
 func TestMarkShardSuccess(t *testing.T) {
 	i1 := NewEmptyInstance("i1", "", "", "endpoint", 1)
 	i1.Shards().Add(shard.NewShard(1).SetState(shard.Initializing))
-	i1.Shards().Add(shard.NewShard(2).SetState(shard.Initializing))
+	i1.Shards().Add(shard.NewShard(2).SetState(shard.Initializing).SetSourceID("i2"))
 
 	i2 := NewEmptyInstance("i2", "", "", "endpoint", 1)
 	i2.Shards().Add(shard.NewShard(1).SetState(shard.Initializing))
+	i2.Shards().Add(shard.NewShard(2).SetState(shard.Leaving))
 
 	p := NewPlacement().
 		SetInstances([]Instance{i1, i2}).
@@ -453,6 +455,9 @@ func TestMarkShardSuccess(t *testing.T) {
 		SetReplicaFactor(2)
 
 	_, err := MarkShardAvailable(p, "i1", 1)
+	assert.NoError(t, err)
+
+	_, err = MarkShardAvailable(p, "i1", 2)
 	assert.NoError(t, err)
 }
 
@@ -496,6 +501,24 @@ func TestMarkShardFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "not leaving instance")
 }
 
+func TestMarkShardWithCutoverInFuture(t *testing.T) {
+	timeInFuture := int64(math.MaxInt64)
+	i1 := NewEmptyInstance("i1", "", "", "e1", 1)
+	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving).SetCutoffNanos(timeInFuture))
+
+	i2 := NewEmptyInstance("i2", "", "", "e2", 1)
+	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(timeInFuture))
+
+	p := NewPlacement().
+		SetInstances([]Instance{i1, i2}).
+		SetShards([]uint32{0}).
+		SetReplicaFactor(1)
+
+	_, err := MarkShardAvailable(p, "i2", 0)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "is scheduled after now")
+}
+
 func TestRemoveInstanceFromArray(t *testing.T) {
 	instances := []Instance{
 		NewEmptyInstance("i1", "", "", "endpoint", 1),
@@ -520,7 +543,7 @@ func TestMarkAllAsAvailable(t *testing.T) {
 		SetShards([]uint32{1, 2}).
 		SetReplicaFactor(2)
 
-	_, err := MarkAllShardsAsAvailable(p)
+	_, err := MarkAllShardsAsAvailable(p, true)
 	assert.NoError(t, err)
 
 	i2.Shards().Add(shard.NewShard(3).SetState(shard.Initializing).SetSourceID("i3"))
@@ -528,7 +551,7 @@ func TestMarkAllAsAvailable(t *testing.T) {
 		SetInstances([]Instance{i1, i2}).
 		SetShards([]uint32{1, 2}).
 		SetReplicaFactor(2)
-	_, err = MarkAllShardsAsAvailable(p)
+	_, err = MarkAllShardsAsAvailable(p, true)
 	assert.Contains(t, err.Error(), "does not exist in placement")
 }
 

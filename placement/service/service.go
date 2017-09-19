@@ -82,13 +82,6 @@ func (ps *placementService) BuildInitialPlacement(
 		return nil, err
 	}
 
-	// NB(r): All new placements should appear as available for
-	// proper client semantics when calculating consistency results
-	p, err = placement.MarkAllShardsAsAvailable(p)
-	if err != nil {
-		return nil, err
-	}
-
 	return p, ps.SetIfNotExist(p)
 }
 

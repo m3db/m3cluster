@@ -69,7 +69,10 @@ func (a rackAwarePlacementAlgorithm) InitialPlacement(
 		}
 		p = ph.GeneratePlacement()
 	}
-	return p, nil
+
+	// NB(r): All new placements should appear as available for
+	// proper client semantics when calculating consistency results
+	return placement.MarkAllShardsAsAvailable(p, false)
 }
 
 func (a rackAwarePlacementAlgorithm) AddReplica(p placement.Placement) (placement.Placement, error) {
