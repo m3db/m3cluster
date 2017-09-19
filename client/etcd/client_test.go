@@ -274,7 +274,7 @@ func testNewETCDFn(t *testing.T) (newClientFn, func()) {
 	ecluster := integration.NewClusterV3(t, &integration.ClusterConfig{Size: 1})
 	ec := ecluster.RandClient()
 
-	newFn := func(endpoints []string) (*clientv3.Client, error) {
+	newFn := func(endpoints []string, cert string, key string) (*clientv3.Client, error) {
 		return ec, nil
 	}
 

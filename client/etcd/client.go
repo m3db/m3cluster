@@ -21,8 +21,12 @@
 package etcd
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +40,6 @@ import (
 	etcdheartbeat "github.com/m3db/m3cluster/services/heartbeat/etcd"
 	"github.com/m3db/m3cluster/services/leader"
 	"github.com/m3db/m3x/instrument"
-	"github.com/m3db/m3x/log"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/uber-go/tally"
@@ -53,7 +56,7 @@ const (
 
 var errInvalidNamespace = errors.New("invalid namespace")
 
-type newClientFn func(endpoints []string) (*clientv3.Client, error)
+type newClientFn func(endpoints []string, cert string, key string, ca string) (*clientv3.Client, error)
 
 type cacheFileForZoneFn func(zone string) etcdkv.CacheFileFn
 
@@ -231,7 +234,7 @@ func (c *csclient) etcdClientGen(zone string) (*clientv3.Client, error) {
 		return nil, fmt.Errorf("no etcd cluster found for zone %s", zone)
 	}
 
-	cli, err := c.newFn(cluster.Endpoints())
+	cli, err := c.newFn(cluster.Endpoints(), cluster.Cert(), cluster.Key(), cluster.CA())
 	if err != nil {
 		return nil, err
 	}
@@ -240,8 +243,32 @@ func (c *csclient) etcdClientGen(zone string) (*clientv3.Client, error) {
 	return cli, nil
 }
 
-func newClient(endpoints []string) (*clientv3.Client, error) {
-	return clientv3.New(clientv3.Config{Endpoints: endpoints})
+func newClient(endpoints []string, certfile string, keyfile string, ca string) (*clientv3.Client, error) {
+	tlscfg := &tls.Config{}
+	if certfile != "" && keyfile != "" {
+		cert, err := tls.LoadX509KeyPair(certfile, keyfile)
+		if err != nil {
+			return nil, err
+		}
+		tlscfg = &tls.Config{
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: true,
+			Certificates:       []tls.Certificate{cert},
+		}
+		if ca != "" {
+			caCert, err := ioutil.ReadFile(ca)
+			if err != nil {
+				return nil, err
+			}
+			caPool := x509.NewCertPool()
+			ok := caPool.AppendCertsFromPEM(caCert)
+			if !ok {
+				return nil, fmt.Errorf("can't read PEM-formatted certificates from file %s as root CA pool", ca)
+			}
+			tlscfg.RootCAs = caPool
+		}
+	}
+	return clientv3.New(clientv3.Config{Endpoints: endpoints, TLS: tlscfg})
 }
 
 func (c *csclient) cacheFileFn(extraFields ...string) cacheFileForZoneFn {
