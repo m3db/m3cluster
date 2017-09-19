@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/m3db/m3cluster/generated/proto/placementpb"
 	"github.com/m3db/m3cluster/shard"
@@ -596,12 +597,12 @@ func RemoveInstanceFromList(list []Instance, instanceID string) []Instance {
 	return list
 }
 
-// MarkShardAvailable marks a shard available on a clone of the placement
+// MarkShardAvailable marks a shard available on a clone of the placement.
 func MarkShardAvailable(p Placement, instanceID string, shardID uint32) (Placement, error) {
-	return markShardAvailable(p.Clone(), instanceID, shardID)
+	return markShardAvailable(p.Clone(), instanceID, shardID, time.Now().UnixNano())
 }
 
-func markShardAvailable(p Placement, instanceID string, shardID uint32) (Placement, error) {
+func markShardAvailable(p Placement, instanceID string, shardID uint32, nowNanos int64) (Placement, error) {
 	instance, exist := p.Instance(instanceID)
 	if !exist {
 		return nil, fmt.Errorf("instance %s does not exist in placement", instanceID)
@@ -615,6 +616,10 @@ func markShardAvailable(p Placement, instanceID string, shardID uint32) (Placeme
 
 	if s.State() != shard.Initializing {
 		return nil, fmt.Errorf("could not mark shard %d as available, it's not in Initializing state", s.ID())
+	}
+
+	if s.CutoverNanos() > nowNanos {
+		return nil, fmt.Errorf("could not mark shard %d as available, it's cutover time %d is scheduled after now %d", s.ID(), s.CutoverNanos(), nowNanos)
 	}
 
 	sourceID := s.SourceID()
@@ -647,14 +652,17 @@ func markShardAvailable(p Placement, instanceID string, shardID uint32) (Placeme
 	return p, nil
 }
 
-// MarkAllShardsAsAvailable marks all shard available
+// MarkAllShardsAsAvailable marks all shard available.
 func MarkAllShardsAsAvailable(p Placement) (Placement, error) {
-	var err error
 	p = p.Clone()
+	var (
+		err      error
+		nowNanos = time.Now().UnixNano()
+	)
 	for _, instance := range p.Instances() {
 		for _, s := range instance.Shards().All() {
 			if s.State() == shard.Initializing {
-				p, err = markShardAvailable(p, instance.ID(), s.ID())
+				p, err = markShardAvailable(p, instance.ID(), s.ID(), nowNanos)
 				if err != nil {
 					return nil, err
 				}
