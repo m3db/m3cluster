@@ -53,7 +53,7 @@ const testConfig = `
               - etcd6:2379
           cert: foo.crt.pem
           key: foo.key.pem
-		  ca: foo_ca.pem
+          ca: foo_ca.pem
     m3sd:
         initTimeout: 10s
 `

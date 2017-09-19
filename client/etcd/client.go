@@ -245,7 +245,7 @@ func (c *csclient) etcdClientGen(zone string) (*clientv3.Client, error) {
 
 func newClient(endpoints []string, certfile string, keyfile string, ca string) (*clientv3.Client, error) {
 	tlscfg := &tls.Config{}
-	if certfile != "" && keyfile != "" {
+	if certfile != "" {
 		cert, err := tls.LoadX509KeyPair(certfile, keyfile)
 		if err != nil {
 			return nil, err
@@ -261,8 +261,7 @@ func newClient(endpoints []string, certfile string, keyfile string, ca string) (
 				return nil, err
 			}
 			caPool := x509.NewCertPool()
-			ok := caPool.AppendCertsFromPEM(caCert)
-			if !ok {
+			if ok := caPool.AppendCertsFromPEM(caCert); !ok {
 				return nil, fmt.Errorf("can't read PEM-formatted certificates from file %s as root CA pool", ca)
 			}
 			tlscfg.RootCAs = caPool
