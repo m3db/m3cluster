@@ -252,7 +252,7 @@ func newClient(endpoints []string, certfile string, keyfile string, ca string) (
 		}
 		tlscfg = &tls.Config{
 			MinVersion:         tls.VersionTLS12,
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: false,
 			Certificates:       []tls.Certificate{cert},
 		}
 		if ca != "" {
