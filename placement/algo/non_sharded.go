@@ -94,7 +94,7 @@ func (a nonShardedAlgorithm) RemoveInstances(
 	p = p.Clone()
 	instances := p.Instances()
 	for _, instance := range removingInstances {
-		instances = placement.RemoveInstanceFromList(instances, instance.ID())
+		instances = removeInstanceFromList(instances, instance.ID())
 	}
 	return p.SetInstances(instances), nil
 }

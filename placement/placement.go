@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/m3db/m3cluster/generated/proto/placementpb"
 	"github.com/m3db/m3cluster/shard"
@@ -583,91 +582,4 @@ func (s ByIDAscending) Less(i, j int) bool {
 
 func (s ByIDAscending) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
-}
-
-// RemoveInstanceFromList removes a given instance from a list of instances
-func RemoveInstanceFromList(list []Instance, instanceID string) []Instance {
-	for i, instance := range list {
-		if instance.ID() == instanceID {
-			last := len(list) - 1
-			list[i], list[last] = list[last], list[i]
-			return list[:last]
-		}
-	}
-	return list
-}
-
-// MarkShardAvailable marks a shard available on a clone of the placement.
-func MarkShardAvailable(p Placement, instanceID string, shardID uint32) (Placement, error) {
-	return markShardAvailable(p.Clone(), instanceID, shardID, time.Now().UnixNano(), true)
-}
-
-func markShardAvailable(p Placement, instanceID string, shardID uint32, nowNanos int64, shouldCheckCutoverTime bool) (Placement, error) {
-	instance, exist := p.Instance(instanceID)
-	if !exist {
-		return nil, fmt.Errorf("instance %s does not exist in placement", instanceID)
-	}
-
-	shards := instance.Shards()
-	s, exist := shards.Shard(shardID)
-	if !exist {
-		return nil, fmt.Errorf("shard %d does not exist in instance %s", shardID, instanceID)
-	}
-
-	if s.State() != shard.Initializing {
-		return nil, fmt.Errorf("could not mark shard %d as available, it's not in Initializing state", s.ID())
-	}
-
-	if shouldCheckCutoverTime && s.CutoverNanos() > nowNanos {
-		return nil, fmt.Errorf("could not mark shard %d as available, it's cutover time %d is scheduled after now %d", s.ID(), s.CutoverNanos(), nowNanos)
-	}
-
-	sourceID := s.SourceID()
-	shards.Add(shard.NewShard(shardID).SetState(shard.Available))
-
-	// there could be no source for cases like initial placement
-	if sourceID == "" {
-		return p, nil
-	}
-
-	sourceInstance, exist := p.Instance(sourceID)
-	if !exist {
-		return nil, fmt.Errorf("source instance %s for shard %d does not exist in placement", sourceID, shardID)
-	}
-
-	sourceShards := sourceInstance.Shards()
-	sourceShard, exist := sourceShards.Shard(shardID)
-	if !exist {
-		return nil, fmt.Errorf("shard %d does not exist in source instance %s", shardID, sourceID)
-	}
-
-	if sourceShard.State() != shard.Leaving {
-		return nil, fmt.Errorf("shard %d is not leaving instance %s", shardID, sourceID)
-	}
-
-	sourceShards.Remove(shardID)
-	if sourceShards.NumShards() == 0 {
-		return p.SetInstances(RemoveInstanceFromList(p.Instances(), sourceInstance.ID())), nil
-	}
-	return p, nil
-}
-
-// MarkAllShardsAsAvailable marks all shard available.
-func MarkAllShardsAsAvailable(p Placement, shouldCheckCutoverTime bool) (Placement, error) {
-	p = p.Clone()
-	var (
-		err      error
-		nowNanos = time.Now().UnixNano()
-	)
-	for _, instance := range p.Instances() {
-		for _, s := range instance.Shards().All() {
-			if s.State() == shard.Initializing {
-				p, err = markShardAvailable(p, instance.ID(), s.ID(), nowNanos, shouldCheckCutoverTime)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	return p, nil
 }

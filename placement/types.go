@@ -373,6 +373,12 @@ type Options interface {
 
 	// SetShardCutoffNanosFn sets the TimeNanosFn for shard cutoff time.
 	SetShardCutoffNanosFn(fn TimeNanosFn) Options
+
+	// NowFn returns the function to get time now.
+	NowFn() clock.NowFn
+
+	// SetNowFn sets the function to get time now.
+	SetNowFn(fn clock.NowFn) Options
 }
 
 // Storage provides read and write access to placement.

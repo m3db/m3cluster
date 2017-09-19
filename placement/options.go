@@ -21,7 +21,10 @@
 package placement
 
 import (
+	"time"
+
 	"github.com/m3db/m3cluster/shard"
+	"github.com/m3db/m3x/clock"
 	"github.com/m3db/m3x/instrument"
 )
 
@@ -64,6 +67,7 @@ type options struct {
 	placementCutOverFn  TimeNanosFn
 	shardCutOverFn      TimeNanosFn
 	shardCutOffFn       TimeNanosFn
+	nowFn               clock.NowFn
 }
 
 // NewOptions returns a default Options.
@@ -75,6 +79,7 @@ func NewOptions() Options {
 		placementCutOverFn:  defaultTimeNanosFn,
 		shardCutOverFn:      defaultTimeNanosFn,
 		shardCutOffFn:       defaultTimeNanosFn,
+		nowFn:               time.Now,
 	}
 }
 
@@ -174,5 +179,14 @@ func (o options) ShardCutoffNanosFn() TimeNanosFn {
 
 func (o options) SetShardCutoffNanosFn(fn TimeNanosFn) Options {
 	o.shardCutOffFn = fn
+	return o
+}
+
+func (o options) NowFn() clock.NowFn {
+	return o.nowFn
+}
+
+func (o options) SetNowFn(fn clock.NowFn) Options {
+	o.nowFn = fn
 	return o
 }

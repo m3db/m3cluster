@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/m3db/m3cluster/placement"
 	"github.com/m3db/m3cluster/shard"
@@ -81,8 +80,8 @@ func (a mirroredAlgorithm) InitialPlacement(
 	}
 
 	// NB(r): All new placements should appear as available for
-	// proper client semantics when calculating consistency results
-	return placement.MarkAllShardsAsAvailable(p, false)
+	// proper client semantics when calculating consistency results.
+	return markAllShardsAsAvailable(p, false, a.opts)
 }
 
 func (a mirroredAlgorithm) AddReplica(p placement.Placement) (placement.Placement, error) {
@@ -101,11 +100,11 @@ func (a mirroredAlgorithm) RemoveInstances(
 
 	// If the instances being removed are all the initializing instances in the placement.
 	// We just need to return these shards back to their sources.
-	if allInitializing(p, instanceIDs, time.Now().UnixNano()) {
+	if allInitializing(p, instanceIDs, a.opts.NowFn()().UnixNano()) {
 		return a.returnInitializingShards(p, instanceIDs)
 	}
 
-	p, err := placement.MarkAllShardsAsAvailable(p, true)
+	p, err := markAllShardsAsAvailable(p, true, a.opts)
 	if err != nil {
 		return nil, err
 	}
@@ -156,11 +155,11 @@ func (a mirroredAlgorithm) AddInstances(
 
 	// If the instances being added are all the leaving instances in the placement.
 	// We just need to get their shards back.
-	if allLeaving(p, addingInstances, time.Now().UnixNano()) {
+	if allLeaving(p, addingInstances, a.opts.NowFn()().UnixNano()) {
 		return a.reclaimLeavingShards(p, addingInstances)
 	}
 
-	p, err := placement.MarkAllShardsAsAvailable(p, true)
+	p, err := markAllShardsAsAvailable(p, true, a.opts)
 	if err != nil {
 		return nil, err
 	}
@@ -214,13 +213,13 @@ func (a mirroredAlgorithm) ReplaceInstances(
 		return nil, fmt.Errorf("could not replace %d instances with %d instances for mirrored replace", len(leavingInstanceIDs), len(addingInstances))
 	}
 
-	nowNanos := time.Now().UnixNano()
+	nowNanos := a.opts.NowFn()().UnixNano()
 	if allLeaving(p, addingInstances, nowNanos) && allInitializing(p, leavingInstanceIDs, nowNanos) {
-		if p, err = placement.MarkAllShardsAsAvailable(p, false); err != nil {
+		if p, err = markAllShardsAsAvailable(p, false, a.opts); err != nil {
 			return nil, err
 		}
 	} else {
-		if p, err = placement.MarkAllShardsAsAvailable(p, true); err != nil {
+		if p, err = markAllShardsAsAvailable(p, true, a.opts); err != nil {
 			return nil, err
 		}
 	}
@@ -388,7 +387,7 @@ func validAddingInstances(p placement.Placement, addingInstances []placement.Ins
 			return nil, fmt.Errorf("instance %s already exist in the placement", instance.ID())
 		}
 		if instance.IsLeaving() {
-			// The instance was leaving in placement, after MarkAllShardsAsAvailable it is now removed
+			// The instance was leaving in placement, after markAllShardsAsAvailable it is now removed
 			// from the placement, so we should treat them as fresh new instances.
 			addingInstances[i] = instance.SetShards(shard.NewShards(nil))
 		}
