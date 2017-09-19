@@ -79,7 +79,7 @@ func TestConfig(t *testing.T) {
 		},
 		ClusterConfig{
 			Zone:      "z3",
-			Endpoints: []string{"etcd3:2379", "etcd4:2379"},
+			Endpoints: []string{"etcd5:2379", "etcd6:2379"},
 			Cert:      "foo.crt.pem",
 			Key:       "foo.key.pem",
 			CA:        "foo_ca.pem",

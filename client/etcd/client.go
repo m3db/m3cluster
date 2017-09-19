@@ -26,7 +26,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,6 +39,7 @@ import (
 	etcdheartbeat "github.com/m3db/m3cluster/services/heartbeat/etcd"
 	"github.com/m3db/m3cluster/services/leader"
 	"github.com/m3db/m3x/instrument"
+	"github.com/m3db/m3x/log"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/uber-go/tally"
