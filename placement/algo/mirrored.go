@@ -213,15 +213,17 @@ func (a mirroredAlgorithm) ReplaceInstances(
 		return nil, fmt.Errorf("could not replace %d instances with %d instances for mirrored replace", len(leavingInstanceIDs), len(addingInstances))
 	}
 
-	nowNanos := a.opts.NowFn()().UnixNano()
+	var (
+		nowNanos               = a.opts.NowFn()().UnixNano()
+		shouldCheckCutoverTime = true
+	)
 	if allLeaving(p, addingInstances, nowNanos) && allInitializing(p, leavingInstanceIDs, nowNanos) {
-		if p, err = markAllShardsAsAvailable(p, false, a.opts); err != nil {
-			return nil, err
-		}
-	} else {
-		if p, err = markAllShardsAsAvailable(p, true, a.opts); err != nil {
-			return nil, err
-		}
+		// Allow marking shards as available without checking cutover time in a reverting case.
+		shouldCheckCutoverTime = false
+	}
+
+	if p, err = markAllShardsAsAvailable(p, shouldCheckCutoverTime, a.opts); err != nil {
+		return nil, err
 	}
 
 	// At this point, all leaving instances in the placement are cleaned up.
@@ -252,7 +254,7 @@ func allInitializing(p placement.Placement, instances []string, nowNanos int64) 
 	})
 }
 
-// allInitializing returns true when
+// allLeaving returns true when
 // 1: the given list of instances matches all the leaving instances in the placement.
 // 2: the shards are not cutoff yet.
 func allLeaving(p placement.Placement, instances []placement.Instance, nowNanos int64) bool {
@@ -266,9 +268,9 @@ func allLeaving(p placement.Placement, instances []placement.Instance, nowNanos 
 	})
 }
 
-func instanceCheckFn(instance placement.Instance, forEachShardFn func(s shard.Shard) bool) bool {
+func instanceCheck(instance placement.Instance, shardCheckFn func(s shard.Shard) bool) bool {
 	for _, s := range instance.Shards().All() {
-		if !forEachShardFn(s) {
+		if !shardCheckFn(s) {
 			return false
 		}
 	}
@@ -281,7 +283,7 @@ func allInstancesInState(
 	forEachShardFn func(s shard.Shard) bool,
 ) bool {
 	for _, instance := range p.Instances() {
-		if !instanceCheckFn(instance, forEachShardFn) {
+		if !instanceCheck(instance, forEachShardFn) {
 			continue
 		}
 		if _, ok := instanceIDs[instance.ID()]; !ok {
