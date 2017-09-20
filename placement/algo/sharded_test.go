@@ -30,6 +30,7 @@ import (
 	"github.com/m3db/m3cluster/shard"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMinorWeightDifference(t *testing.T) {
@@ -48,15 +49,15 @@ func TestMinorWeightDifference(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement([]placement.Instance{i1, i2, i3, i4, i5, i6}, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestMinorWeightDifference replica 1")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestMinorWeightDifference replica 2")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestMinorWeightDifference replica 3")
 }
 
@@ -85,7 +86,7 @@ func TestGoodCase(t *testing.T) {
 		SetShardCutoffNanosFn(timeNanosGen(3))
 	a := newShardedAlgorithm(opts)
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCase replica 1")
 
@@ -95,7 +96,7 @@ func TestGoodCase(t *testing.T) {
 		SetShardCutoffNanosFn(timeNanosGen(13))
 	a = newShardedAlgorithm(opts)
 	p, err = a.AddInstances(p, []placement.Instance{placement.NewEmptyInstance("i21", "r6", "z1", "endpoint", 1)})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateCutoverCutoffNanos(t, p, opts)
@@ -107,7 +108,7 @@ func TestGoodCase(t *testing.T) {
 		SetShardCutoffNanosFn(timeNanosGen(23))
 	a = newShardedAlgorithm(opts)
 	p, err = a.RemoveInstances(p, []string{i1.ID()})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	_, exist := p.Instance(i1.ID())
@@ -122,7 +123,7 @@ func TestGoodCase(t *testing.T) {
 	a = newShardedAlgorithm(opts)
 	i12 := placement.NewEmptyInstance("i12", "r3", "z1", "endpoint", 1)
 	p, err = a.ReplaceInstances(p, []string{i5.ID()}, []placement.Instance{i12})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	_, exist = p.Instance(i5.ID())
 	assert.True(t, exist)
@@ -138,7 +139,7 @@ func TestGoodCase(t *testing.T) {
 		SetShardCutoffNanosFn(timeNanosGen(43))
 	a = newShardedAlgorithm(opts)
 	p, err = a.RemoveInstances(p, []string{i2.ID()})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateCutoverCutoffNanos(t, p, opts)
@@ -150,14 +151,14 @@ func TestGoodCase(t *testing.T) {
 		SetShardCutoffNanosFn(timeNanosGen(53))
 	a = newShardedAlgorithm(opts)
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCase replica 2")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateCutoverCutoffNanos(t, p, opts)
@@ -166,7 +167,7 @@ func TestGoodCase(t *testing.T) {
 	i10 := placement.NewEmptyInstance("i10", "r4", "z1", "endpoint", 1)
 	i11 := placement.NewEmptyInstance("i11", "r7", "z1", "endpoint", 1)
 	p, err = a.AddInstances(p, []placement.Instance{i10, i11})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateCutoverCutoffNanos(t, p, opts)
@@ -174,14 +175,14 @@ func TestGoodCase(t *testing.T) {
 
 	i13 := placement.NewEmptyInstance("i13", "r5", "z1", "endpoint", 1)
 	p, err = a.ReplaceInstances(p, []string{i3.ID()}, []placement.Instance{i13})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCase replace 1")
 
 	p, err = a.RemoveInstances(p, []string{i4.ID()})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateCutoverCutoffNanos(t, p, opts)
@@ -208,16 +209,16 @@ func TestGoodCaseWithWeight(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replica 1")
 
 	p, err = a.AddInstances(p, []placement.Instance{placement.NewEmptyInstance("h21", "r2", "z1", "endpoint", 10)})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight add 1")
 
 	p, err = a.RemoveInstances(p, []string{i1.ID()})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight remove 1")
 
@@ -226,30 +227,30 @@ func TestGoodCaseWithWeight(t *testing.T) {
 			placement.NewEmptyInstance("h31", "r1", "z1", "endpoint", 10),
 			placement.NewEmptyInstance("h32", "r1", "z1", "endpoint", 10),
 		})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replace 1")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replica 2")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replica 3")
 
 	h10 := placement.NewEmptyInstance("h10", "r10", "z1", "endpoint", 10)
 	h11 := placement.NewEmptyInstance("h11", "r7", "z1", "endpoint", 10)
 	p, err = a.AddInstances(p, []placement.Instance{h10, h11})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight add 2")
 
 	h13 := placement.NewEmptyInstance("h13", "r5", "z1", "endpoint", 10)
 	p, err = a.ReplaceInstances(p, []string{h11.ID()}, []placement.Instance{h13})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	p = mustMarkAllShardsAsAvailable(t, p)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replace 1")
 }
@@ -276,7 +277,7 @@ func TestPlacementChangeWithoutStateUpdate(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, p.ReplicaFactor())
 	assert.Equal(t, numShards, p.NumShards())
 	for _, instance := range p.Instances() {
@@ -285,43 +286,43 @@ func TestPlacementChangeWithoutStateUpdate(t *testing.T) {
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate replica 1")
 
 	p, err = a.AddInstances(p, []placement.Instance{placement.NewEmptyInstance("i21", "r6", "z1", "endpoint", 1)})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate add 1")
 
 	p, err = a.RemoveInstances(p, []string{i1.ID()})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate remove 1")
 
 	i12 := placement.NewEmptyInstance("i12", "r3", "z1", "endpoint", 1)
 	p, err = a.ReplaceInstances(p, []string{i5.ID()}, []placement.Instance{i12})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate add 1")
 
 	p, err = a.RemoveInstances(p, []string{i2.ID()})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate remove 1")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate replica 2")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate replica 3")
 
 	i10 := placement.NewEmptyInstance("i10", "r4", "z1", "endpoint", 1)
 	i11 := placement.NewEmptyInstance("i11", "r7", "z1", "endpoint", 1)
 	p, err = a.AddInstances(p, []placement.Instance{i10, i11})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate add 2")
 
 	i13 := placement.NewEmptyInstance("i13", "r5", "z1", "endpoint", 1)
 	p, err = a.ReplaceInstances(p, []string{i3.ID()}, []placement.Instance{i13})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestPlacementChangeWithoutStateUpdate replace 1")
 
 	p, err = a.RemoveInstances(p, []string{i4.ID()})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.02, "TestPlacementChangeWithoutStateUpdate remove 2")
 }
 
@@ -349,15 +350,15 @@ func TestOverSizedRack(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions().SetAllowPartialReplace(false))
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOverSizedRack replica 1")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOverSizedRack replica 2")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOverSizedRack replica 3")
 
 	i10 := placement.NewEmptyInstance("i10", "r4", "z1", "endpoint", 1)
@@ -367,7 +368,7 @@ func TestOverSizedRack(t *testing.T) {
 	a = newShardedAlgorithm(placement.NewOptions())
 	i11 := placement.NewEmptyInstance("i11", "r1", "z1", "endpoint", 1)
 	p, err = a.ReplaceInstances(p, []string{i8.ID(), i2.ID()}, []placement.Instance{i10, i11})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	i8, ok := p.Instance(i8.ID())
 	assert.True(t, ok)
 	assert.True(t, i8.IsLeaving())
@@ -385,7 +386,7 @@ func TestOverSizedRack(t *testing.T) {
 	// adding a new instance to relieve the load on the hot instances
 	i12 := placement.NewEmptyInstance("i12", "r4", "z1", "endpoint", 1)
 	p, err = a.AddInstances(p, []placement.Instance{i12})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.15, "TestOverSizedRack add 1")
 }
 
@@ -395,14 +396,14 @@ func TestRemoveInitializingInstance(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement([]placement.Instance{i1}, []uint32{1, 2}, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	instance1, ok := p.Instance("i1")
 	assert.True(t, ok)
 	assert.Equal(t, 2, instance1.Shards().NumShardsForState(shard.Available))
 
 	p, err = a.AddInstances(p, []placement.Instance{i2})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	instance1, ok = p.Instance("i1")
 	assert.True(t, ok)
@@ -417,7 +418,7 @@ func TestRemoveInitializingInstance(t *testing.T) {
 	}
 
 	p, err = a.RemoveInstances(p, []string{"i2"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	instance1, ok = p.Instance("i1")
 	assert.True(t, ok)
@@ -457,13 +458,13 @@ func TestOneRack(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOneRack replica 1")
 
 	i6 := placement.NewEmptyInstance("i6", "r1", "z1", "endpoint", 1)
 
 	p, err = a.AddInstances(p, []placement.Instance{i6})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestOneRack addinstance 1")
 }
 
@@ -483,17 +484,17 @@ func TestRFGreaterThanRackLen(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLen replica 1")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLen replica 2")
 
 	p1, err := a.AddReplica(p)
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 }
 
 func TestRFGreaterThanRackLenAfterInstanceRemoval(t *testing.T) {
@@ -510,17 +511,17 @@ func TestRFGreaterThanRackLenAfterInstanceRemoval(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterInstanceRemoval replica 1")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterInstanceRemoval replica 2")
 
 	p1, err := a.RemoveInstances(p, []string{i2.ID()})
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 }
 
 func TestRFGreaterThanRackLenAfterInstanceReplace(t *testing.T) {
@@ -537,18 +538,18 @@ func TestRFGreaterThanRackLenAfterInstanceReplace(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterInstanceReplace replica 1")
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRFGreaterThanRackLenAfterInstanceReplace replica 2")
 
 	i3 := placement.NewEmptyInstance("i3", "r1", "z1", "endpoint", 1)
 	p1, err := a.ReplaceInstances(p, []string{i2.ID()}, []placement.Instance{i3})
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 }
 
 func TestLooseRackCheckAlgorithm(t *testing.T) {
@@ -565,60 +566,60 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	p, err = a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	p = mustMarkAllShardsAsAvailable(t, p)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 
 	p1, err := a.AddReplica(p)
 	assert.Equal(t, errNotEnoughRacks, err)
 	assert.Nil(t, p1)
 	p = mustMarkAllShardsAsAvailable(t, p)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 
 	i4 := placement.NewEmptyInstance("i4", "r2", "z1", "endpoint", 1)
 	p, err = a.AddInstances(p, []placement.Instance{i4})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	p = mustMarkAllShardsAsAvailable(t, p)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 
 	p1, err = a.AddReplica(p)
 	assert.Equal(t, errNotEnoughRacks, err)
 	assert.Nil(t, p1)
 	p = mustMarkAllShardsAsAvailable(t, p)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 
 	b := newShardedAlgorithm(placement.NewOptions().SetLooseRackCheck(true))
 	// different with normal algo, which would return error here
 	i3 := placement.NewEmptyInstance("i3", "r1", "z1", "endpoint", 1)
 	p, err = b.ReplaceInstances(p, []string{i2.ID()}, []placement.Instance{i3})
-	assert.NoError(t, err)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, err)
+	require.NoError(t, placement.Validate(p))
 
 	p1, err = b.ReplaceInstances(p, []string{i4.ID()}, []placement.Instance{i3})
 	assert.Equal(t, errAddingInstanceAlreadyExist, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 
 	p = mustMarkAllShardsAsAvailable(t, p)
 	p, err = b.RemoveInstances(p, []string{i3.ID()})
-	assert.NoError(t, err)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, err)
+	require.NoError(t, placement.Validate(p))
 
 	p = mustMarkAllShardsAsAvailable(t, p)
 	i5 := placement.NewEmptyInstance("i5", "r3", "z1", "endpoint", 1)
 	p, err = b.AddInstances(p, []placement.Instance{i5})
-	assert.NoError(t, err)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, err)
+	require.NoError(t, placement.Validate(p))
 
 	p, err = b.AddReplica(p)
-	assert.NoError(t, err)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, err)
+	require.NoError(t, placement.Validate(p))
 
 	p = mustMarkAllShardsAsAvailable(t, p)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 }
 
 func TestRemoveMultipleInstances(t *testing.T) {
@@ -641,11 +642,11 @@ func TestRemoveMultipleInstances(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 2)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	p, err = a.RemoveInstances(p, []string{"i1", "i2", "i3"})
-	assert.NoError(t, err)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, err)
+	require.NoError(t, placement.Validate(p))
 
 	i1, ok := p.Instance("i1")
 	assert.True(t, ok)
@@ -672,7 +673,7 @@ func TestRemoveAbsentInstance(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestRemoveAbsentInstance replica 1")
 
 	i3 := placement.NewEmptyInstance("i3", "r3", "z1", "endpoint", 1)
@@ -680,7 +681,7 @@ func TestRemoveAbsentInstance(t *testing.T) {
 	p1, err := a.RemoveInstances(p, []string{i3.ID()})
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 }
 
 func TestReplaceAbsentInstance(t *testing.T) {
@@ -697,7 +698,7 @@ func TestReplaceAbsentInstance(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestReplaceAbsentInstance replica 1")
 
 	i3 := placement.NewEmptyInstance("i3", "r3", "z1", "endpoint", 1)
@@ -706,7 +707,7 @@ func TestReplaceAbsentInstance(t *testing.T) {
 	p1, err := a.ReplaceInstances(p, []string{i3.ID()}, []placement.Instance{i4})
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 }
 
 func TestInit(t *testing.T) {
@@ -722,7 +723,7 @@ func TestInit(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, p.ReplicaFactor())
 	assert.Equal(t, numShards, p.NumShards())
 	i1, _ = p.Instance("i1")
@@ -762,7 +763,7 @@ func TestAddReplica(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.AddReplica(p)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 2, p.ReplicaFactor())
 	assert.Equal(t, numShards, p.NumShards())
 	i1, _ = p.Instance("i1")
@@ -812,7 +813,7 @@ func TestAddInstance(t *testing.T) {
 	a := newShardedAlgorithm(placement.NewOptions())
 	i2 := placement.NewEmptyInstance("i2", "r2", "", "e2", 1)
 	p, err := a.AddInstances(p, []placement.Instance{i2})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, p.ReplicaFactor())
 	i1, _ = p.Instance("i1")
 	i2, _ = p.Instance("i2")
@@ -841,13 +842,13 @@ func TestAddInstance_ExistNonLeaving(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestAddExistInstance replica 1")
 
 	p1, err := a.AddInstances(p, []placement.Instance{i2})
 	assert.Error(t, err)
 	assert.Nil(t, p1)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, placement.Validate(p))
 }
 
 func TestAddInstance_ExistAndLeaving(t *testing.T) {
@@ -864,19 +865,19 @@ func TestAddInstance_ExistAndLeaving(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.InitialPlacement(instances, ids, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestAddInstance_ExistAndLeaving replica 1")
 
 	p, err = a.RemoveInstances(p, []string{"i2"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	i2, ok := p.Instance("i2")
 	assert.True(t, ok)
 	assert.True(t, i2.IsLeaving())
 
 	p, err = a.AddInstances(p, []placement.Instance{i2})
-	assert.NoError(t, err)
-	assert.NoError(t, placement.Validate(p))
+	require.NoError(t, err)
+	require.NoError(t, placement.Validate(p))
 }
 
 func TestAddInstance_ExistAndLeavingRackConflict(t *testing.T) {
@@ -912,7 +913,7 @@ func TestAddInstance_ExistAndLeavingRackConflict(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.AddInstances(p, []placement.Instance{i1})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	i1, ok := p.Instance("i1")
 	assert.True(t, ok)
 	assert.Equal(t, 2, loadOnInstance(i1))
@@ -942,7 +943,7 @@ func TestRemoveInstance(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	p, err := a.RemoveInstances(p, []string{i2.ID()})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, p.ReplicaFactor())
 	assert.Equal(t, numShards, p.NumShards())
 	i1, _ = p.Instance("i1")
@@ -996,7 +997,7 @@ func TestReplaceInstance(t *testing.T) {
 	a := newShardedAlgorithm(placement.NewOptions())
 	i3 := placement.NewEmptyInstance("i3", "r3", "", "e3", 1)
 	p, err := a.ReplaceInstances(p, []string{i2.ID()}, []placement.Instance{i3})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	i1, _ = p.Instance("i1")
 	i2, _ = p.Instance("i2")
 	i3, _ = p.Instance("i3")
@@ -1041,7 +1042,7 @@ func TestReplaceInstance_Backout(t *testing.T) {
 	a := newShardedAlgorithm(placement.NewOptions())
 	i3 := placement.NewEmptyInstance("i3", "r3", "", "e3", 1)
 	p, err := a.ReplaceInstances(p, []string{i2.ID()}, []placement.Instance{i3})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	i1, _ = p.Instance("i1")
 	i2, _ = p.Instance("i2")
 	i3, _ = p.Instance("i3")
@@ -1068,7 +1069,7 @@ func TestReplaceInstance_Backout(t *testing.T) {
 	}
 
 	p, err = a.AddInstances(p, []placement.Instance{i2})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	_, ok := p.Instance("i3")
 	assert.False(t, ok)
 
@@ -1091,7 +1092,7 @@ func TestIncompatibleWithShardedAlgo(t *testing.T) {
 	i4 := placement.NewInstance().SetID("i4").SetEndpoint("e4")
 
 	p, err := newNonShardedAlgorithm().InitialPlacement([]placement.Instance{i1, i2}, []uint32{}, 1)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	_, err = a.AddReplica(p)
@@ -1149,12 +1150,12 @@ func TestMarkPastShardAsAvailableWithShardedAlgo(t *testing.T) {
 
 	a := newShardedAlgorithm(placement.NewOptions())
 	_, err := a.MarkShardAvailable(p, "i2", 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func mustMarkAllShardsAsAvailable(t *testing.T, p placement.Placement) placement.Placement {
 	p, err := markAllShardsAvailable(p, true, time.Now().UnixNano())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	return p
 }
 

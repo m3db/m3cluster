@@ -743,7 +743,7 @@ func removeInstanceFromList(list []placement.Instance, instanceID string) []plac
 	for i, instance := range list {
 		if instance.ID() == instanceID {
 			last := len(list) - 1
-			list[i], list[last] = list[last], list[i]
+			list[i] = list[last]
 			return list[:last]
 		}
 	}
@@ -773,7 +773,7 @@ func markShardAvailable(p placement.Placement, instanceID string, shardID uint32
 	sourceID := s.SourceID()
 	shards.Add(shard.NewShard(shardID).SetState(shard.Available))
 
-	// there could be no source for cases like initial placement
+	// There could be no source for cases like initial placement.
 	if sourceID == "" {
 		return p, nil
 	}
