@@ -53,7 +53,8 @@ func (o deploymentOptions) SetMaxStepSize(stepSize int) DeploymentOptions {
 	return o
 }
 
-func defaultTimeNanosFn() int64 { return shard.UnInitializedValue }
+func defaultTimeNanosFn() int64                    { return shard.UnInitializedValue }
+func defaultShardValidationFn(s shard.Shard) error { return nil }
 
 type options struct {
 	looseRackCheck      bool
@@ -67,6 +68,8 @@ type options struct {
 	placementCutOverFn  TimeNanosFn
 	shardCutOverFn      TimeNanosFn
 	shardCutOffFn       TimeNanosFn
+	isShardCutoverFn    ShardValidationFn
+	isShardCutoffFn     ShardValidationFn
 	nowFn               clock.NowFn
 }
 
@@ -79,6 +82,8 @@ func NewOptions() Options {
 		placementCutOverFn:  defaultTimeNanosFn,
 		shardCutOverFn:      defaultTimeNanosFn,
 		shardCutOffFn:       defaultTimeNanosFn,
+		isShardCutoverFn:    defaultShardValidationFn,
+		isShardCutoffFn:     defaultShardValidationFn,
 		nowFn:               time.Now,
 	}
 }
@@ -179,6 +184,24 @@ func (o options) ShardCutoffNanosFn() TimeNanosFn {
 
 func (o options) SetShardCutoffNanosFn(fn TimeNanosFn) Options {
 	o.shardCutOffFn = fn
+	return o
+}
+
+func (o options) IsShardCutoverFn() ShardValidationFn {
+	return o.isShardCutoverFn
+}
+
+func (o options) SetIsShardCutoverFn(fn ShardValidationFn) Options {
+	o.isShardCutoverFn = fn
+	return o
+}
+
+func (o options) IsShardCutoffFn() ShardValidationFn {
+	return o.isShardCutoffFn
+}
+
+func (o options) SetIsShardCutoffFn(fn ShardValidationFn) Options {
+	o.isShardCutoffFn = fn
 	return o
 }
 

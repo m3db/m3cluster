@@ -21,7 +21,6 @@
 package algo
 
 import (
-	"math"
 	"testing"
 	"time"
 
@@ -237,7 +236,6 @@ func TestMirrorTestAddRevert(t *testing.T) {
 	shardCutoverTime := now.Add(time.Hour).UnixNano()
 	opts := placement.NewOptions().
 		SetIsMirrored(true).
-		SetNowFn(func() time.Time { return now }).
 		SetShardCutoverNanosFn(func() int64 { return shardCutoverTime }).
 		SetShardCutoffNanosFn(func() int64 { return shardCutoverTime })
 	a := NewAlgorithm(opts)
@@ -258,9 +256,8 @@ func TestMirrorTestAddRevert(t *testing.T) {
 	_, ok = p2.Instance("i6")
 	assert.False(t, ok)
 
-	pa, err := markAllShardsAvailable(p, true, nowNanos)
 	assert.NoError(t, err)
-	assert.Equal(t, pa, p2)
+	assert.Equal(t, p, p2)
 }
 
 func TestMirrorTestAddRevertAfterCutover(t *testing.T) {
@@ -314,7 +311,6 @@ func TestMirrorTestAddRevertAfterCutover(t *testing.T) {
 	shardCutoverTime := now.Add(-time.Hour).UnixNano()
 	a := NewAlgorithm(placement.NewOptions().
 		SetIsMirrored(true).
-		SetNowFn(func() time.Time { return now }).
 		SetShardCutoverNanosFn(func() int64 { return shardCutoverTime }).
 		SetShardCutoffNanosFn(func() int64 { return shardCutoverTime }))
 	p, err := a.InitialPlacement(instances, ids, 2)
@@ -388,7 +384,6 @@ func TestMirrorTestRemoveRevert(t *testing.T) {
 	shardCutoverTime := int64(0)
 	opts := placement.NewOptions().
 		SetIsMirrored(true).
-		SetNowFn(func() time.Time { return now }).
 		SetShardCutoverNanosFn(func() int64 { return shardCutoverTime }).
 		SetShardCutoffNanosFn(func() int64 { return shardCutoverTime })
 	a := NewAlgorithm(opts)
@@ -411,9 +406,8 @@ func TestMirrorTestRemoveRevert(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, i6.Shards().NumShards(), i6.Shards().NumShardsForState(shard.Available))
 
-	pa, err := markAllShardsAvailable(p, true, nowNanos)
 	assert.NoError(t, err)
-	assert.Equal(t, pa, p2)
+	assert.Equal(t, p, p2)
 }
 
 func TestMirrorTestRemoveRevertAfterCutover(t *testing.T) {
@@ -467,7 +461,6 @@ func TestMirrorTestRemoveRevertAfterCutover(t *testing.T) {
 	shardCutoverTime := now.Add(-time.Hour).UnixNano()
 	a := NewAlgorithm(placement.NewOptions().
 		SetIsMirrored(true).
-		SetNowFn(func() time.Time { return now }).
 		SetShardCutoverNanosFn(func() int64 { return shardCutoverTime }).
 		SetShardCutoffNanosFn(func() int64 { return shardCutoverTime }))
 	p, err := a.InitialPlacement(instances, ids, 2)
@@ -536,7 +529,6 @@ func TestMirrorTestRemoveReplace(t *testing.T) {
 	shardCutoverTime := now.Add(time.Hour).UnixNano()
 	a := NewAlgorithm(placement.NewOptions().
 		SetIsMirrored(true).
-		SetNowFn(func() time.Time { return now }).
 		SetShardCutoverNanosFn(func() int64 { return shardCutoverTime }).
 		SetShardCutoffNanosFn(func() int64 { return shardCutoverTime }))
 	p, err := a.InitialPlacement(instances, ids, 2)
@@ -618,7 +610,6 @@ func TestMirrorTestRemoveReplaceAfterCutover(t *testing.T) {
 	shardCutoverTime := now.Add(-time.Hour).UnixNano()
 	a := NewAlgorithm(placement.NewOptions().
 		SetIsMirrored(true).
-		SetNowFn(func() time.Time { return now }).
 		SetShardCutoverNanosFn(func() int64 { return shardCutoverTime }).
 		SetShardCutoffNanosFn(func() int64 { return shardCutoverTime }))
 	p, err := a.InitialPlacement(instances, ids, 2)
@@ -1004,10 +995,6 @@ func TestMirrorReplaceWithLeavingShards(t *testing.T) {
 		}),
 	), newI4)
 	assert.NoError(t, placement.Validate(p2))
-
-	p2, err = markAllShardsAvailable(p2, true, time.Now().UnixNano())
-	assert.NoError(t, err)
-	assert.NoError(t, placement.Validate(p2))
 }
 
 func TestIncompatibleWithMirroredAlgo(t *testing.T) {
@@ -1222,13 +1209,20 @@ func TestReclaimLeavingShardsWithAvailable(t *testing.T) {
 	assert.NoError(t, placement.Validate(p2))
 }
 
-func TestMarkFutureShardAsAvailableWithMirroredAlgo(t *testing.T) {
-	timeInFuture := int64(math.MaxInt64)
+func TestMarkShardAsAvailableWithMirroredAlgo(t *testing.T) {
+	var (
+		cutoverTime           = time.Now()
+		cutoverTimeNanos      = cutoverTime.UnixNano()
+		maxTimeWindow         = time.Hour
+		tenMinutesInThePast   = cutoverTime.Add(1 - 0*time.Minute)
+		tenMinutesInTheFuture = cutoverTime.Add(10 * time.Minute)
+		oneHourInTheFuture    = cutoverTime.Add(maxTimeWindow)
+	)
 	i1 := placement.NewEmptyInstance("i1", "", "", "e1", 1)
-	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving).SetCutoffNanos(timeInFuture))
+	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving).SetCutoffNanos(cutoverTimeNanos))
 
 	i2 := placement.NewEmptyInstance("i2", "", "", "e2", 1)
-	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(timeInFuture))
+	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(cutoverTimeNanos))
 
 	p := placement.NewPlacement().
 		SetInstances([]placement.Instance{i1, i2}).
@@ -1237,30 +1231,22 @@ func TestMarkFutureShardAsAvailableWithMirroredAlgo(t *testing.T) {
 		SetIsSharded(true).
 		SetIsMirrored(true)
 
-	a := newMirroredAlgorithm(placement.NewOptions())
+	a := newMirroredAlgorithm(placement.NewOptions().
+		SetIsShardCutoverFn(genShardCutoverFn(tenMinutesInThePast)).
+		SetIsShardCutoffFn(genShardCutoffFn(tenMinutesInThePast, time.Hour)))
 	_, err := a.MarkShardAvailable(p, "i2", 0)
 	assert.Error(t, err)
-}
 
-func TestMarkPastShardAsAvailableWithMirroredAlgo(t *testing.T) {
-	i1 := placement.NewEmptyInstance("i1", "", "", "e1", 1)
-	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving))
+	a = newMirroredAlgorithm(placement.NewOptions().
+		SetIsShardCutoverFn(genShardCutoverFn(tenMinutesInTheFuture)).
+		SetIsShardCutoffFn(genShardCutoffFn(tenMinutesInTheFuture, time.Hour)))
+	_, err = a.MarkShardAvailable(p, "i2", 0)
+	assert.Error(t, err)
 
-	i2 := placement.NewEmptyInstance("i2", "", "", "e2", 1)
-	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1"))
-
-	p := placement.NewPlacement().
-		SetInstances([]placement.Instance{i1, i2}).
-		SetShards([]uint32{0}).
-		SetReplicaFactor(1).
-		SetIsSharded(true).
-		SetIsMirrored(true)
-
-	a := newMirroredAlgorithm(placement.NewOptions())
-	_, err := a.MarkShardAvailable(p, "i2", 0)
+	a = newMirroredAlgorithm(placement.NewOptions().
+		SetIsShardCutoverFn(genShardCutoverFn(oneHourInTheFuture)).
+		SetIsShardCutoffFn(genShardCutoffFn(oneHourInTheFuture, time.Hour)))
+	p, err = a.MarkShardAvailable(p, "i2", 0)
 	assert.NoError(t, err)
-
-	_, err = a.MarkShardAvailable(p.SetIsMirrored(false), "i2", 0)
-	assert.Error(t, err)
-	assert.Equal(t, errIncompatibleWithMirrorAlgo, err)
+	assert.NoError(t, placement.Validate(p))
 }

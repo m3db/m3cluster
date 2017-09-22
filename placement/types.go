@@ -297,6 +297,9 @@ type StagedPlacement interface {
 // TimeNanosFn returns the time in the format of Unix nanoseconds.
 type TimeNanosFn func() int64
 
+// ShardValidationFn validates the shard.
+type ShardValidationFn func(s shard.Shard) error
+
 // Options is the interface for placement options.
 type Options interface {
 	// LooseRackCheck enables the placement to loose the rack check
@@ -373,6 +376,18 @@ type Options interface {
 
 	// SetShardCutoffNanosFn sets the TimeNanosFn for shard cutoff time.
 	SetShardCutoffNanosFn(fn TimeNanosFn) Options
+
+	// IsShardCutoverFn returns the validation function for shard cutover.
+	IsShardCutoverFn() ShardValidationFn
+
+	// SetIsShardCutoverFn sets the validation function for shard cutover.
+	SetIsShardCutoverFn(fn ShardValidationFn) Options
+
+	// IsShardCutoffFn returns the validation function for shard cutoff.
+	IsShardCutoffFn() ShardValidationFn
+
+	// SetIsShardCutoffFn sets the validation function for shard cutoff.
+	SetIsShardCutoffFn(fn ShardValidationFn) Options
 
 	// NowFn returns the function to get time now.
 	NowFn() clock.NowFn

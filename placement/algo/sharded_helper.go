@@ -739,18 +739,18 @@ func newShards(shardIDs []uint32) []shard.Shard {
 	return r
 }
 
-func removeInstanceFromList(list []placement.Instance, instanceID string) []placement.Instance {
-	for i, instance := range list {
+func removeInstanceFromList(instances []placement.Instance, instanceID string) []placement.Instance {
+	for i, instance := range instances {
 		if instance.ID() == instanceID {
-			last := len(list) - 1
-			list[i] = list[last]
-			return list[:last]
+			last := len(instances) - 1
+			instances[i] = instances[last]
+			return instances[:last]
 		}
 	}
-	return list
+	return instances
 }
 
-func markShardAvailable(p placement.Placement, instanceID string, shardID uint32, nowNanos int64, shouldCheckCutoverTime bool) (placement.Placement, error) {
+func markShardAvailable(p placement.Placement, instanceID string, shardID uint32, opts placement.Options) (placement.Placement, error) {
 	instance, exist := p.Instance(instanceID)
 	if !exist {
 		return nil, fmt.Errorf("instance %s does not exist in placement", instanceID)
@@ -766,8 +766,11 @@ func markShardAvailable(p placement.Placement, instanceID string, shardID uint32
 		return nil, fmt.Errorf("could not mark shard %d as available, it's not in Initializing state", s.ID())
 	}
 
-	if shouldCheckCutoverTime && s.CutoverNanos() > nowNanos {
-		return nil, fmt.Errorf("could not mark shard %d as available, it's cutover time %d is scheduled after now %d", s.ID(), s.CutoverNanos(), nowNanos)
+	isCutoverFn := opts.IsShardCutoverFn()
+	if isCutoverFn != nil {
+		if err := isCutoverFn(s); err != nil {
+			return nil, err
+		}
 	}
 
 	sourceID := s.SourceID()
@@ -784,13 +787,20 @@ func markShardAvailable(p placement.Placement, instanceID string, shardID uint32
 	}
 
 	sourceShards := sourceInstance.Shards()
-	sourceShard, exist := sourceShards.Shard(shardID)
+	leavingShard, exist := sourceShards.Shard(shardID)
 	if !exist {
 		return nil, fmt.Errorf("shard %d does not exist in source instance %s", shardID, sourceID)
 	}
 
-	if sourceShard.State() != shard.Leaving {
+	if leavingShard.State() != shard.Leaving {
 		return nil, fmt.Errorf("shard %d is not leaving instance %s", shardID, sourceID)
+	}
+
+	isCutoffFn := opts.IsShardCutoffFn()
+	if isCutoffFn != nil {
+		if err := isCutoffFn(leavingShard); err != nil {
+			return nil, err
+		}
 	}
 
 	sourceShards.Remove(shardID)
@@ -800,13 +810,13 @@ func markShardAvailable(p placement.Placement, instanceID string, shardID uint32
 	return p, nil
 }
 
-func markAllShardsAvailable(p placement.Placement, shouldCheckCutoverTime bool, nowNanos int64) (placement.Placement, error) {
+func markAllShardsAvailable(p placement.Placement, opts placement.Options) (placement.Placement, error) {
 	p = p.Clone()
 	var err error
 	for _, instance := range p.Instances() {
 		for _, s := range instance.Shards().All() {
 			if s.State() == shard.Initializing {
-				p, err = markShardAvailable(p, instance.ID(), s.ID(), nowNanos, shouldCheckCutoverTime)
+				p, err = markShardAvailable(p, instance.ID(), s.ID(), opts)
 				if err != nil {
 					return nil, err
 				}

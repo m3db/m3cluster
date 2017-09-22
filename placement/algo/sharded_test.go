@@ -98,7 +98,7 @@ func TestGoodCase(t *testing.T) {
 	p, err = a.AddInstances(p, []placement.Instance{placement.NewEmptyInstance("i21", "r6", "z1", "endpoint", 1)})
 	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCase add 1")
 
@@ -110,7 +110,7 @@ func TestGoodCase(t *testing.T) {
 	p, err = a.RemoveInstances(p, []string{i1.ID()})
 	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	_, exist := p.Instance(i1.ID())
 	assert.False(t, exist)
 	validateCutoverCutoffNanos(t, p, opts)
@@ -127,7 +127,7 @@ func TestGoodCase(t *testing.T) {
 	validateCutoverCutoffNanos(t, p, opts)
 	_, exist = p.Instance(i5.ID())
 	assert.True(t, exist)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	_, exist = p.Instance(i5.ID())
 	assert.False(t, exist)
 	validateCutoverCutoffNanos(t, p, opts)
@@ -141,7 +141,7 @@ func TestGoodCase(t *testing.T) {
 	p, err = a.RemoveInstances(p, []string{i2.ID()})
 	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCase remove 1")
 
@@ -153,14 +153,14 @@ func TestGoodCase(t *testing.T) {
 	p, err = a.AddReplica(p)
 	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCase replica 2")
 
 	p, err = a.AddReplica(p)
 	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCase replica 3")
 
@@ -169,7 +169,7 @@ func TestGoodCase(t *testing.T) {
 	p, err = a.AddInstances(p, []placement.Instance{i10, i11})
 	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCase add 2 instances")
 
@@ -177,14 +177,14 @@ func TestGoodCase(t *testing.T) {
 	p, err = a.ReplaceInstances(p, []string{i3.ID()}, []placement.Instance{i13})
 	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCase replace 1")
 
 	p, err = a.RemoveInstances(p, []string{i4.ID()})
 	require.NoError(t, err)
 	validateCutoverCutoffNanos(t, p, opts)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateCutoverCutoffNanos(t, p, opts)
 	validateDistribution(t, p, 1.02, "TestGoodCase remove 2")
 }
@@ -207,19 +207,20 @@ func TestGoodCaseWithWeight(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := newShardedAlgorithm(placement.NewOptions())
+	opts := placement.NewOptions()
+	a := newShardedAlgorithm(opts)
 	p, err := a.InitialPlacement(instances, ids, 1)
 	require.NoError(t, err)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replica 1")
 
 	p, err = a.AddInstances(p, []placement.Instance{placement.NewEmptyInstance("h21", "r2", "z1", "endpoint", 10)})
 	require.NoError(t, err)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight add 1")
 
 	p, err = a.RemoveInstances(p, []string{i1.ID()})
 	require.NoError(t, err)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight remove 1")
 
 	p, err = a.ReplaceInstances(p, []string{i3.ID()},
@@ -228,30 +229,30 @@ func TestGoodCaseWithWeight(t *testing.T) {
 			placement.NewEmptyInstance("h32", "r1", "z1", "endpoint", 10),
 		})
 	require.NoError(t, err)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replace 1")
 
 	p, err = a.AddReplica(p)
 	require.NoError(t, err)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replica 2")
 
 	p, err = a.AddReplica(p)
 	require.NoError(t, err)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replica 3")
 
 	h10 := placement.NewEmptyInstance("h10", "r10", "z1", "endpoint", 10)
 	h11 := placement.NewEmptyInstance("h11", "r7", "z1", "endpoint", 10)
 	p, err = a.AddInstances(p, []placement.Instance{h10, h11})
 	require.NoError(t, err)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight add 2")
 
 	h13 := placement.NewEmptyInstance("h13", "r5", "z1", "endpoint", 10)
 	p, err = a.ReplaceInstances(p, []string{h11.ID()}, []placement.Instance{h13})
 	require.NoError(t, err)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	validateDistribution(t, p, 1.01, "TestGoodCaseWithWeight replace 1")
 }
 
@@ -564,31 +565,32 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 		ids[i] = uint32(i)
 	}
 
-	a := newShardedAlgorithm(placement.NewOptions())
+	opts := placement.NewOptions()
+	a := newShardedAlgorithm(opts)
 	p, err := a.InitialPlacement(instances, ids, 1)
 	require.NoError(t, err)
 
 	p, err = a.AddReplica(p)
 	require.NoError(t, err)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	require.NoError(t, placement.Validate(p))
 
 	p1, err := a.AddReplica(p)
 	assert.Equal(t, errNotEnoughRacks, err)
 	assert.Nil(t, p1)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	require.NoError(t, placement.Validate(p))
 
 	i4 := placement.NewEmptyInstance("i4", "r2", "z1", "endpoint", 1)
 	p, err = a.AddInstances(p, []placement.Instance{i4})
 	require.NoError(t, err)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	require.NoError(t, placement.Validate(p))
 
 	p1, err = a.AddReplica(p)
 	assert.Equal(t, errNotEnoughRacks, err)
 	assert.Nil(t, p1)
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	require.NoError(t, placement.Validate(p))
 
 	b := newShardedAlgorithm(placement.NewOptions().SetLooseRackCheck(true))
@@ -603,12 +605,12 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 	assert.Nil(t, p1)
 	require.NoError(t, placement.Validate(p))
 
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	p, err = b.RemoveInstances(p, []string{i3.ID()})
 	require.NoError(t, err)
 	require.NoError(t, placement.Validate(p))
 
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	i5 := placement.NewEmptyInstance("i5", "r3", "z1", "endpoint", 1)
 	p, err = b.AddInstances(p, []placement.Instance{i5})
 	require.NoError(t, err)
@@ -618,7 +620,7 @@ func TestLooseRackCheckAlgorithm(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, placement.Validate(p))
 
-	p = mustMarkAllShardsAsAvailable(t, p)
+	p = mustMarkAllShardsAsAvailable(t, p, opts)
 	require.NoError(t, placement.Validate(p))
 }
 
@@ -1116,45 +1118,53 @@ func TestIncompatibleWithShardedAlgo(t *testing.T) {
 	assert.Equal(t, errIncompatibleWithShardedAlgo, err)
 }
 
-func TestMarkFutureShardAsAvailableWithShardedAlgo(t *testing.T) {
-	timeInFuture := int64(math.MaxInt64)
+func TestMarkShardAsAvailableWithShardedAlgo(t *testing.T) {
+	var (
+		cutoverTime           = time.Now()
+		cutoverTimeNanos      = cutoverTime.UnixNano()
+		maxTimeWindow         = time.Hour
+		tenMinutesInThePast   = cutoverTime.Add(1 - 0*time.Minute)
+		tenMinutesInTheFuture = cutoverTime.Add(10 * time.Minute)
+		oneHourInTheFuture    = cutoverTime.Add(maxTimeWindow)
+	)
 	i1 := placement.NewEmptyInstance("i1", "", "", "e1", 1)
-	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving).SetCutoffNanos(timeInFuture))
+	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving).SetCutoffNanos(cutoverTimeNanos))
 
 	i2 := placement.NewEmptyInstance("i2", "", "", "e2", 1)
-	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(timeInFuture))
+	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(cutoverTimeNanos))
 
 	p := placement.NewPlacement().
 		SetInstances([]placement.Instance{i1, i2}).
 		SetShards([]uint32{0}).
 		SetReplicaFactor(1).
-		SetIsSharded(true)
+		SetIsSharded(true).
+		SetIsMirrored(true)
 
-	a := newShardedAlgorithm(placement.NewOptions())
+	a := newShardedAlgorithm(placement.NewOptions().
+		SetIsShardCutoverFn(genShardCutoverFn(tenMinutesInThePast)).
+		SetIsShardCutoffFn(genShardCutoffFn(tenMinutesInThePast, time.Hour)))
 	_, err := a.MarkShardAvailable(p, "i2", 0)
 	assert.Error(t, err)
+
+	a = newShardedAlgorithm(placement.NewOptions().
+		SetIsShardCutoverFn(genShardCutoverFn(tenMinutesInTheFuture)).
+		SetIsShardCutoffFn(genShardCutoffFn(tenMinutesInTheFuture, time.Hour)))
+	_, err = a.MarkShardAvailable(p, "i2", 0)
+	assert.Error(t, err)
+
+	a = newShardedAlgorithm(placement.NewOptions().
+		SetIsShardCutoverFn(genShardCutoverFn(oneHourInTheFuture)).
+		SetIsShardCutoffFn(genShardCutoffFn(oneHourInTheFuture, time.Hour)))
+	p, err = a.MarkShardAvailable(p, "i2", 0)
+	assert.NoError(t, err)
+	assert.NoError(t, placement.Validate(p))
 }
 
-func TestMarkPastShardAsAvailableWithShardedAlgo(t *testing.T) {
-	i1 := placement.NewEmptyInstance("i1", "", "", "e1", 1)
-	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving))
-
-	i2 := placement.NewEmptyInstance("i2", "", "", "e2", 1)
-	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1"))
-
-	p := placement.NewPlacement().
-		SetInstances([]placement.Instance{i1, i2}).
-		SetShards([]uint32{0}).
-		SetReplicaFactor(1).
-		SetIsSharded(true)
-
-	a := newShardedAlgorithm(placement.NewOptions())
-	_, err := a.MarkShardAvailable(p, "i2", 0)
-	require.NoError(t, err)
-}
-
-func mustMarkAllShardsAsAvailable(t *testing.T, p placement.Placement) placement.Placement {
-	p, err := markAllShardsAvailable(p, true, time.Now().UnixNano())
+func mustMarkAllShardsAsAvailable(t *testing.T, p placement.Placement, opts placement.Options) placement.Placement {
+	if opts == nil {
+		opts = placement.NewOptions()
+	}
+	p, err := markAllShardsAvailable(p, opts)
 	require.NoError(t, err)
 	return p
 }

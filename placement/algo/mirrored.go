@@ -79,9 +79,11 @@ func (a mirroredAlgorithm) InitialPlacement(
 		return nil, err
 	}
 
-	// NB(r): All new placements should appear as available for
-	// proper client semantics when calculating consistency results.
-	return markAllShardsAvailable(p, false, a.opts.NowFn()().UnixNano())
+	// NB(cw): Do not validate shards for initial placement.
+	return markAllShardsAvailable(
+		p,
+		a.opts.SetIsShardCutoverFn(nil).SetIsShardCutoffFn(nil),
+	)
 }
 
 func (a mirroredAlgorithm) AddReplica(p placement.Placement) (placement.Placement, error) {
@@ -105,7 +107,7 @@ func (a mirroredAlgorithm) RemoveInstances(
 		return a.returnInitializingShards(p, instanceIDs)
 	}
 
-	p, err := markAllShardsAvailable(p, true, nowNanos)
+	p, err := markAllShardsAvailable(p, a.opts)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +163,7 @@ func (a mirroredAlgorithm) AddInstances(
 		return a.reclaimLeavingShards(p, addingInstances)
 	}
 
-	p, err := markAllShardsAvailable(p, true, nowNanos)
+	p, err := markAllShardsAvailable(p, a.opts)
 	if err != nil {
 		return nil, err
 	}
@@ -216,15 +218,15 @@ func (a mirroredAlgorithm) ReplaceInstances(
 	}
 
 	var (
-		nowNanos               = a.opts.NowFn()().UnixNano()
-		shouldCheckCutoverTime = true
+		nowNanos = a.opts.NowFn()().UnixNano()
+		opts     = a.opts
 	)
 	if allLeaving(p, addingInstances, nowNanos) && allInitializing(p, leavingInstanceIDs, nowNanos) {
 		// Allow marking shards as available without checking cutover time in a reverting case.
-		shouldCheckCutoverTime = false
+		opts = opts.SetIsShardCutoverFn(nil).SetIsShardCutoffFn(nil)
 	}
 
-	if p, err = markAllShardsAvailable(p, shouldCheckCutoverTime, nowNanos); err != nil {
+	if p, err = markAllShardsAvailable(p, opts); err != nil {
 		return nil, err
 	}
 
