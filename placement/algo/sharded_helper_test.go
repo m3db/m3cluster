@@ -404,7 +404,7 @@ func TestMarkShardFailure(t *testing.T) {
 
 	opts := placement.NewOptions().
 		SetIsShardCutoverFn(genShardCutoverFn(time.Now())).
-		SetIsShardCutoffFn(genShardCutoffFn(time.Now(), time.Hour))
+		SetIsShardCutoffFn(genShardCutoffFn(time.Now(), time.Minute))
 	_, err := markShardAvailable(p, "i3", 1, opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist in placement")
