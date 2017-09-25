@@ -217,16 +217,13 @@ func (a mirroredAlgorithm) ReplaceInstances(
 		return nil, fmt.Errorf("could not replace %d instances with %d instances for mirrored replace", len(leavingInstanceIDs), len(addingInstances))
 	}
 
-	var (
-		nowNanos = a.opts.NowFn()().UnixNano()
-		opts     = a.opts
-	)
+	nowNanos := a.opts.NowFn()().UnixNano()
 	if allLeaving(p, addingInstances, nowNanos) && allInitializing(p, leavingInstanceIDs, nowNanos) {
 		// Allow marking shards as available without checking cutover time in a reverting case.
-		opts = opts.SetIsShardCutoverFn(nil).SetIsShardCutoffFn(nil)
+		return a.reclaimLeavingShards(p, addingInstances)
 	}
 
-	if p, err = markAllShardsAvailable(p, opts); err != nil {
+	if p, err = markAllShardsAvailable(p, a.opts); err != nil {
 		return nil, err
 	}
 
