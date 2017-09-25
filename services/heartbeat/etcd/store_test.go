@@ -198,7 +198,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestWatch(t *testing.T) {
-	sid := services.NewServiceID().SetName("s1").SetEnvironment("e1")
+	sid := services.NewServiceID().SetName("s2").SetEnvironment("e2")
 	ec, opts, closeFn := testStore(t, sid)
 	defer closeFn()
 
