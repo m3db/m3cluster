@@ -547,7 +547,7 @@ func TestMirrorTestReplaceAndRevertBeforeCutover(t *testing.T) {
 	i4, ok := p2.Instance("i4")
 	assert.True(t, ok)
 	assert.Equal(t, i4.Shards().NumShards(), i4.Shards().NumShardsForState(shard.Available))
-	i5, ok = p2.Instance("i5")
+	_, ok = p2.Instance("i5")
 	assert.False(t, ok)
 }
 
