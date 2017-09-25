@@ -30,7 +30,7 @@ import (
 type ClusterConfig struct {
 	Zone      string    `yaml:"zone"`
 	Endpoints []string  `yaml:"endpoints"`
-	TLS       TLSConfig `yaml:"auth"`
+	TLS       TLSConfig `yaml:"tls"`
 }
 
 // TLSConfig is the config for TLS.

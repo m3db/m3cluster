@@ -51,7 +51,7 @@ func TestCluster(t *testing.T) {
 	assert.Equal(t, aOpts, c.TLSOptions())
 }
 
-func TestAuthOptions(t *testing.T) {
+func TestTLSOptions(t *testing.T) {
 	aOpts := NewTLSOptions()
 	assert.Equal(t, "", aOpts.CrtPath())
 	assert.Equal(t, "", aOpts.KeyPath())

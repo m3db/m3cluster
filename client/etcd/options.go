@@ -33,44 +33,44 @@ import (
 
 // NewTLSOptions creates a set of TLS Options.
 func NewTLSOptions() TLSOptions {
-	return authOptions{}
+	return tlsOptions{}
 }
 
-type authOptions struct {
+type tlsOptions struct {
 	cert string
 	key  string
 	ca   string
 }
 
-func (c authOptions) CrtPath() string {
-	return c.cert
+func (o tlsOptions) CrtPath() string {
+	return o.cert
 }
 
-func (c authOptions) SetCrtPath(cert string) TLSOptions {
-	c.cert = cert
-	return c
+func (o tlsOptions) SetCrtPath(cert string) TLSOptions {
+	o.cert = cert
+	return o
 }
 
-func (c authOptions) KeyPath() string {
-	return c.key
+func (o tlsOptions) KeyPath() string {
+	return o.key
 }
-func (c authOptions) SetKeyPath(key string) TLSOptions {
-	c.key = key
-	return c
-}
-
-func (c authOptions) CACrtPath() string {
-	return c.ca
-}
-func (c authOptions) SetCACrtPath(ca string) TLSOptions {
-	c.ca = ca
-	return c
+func (o tlsOptions) SetKeyPath(key string) TLSOptions {
+	o.key = key
+	return o
 }
 
-func (c authOptions) Config() (*tls.Config, error) {
+func (o tlsOptions) CACrtPath() string {
+	return o.ca
+}
+func (o tlsOptions) SetCACrtPath(ca string) TLSOptions {
+	o.ca = ca
+	return o
+}
+
+func (o tlsOptions) Config() (*tls.Config, error) {
 	var tlscfg *tls.Config
-	if c.cert != "" {
-		cert, err := tls.LoadX509KeyPair(c.cert, c.key)
+	if o.cert != "" {
+		cert, err := tls.LoadX509KeyPair(o.cert, o.key)
 		if err != nil {
 			return nil, err
 		}
@@ -79,14 +79,14 @@ func (c authOptions) Config() (*tls.Config, error) {
 			InsecureSkipVerify: false,
 			Certificates:       []tls.Certificate{cert},
 		}
-		if c.ca != "" {
-			caCert, err := ioutil.ReadFile(c.ca)
+		if o.ca != "" {
+			caCert, err := ioutil.ReadFile(o.ca)
 			if err != nil {
 				return nil, err
 			}
 			caPool := x509.NewCertPool()
 			if ok := caPool.AppendCertsFromPEM(caCert); !ok {
-				return nil, fmt.Errorf("can't read PEM-formatted certificates from file %s as root CA pool", c.ca)
+				return nil, fmt.Errorf("can't read PEM-formatted certificates from file %s as root CA pool", o.ca)
 			}
 			tlscfg.RootCAs = caPool
 		}
@@ -202,13 +202,13 @@ func (o options) SetInstrumentOptions(iopts instrument.Options) Options {
 
 // NewCluster creates a Cluster.
 func NewCluster() Cluster {
-	return cluster{aOpts: NewTLSOptions()}
+	return cluster{tlsOpts: NewTLSOptions()}
 }
 
 type cluster struct {
 	zone      string
 	endpoints []string
-	aOpts     TLSOptions
+	tlsOpts   TLSOptions
 }
 
 func (c cluster) Zone() string {
@@ -230,10 +230,10 @@ func (c cluster) SetEndpoints(endpoints []string) Cluster {
 }
 
 func (c cluster) TLSOptions() TLSOptions {
-	return c.aOpts
+	return c.tlsOpts
 }
 
 func (c cluster) SetTLSOptions(opts TLSOptions) Cluster {
-	c.aOpts = opts
+	c.tlsOpts = opts
 	return c
 }
