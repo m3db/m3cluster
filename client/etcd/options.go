@@ -68,30 +68,29 @@ func (o tlsOptions) SetCACrtPath(ca string) TLSOptions {
 }
 
 func (o tlsOptions) Config() (*tls.Config, error) {
-	var tlscfg *tls.Config
 	if o.cert != "" {
 		cert, err := tls.LoadX509KeyPair(o.cert, o.key)
 		if err != nil {
 			return nil, err
 		}
-		tlscfg = &tls.Config{
+		caCert, err := ioutil.ReadFile(o.ca)
+		if err != nil {
+			return nil, err
+		}
+		caPool := x509.NewCertPool()
+		if ok := caPool.AppendCertsFromPEM(caCert); !ok {
+			return nil, fmt.Errorf("can't read PEM-formatted certificates from file %s as root CA pool", o.ca)
+		}
+		return &tls.Config{
 			MinVersion:         tls.VersionTLS12,
 			InsecureSkipVerify: false,
 			Certificates:       []tls.Certificate{cert},
-		}
-		if o.ca != "" {
-			caCert, err := ioutil.ReadFile(o.ca)
-			if err != nil {
-				return nil, err
-			}
-			caPool := x509.NewCertPool()
-			if ok := caPool.AppendCertsFromPEM(caCert); !ok {
-				return nil, fmt.Errorf("can't read PEM-formatted certificates from file %s as root CA pool", o.ca)
-			}
-			tlscfg.RootCAs = caPool
-		}
+			RootCAs:            caPool,
+		}, nil
 	}
-	return tlscfg, nil
+
+	// By default we should use nil config instead of empty config.
+	return nil, nil
 }
 
 // NewOptions creates a set of Options.
