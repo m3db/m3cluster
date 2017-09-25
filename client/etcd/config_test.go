@@ -45,15 +45,17 @@ const testConfig = `
           endpoints:
               - etcd3:2379
               - etcd4:2379
-          cert: foo.crt.pem
-          key: foo.key.pem
+          auth:
+            cert: foo.crt.pem
+            key: foo.key.pem
         - zone: z3
           endpoints:
               - etcd5:2379
               - etcd6:2379
-          cert: foo.crt.pem
-          key: foo.key.pem
-          ca: foo_ca.pem
+          auth:
+            cert: foo.crt.pem
+            key: foo.key.pem
+            ca: foo_ca.pem
     m3sd:
         initTimeout: 10s
 `
@@ -74,15 +76,19 @@ func TestConfig(t *testing.T) {
 		ClusterConfig{
 			Zone:      "z2",
 			Endpoints: []string{"etcd3:2379", "etcd4:2379"},
-			Cert:      "foo.crt.pem",
-			Key:       "foo.key.pem",
+			Auth: AuthConfig{
+				Cert: "foo.crt.pem",
+				Key:  "foo.key.pem",
+			},
 		},
 		ClusterConfig{
 			Zone:      "z3",
 			Endpoints: []string{"etcd5:2379", "etcd6:2379"},
-			Cert:      "foo.crt.pem",
-			Key:       "foo.key.pem",
-			CA:        "foo_ca.pem",
+			Auth: AuthConfig{
+				Cert: "foo.crt.pem",
+				Key:  "foo.key.pem",
+				CA:   "foo_ca.pem",
+			},
 		},
 	}, cfg.ETCDClusters)
 	require.Equal(t, 10*time.Second, cfg.SDConfig.InitTimeout)

@@ -26,16 +26,28 @@ import (
 	"github.com/m3db/m3x/instrument"
 )
 
-// ClusterConfig is the config for a zoned etcd cluster
+// ClusterConfig is the config for a zoned etcd cluster.
 type ClusterConfig struct {
-	Zone      string   `yaml:"zone"`
-	Endpoints []string `yaml:"endpoints"`
-	Cert      string   `yaml:"cert",omitempty`
-	Key       string   `yaml:"key",omitempty`
-	CA        string   `yaml:"ca",omitempty`
+	Zone      string     `yaml:"zone"`
+	Endpoints []string   `yaml:"endpoints"`
+	Auth      AuthConfig `yaml:"auth"`
 }
 
-// Configuration is for config service client
+// AuthConfig is the config for authentication.
+type AuthConfig struct {
+	Cert string `yaml:"cert"`
+	Key  string `yaml:"key"`
+	CA   string `yaml:"ca"`
+}
+
+func (c AuthConfig) newOptions() AuthOptions {
+	return NewAuthOptions().
+		SetCert(c.Cert).
+		SetKey(c.Key).
+		SetCA(c.CA)
+}
+
+// Configuration is for config service client.
 type Configuration struct {
 	Zone         string               `yaml:"zone"`
 	Env          string               `yaml:"env"`
@@ -45,12 +57,12 @@ type Configuration struct {
 	SDConfig     etcdsd.Configuration `yaml:"m3sd"`
 }
 
-// NewClient creates a new config service client
+// NewClient creates a new config service client.
 func (cfg Configuration) NewClient(iopts instrument.Options) (client.Client, error) {
 	return NewConfigServiceClient(cfg.NewOptions().SetInstrumentOptions(iopts))
 }
 
-// NewOptions returns a new Options
+// NewOptions returns a new Options.
 func (cfg Configuration) NewOptions() Options {
 	return NewOptions().
 		SetZone(cfg.Zone).
@@ -67,9 +79,7 @@ func (cfg Configuration) etcdClusters() []Cluster {
 		res[i] = NewCluster().
 			SetZone(c.Zone).
 			SetEndpoints(c.Endpoints).
-			SetCert(c.Cert).
-			SetKey(c.Key).
-			SetCA(c.CA)
+			SetAuthOptions(c.Auth.newOptions())
 	}
 
 	return res

@@ -34,34 +34,34 @@ func TestCluster(t *testing.T) {
 	c := NewCluster()
 	assert.Equal(t, "", c.Zone())
 	assert.Equal(t, 0, len(c.Endpoints()))
-	assert.Equal(t, "", c.Cert())
-	assert.Equal(t, "", c.Key())
+	assert.Equal(t, NewAuthOptions(), c.AuthOptions())
 
 	c = c.SetZone("z")
 	assert.Equal(t, "z", c.Zone())
 	assert.Equal(t, 0, len(c.Endpoints()))
-	assert.Equal(t, "", c.Cert())
-	assert.Equal(t, "", c.Key())
 
 	c = c.SetEndpoints([]string{"e1"})
 	assert.Equal(t, "z", c.Zone())
 	assert.Equal(t, []string{"e1"}, c.Endpoints())
-	assert.Equal(t, "", c.Cert())
-	assert.Equal(t, "", c.Key())
 
-	c = c.SetCert("self.crt.pem")
+	aOpts := NewAuthOptions().SetCert("cert").SetKey("key").SetCA("ca")
+	c = c.SetAuthOptions(aOpts)
 	assert.Equal(t, "z", c.Zone())
 	assert.Equal(t, []string{"e1"}, c.Endpoints())
-	assert.Equal(t, "self.crt.pem", c.Cert())
-	assert.Equal(t, "", c.Key())
-
-	c = c.SetKey("self.key.pem")
-	assert.Equal(t, "z", c.Zone())
-	assert.Equal(t, []string{"e1"}, c.Endpoints())
-	assert.Equal(t, "self.crt.pem", c.Cert())
-	assert.Equal(t, "self.key.pem", c.Key())
+	assert.Equal(t, aOpts, c.AuthOptions())
 }
 
+func TestAuthOptions(t *testing.T) {
+	aOpts := NewAuthOptions()
+	assert.Equal(t, "", aOpts.Cert())
+	assert.Equal(t, "", aOpts.Key())
+	assert.Equal(t, "", aOpts.CA())
+
+	aOpts = aOpts.SetCert("cert").SetKey("key").SetCA("ca")
+	assert.Equal(t, "cert", aOpts.Cert())
+	assert.Equal(t, "key", aOpts.Key())
+	assert.Equal(t, "ca", aOpts.CA())
+}
 func TestOptions(t *testing.T) {
 	opts := NewOptions()
 	assert.Equal(t, "", opts.Zone())
