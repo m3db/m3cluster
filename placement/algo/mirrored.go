@@ -219,8 +219,12 @@ func (a mirroredAlgorithm) ReplaceInstances(
 
 	nowNanos := a.opts.NowFn()().UnixNano()
 	if allLeaving(p, addingInstances, nowNanos) && allInitializing(p, leavingInstanceIDs, nowNanos) {
-		// Allow marking shards as available without checking cutover time in a reverting case.
-		return a.reclaimLeavingShards(p, addingInstances)
+		if p, err = a.reclaimLeavingShards(p, addingInstances); err != nil {
+			return nil, err
+		}
+
+		// NB(cw) I don't think we will ever get here, but just being defensive.
+		return a.returnInitializingShards(p, leavingInstanceIDs)
 	}
 
 	if p, err = markAllShardsAvailable(p, a.opts); err != nil {
