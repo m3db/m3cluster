@@ -42,13 +42,14 @@ type TLSConfig struct {
 
 func newTLSOptions(c *TLSConfig) TLSOptions {
 	opts := NewTLSOptions()
-	if c != nil {
-		opts = opts.
-			SetCrtPath(c.CrtPath).
-			SetKeyPath(c.KeyPath).
-			SetCACrtPath(c.CACrtPath)
+	if c == nil {
+		return opts
 	}
-	return opts
+
+	return opts.
+		SetCrtPath(c.CrtPath).
+		SetKeyPath(c.KeyPath).
+		SetCACrtPath(c.CACrtPath)
 }
 
 // Configuration is for config service client.
