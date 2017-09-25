@@ -40,7 +40,7 @@ type TLSConfig struct {
 	KeyPath   string `yaml:"keyPath"`
 }
 
-func newTLSOptions(c *TLSConfig) TLSOptions {
+func (c *TLSConfig) newOptions() TLSOptions {
 	opts := NewTLSOptions()
 	if c == nil {
 		return opts
@@ -84,7 +84,7 @@ func (cfg Configuration) etcdClusters() []Cluster {
 		res[i] = NewCluster().
 			SetZone(c.Zone).
 			SetEndpoints(c.Endpoints).
-			SetTLSOptions(newTLSOptions(c.TLS))
+			SetTLSOptions(c.TLS.newOptions())
 	}
 
 	return res
