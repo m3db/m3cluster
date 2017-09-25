@@ -54,18 +54,18 @@ type Options interface {
 	Validate() error
 }
 
-// AuthOptions defines the configuration for authentication.
-type AuthOptions interface {
-	Cert() string
-	SetCert(string) AuthOptions
+// TLSOptions defines the configuration for TLS.
+type TLSOptions interface {
+	CrtPath() string
+	SetCrtPath(string) TLSOptions
 
-	Key() string
-	SetKey(string) AuthOptions
+	KeyPath() string
+	SetKeyPath(string) TLSOptions
 
-	CA() string
-	SetCA(string) AuthOptions
+	CACrtPath() string
+	SetCACrtPath(string) TLSOptions
 
-	TLSConfig() (*tls.Config, error)
+	Config() (*tls.Config, error)
 }
 
 // Cluster defines the configuration for a etcd cluster.
@@ -76,6 +76,6 @@ type Cluster interface {
 	Endpoints() []string
 	SetEndpoints(endpoints []string) Cluster
 
-	AuthOptions() AuthOptions
-	SetAuthOptions(AuthOptions) Cluster
+	TLSOptions() TLSOptions
+	SetTLSOptions(TLSOptions) Cluster
 }

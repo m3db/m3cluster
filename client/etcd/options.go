@@ -31,8 +31,8 @@ import (
 	"github.com/m3db/m3x/instrument"
 )
 
-// NewAuthOptions creates a set of Auth Options.
-func NewAuthOptions() AuthOptions {
+// NewTLSOptions creates a set of TLS Options.
+func NewTLSOptions() TLSOptions {
 	return authOptions{}
 }
 
@@ -42,32 +42,32 @@ type authOptions struct {
 	ca   string
 }
 
-func (c authOptions) Cert() string {
+func (c authOptions) CrtPath() string {
 	return c.cert
 }
 
-func (c authOptions) SetCert(cert string) AuthOptions {
+func (c authOptions) SetCrtPath(cert string) TLSOptions {
 	c.cert = cert
 	return c
 }
 
-func (c authOptions) Key() string {
+func (c authOptions) KeyPath() string {
 	return c.key
 }
-func (c authOptions) SetKey(key string) AuthOptions {
+func (c authOptions) SetKeyPath(key string) TLSOptions {
 	c.key = key
 	return c
 }
 
-func (c authOptions) CA() string {
+func (c authOptions) CACrtPath() string {
 	return c.ca
 }
-func (c authOptions) SetCA(ca string) AuthOptions {
+func (c authOptions) SetCACrtPath(ca string) TLSOptions {
 	c.ca = ca
 	return c
 }
 
-func (c authOptions) TLSConfig() (*tls.Config, error) {
+func (c authOptions) Config() (*tls.Config, error) {
 	var tlscfg *tls.Config
 	if c.cert != "" {
 		cert, err := tls.LoadX509KeyPair(c.cert, c.key)
@@ -202,13 +202,13 @@ func (o options) SetInstrumentOptions(iopts instrument.Options) Options {
 
 // NewCluster creates a Cluster.
 func NewCluster() Cluster {
-	return cluster{aOpts: NewAuthOptions()}
+	return cluster{aOpts: NewTLSOptions()}
 }
 
 type cluster struct {
 	zone      string
 	endpoints []string
-	aOpts     AuthOptions
+	aOpts     TLSOptions
 }
 
 func (c cluster) Zone() string {
@@ -229,11 +229,11 @@ func (c cluster) SetEndpoints(endpoints []string) Cluster {
 	return c
 }
 
-func (c cluster) AuthOptions() AuthOptions {
+func (c cluster) TLSOptions() TLSOptions {
 	return c.aOpts
 }
 
-func (c cluster) SetAuthOptions(opts AuthOptions) Cluster {
+func (c cluster) SetTLSOptions(opts TLSOptions) Cluster {
 	c.aOpts = opts
 	return c
 }

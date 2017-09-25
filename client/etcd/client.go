@@ -241,7 +241,7 @@ func (c *csclient) etcdClientGen(zone string) (*clientv3.Client, error) {
 }
 
 func newClient(cluster Cluster) (*clientv3.Client, error) {
-	tls, err := cluster.AuthOptions().TLSConfig()
+	tls, err := cluster.TLSOptions().Config()
 	if err != nil {
 		return nil, err
 	}

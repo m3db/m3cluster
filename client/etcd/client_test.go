@@ -279,11 +279,11 @@ func testOptions() Options {
 		NewCluster().SetZone("zone1").SetEndpoints([]string{"i1"}),
 		NewCluster().SetZone("zone2").SetEndpoints([]string{"i2"}),
 		NewCluster().SetZone("zone3").SetEndpoints([]string{"i3"}).
-			SetAuthOptions(NewAuthOptions().SetCert("foo.crt.pem")),
+			SetTLSOptions(NewTLSOptions().SetCrtPath("foo.crt.pem")),
 		NewCluster().SetZone("zone4").SetEndpoints([]string{"i4"}).
-			SetAuthOptions(NewAuthOptions().SetCert("foo.crt.pem").SetKey("foo.key.pem")),
+			SetTLSOptions(NewTLSOptions().SetCrtPath("foo.crt.pem").SetKeyPath("foo.key.pem")),
 		NewCluster().SetZone("zone5").SetEndpoints([]string{"i5"}).
-			SetAuthOptions(NewAuthOptions().SetCert("foo.crt.pem").SetKey("foo.key.pem").SetCA("foo_ca.pem")),
+			SetTLSOptions(NewTLSOptions().SetCrtPath("foo.crt.pem").SetKeyPath("foo.key.pem").SetCACrtPath("foo_ca.pem")),
 	}).SetService("test_app").SetZone("zone1")
 }
 

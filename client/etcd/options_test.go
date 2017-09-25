@@ -34,7 +34,7 @@ func TestCluster(t *testing.T) {
 	c := NewCluster()
 	assert.Equal(t, "", c.Zone())
 	assert.Equal(t, 0, len(c.Endpoints()))
-	assert.Equal(t, NewAuthOptions(), c.AuthOptions())
+	assert.Equal(t, NewTLSOptions(), c.TLSOptions())
 
 	c = c.SetZone("z")
 	assert.Equal(t, "z", c.Zone())
@@ -44,23 +44,23 @@ func TestCluster(t *testing.T) {
 	assert.Equal(t, "z", c.Zone())
 	assert.Equal(t, []string{"e1"}, c.Endpoints())
 
-	aOpts := NewAuthOptions().SetCert("cert").SetKey("key").SetCA("ca")
-	c = c.SetAuthOptions(aOpts)
+	aOpts := NewTLSOptions().SetCrtPath("cert").SetKeyPath("key").SetCACrtPath("ca")
+	c = c.SetTLSOptions(aOpts)
 	assert.Equal(t, "z", c.Zone())
 	assert.Equal(t, []string{"e1"}, c.Endpoints())
-	assert.Equal(t, aOpts, c.AuthOptions())
+	assert.Equal(t, aOpts, c.TLSOptions())
 }
 
 func TestAuthOptions(t *testing.T) {
-	aOpts := NewAuthOptions()
-	assert.Equal(t, "", aOpts.Cert())
-	assert.Equal(t, "", aOpts.Key())
-	assert.Equal(t, "", aOpts.CA())
+	aOpts := NewTLSOptions()
+	assert.Equal(t, "", aOpts.CrtPath())
+	assert.Equal(t, "", aOpts.KeyPath())
+	assert.Equal(t, "", aOpts.CACrtPath())
 
-	aOpts = aOpts.SetCert("cert").SetKey("key").SetCA("ca")
-	assert.Equal(t, "cert", aOpts.Cert())
-	assert.Equal(t, "key", aOpts.Key())
-	assert.Equal(t, "ca", aOpts.CA())
+	aOpts = aOpts.SetCrtPath("cert").SetKeyPath("key").SetCACrtPath("ca")
+	assert.Equal(t, "cert", aOpts.CrtPath())
+	assert.Equal(t, "key", aOpts.KeyPath())
+	assert.Equal(t, "ca", aOpts.CACrtPath())
 }
 func TestOptions(t *testing.T) {
 	opts := NewOptions()
