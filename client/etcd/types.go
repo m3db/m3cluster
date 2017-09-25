@@ -27,7 +27,7 @@ import (
 	"github.com/m3db/m3x/instrument"
 )
 
-// Options is the Options to create a config service client
+// Options is the Options to create a config service client.
 type Options interface {
 	Env() string
 	SetEnv(e string) Options
