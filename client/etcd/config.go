@@ -28,9 +28,9 @@ import (
 
 // ClusterConfig is the config for a zoned etcd cluster.
 type ClusterConfig struct {
-	Zone      string    `yaml:"zone"`
-	Endpoints []string  `yaml:"endpoints"`
-	TLS       TLSConfig `yaml:"tls"`
+	Zone      string     `yaml:"zone"`
+	Endpoints []string   `yaml:"endpoints"`
+	TLS       *TLSConfig `yaml:"tls"`
 }
 
 // TLSConfig is the config for TLS.
@@ -40,11 +40,15 @@ type TLSConfig struct {
 	KeyPath   string `yaml:"keyPath"`
 }
 
-func (c TLSConfig) newOptions() TLSOptions {
-	return NewTLSOptions().
-		SetCrtPath(c.CrtPath).
-		SetKeyPath(c.KeyPath).
-		SetCACrtPath(c.CACrtPath)
+func newTLSOptions(c *TLSConfig) TLSOptions {
+	opts := NewTLSOptions()
+	if c != nil {
+		opts = opts.
+			SetCrtPath(c.CrtPath).
+			SetKeyPath(c.KeyPath).
+			SetCACrtPath(c.CACrtPath)
+	}
+	return opts
 }
 
 // Configuration is for config service client.
@@ -79,7 +83,7 @@ func (cfg Configuration) etcdClusters() []Cluster {
 		res[i] = NewCluster().
 			SetZone(c.Zone).
 			SetEndpoints(c.Endpoints).
-			SetTLSOptions(c.TLS.newOptions())
+			SetTLSOptions(newTLSOptions(c.TLS))
 	}
 
 	return res

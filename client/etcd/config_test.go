@@ -76,7 +76,7 @@ func TestConfig(t *testing.T) {
 		ClusterConfig{
 			Zone:      "z2",
 			Endpoints: []string{"etcd3:2379", "etcd4:2379"},
-			TLS: TLSConfig{
+			TLS: &TLSConfig{
 				CrtPath: "foo.crt.pem",
 				KeyPath: "foo.key.pem",
 			},
@@ -84,7 +84,7 @@ func TestConfig(t *testing.T) {
 		ClusterConfig{
 			Zone:      "z3",
 			Endpoints: []string{"etcd5:2379", "etcd6:2379"},
-			TLS: TLSConfig{
+			TLS: &TLSConfig{
 				CrtPath:   "foo.crt.pem",
 				KeyPath:   "foo.key.pem",
 				CACrtPath: "foo_ca.pem",
