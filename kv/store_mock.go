@@ -270,24 +270,24 @@ func (_mr *_MockOptionsRecorder) SetZone(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetZone", arg0)
 }
 
-func (_m *MockOptions) Env() string {
-	ret := _m.ctrl.Call(_m, "Env")
+func (_m *MockOptions) Environment() string {
+	ret := _m.ctrl.Call(_m, "Environment")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-func (_mr *_MockOptionsRecorder) Env() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Env")
+func (_mr *_MockOptionsRecorder) Environment() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Environment")
 }
 
-func (_m *MockOptions) SetEnv(env string) Options {
-	ret := _m.ctrl.Call(_m, "SetEnv", env)
+func (_m *MockOptions) SetEnvironment(env string) Options {
+	ret := _m.ctrl.Call(_m, "SetEnvironment", env)
 	ret0, _ := ret[0].(Options)
 	return ret0
 }
 
-func (_mr *_MockOptionsRecorder) SetEnv(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetEnv", arg0)
+func (_mr *_MockOptionsRecorder) SetEnvironment(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetEnvironment", arg0)
 }
 
 // Mock of Store interface

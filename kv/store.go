@@ -118,11 +118,11 @@ func (opts options) SetZone(zone string) Options {
 	return opts
 }
 
-func (opts options) Env() string {
+func (opts options) Environment() string {
 	return opts.env
 }
 
-func (opts options) SetEnv(env string) Options {
+func (opts options) SetEnvironment(env string) Options {
 	opts.env = env
 	return opts
 }

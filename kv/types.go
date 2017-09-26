@@ -109,11 +109,11 @@ type Options interface {
 	// SetZone sets the zone of the KV store.
 	SetZone(zone string) Options
 
-	// Env returns the env of the KV store.
-	Env() string
+	// Environment returns the environment of the KV store.
+	Environment() string
 
-	// SetEnv sets the env of the KV store.
-	SetEnv(env string) Options
+	// SetEnvironment sets the environment of the KV store.
+	SetEnvironment(env string) Options
 }
 
 // Store provides access to the configuration store
