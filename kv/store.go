@@ -88,3 +88,41 @@ func valueFromWatch(value interface{}) Value {
 
 	return nil
 }
+
+type options struct {
+	namespace string
+	zone      string
+	env       string
+}
+
+// NewOptions creates a new kv Options.
+func NewOptions() Options {
+	return options{}
+}
+
+func (opts options) Namespace() string {
+	return opts.namespace
+}
+
+func (opts options) SetNamespace(namespace string) Options {
+	opts.namespace = namespace
+	return opts
+}
+
+func (opts options) Zone() string {
+	return opts.zone
+}
+
+func (opts options) SetZone(zone string) Options {
+	opts.zone = zone
+	return opts
+}
+
+func (opts options) Env() string {
+	return opts.env
+}
+
+func (opts options) SetEnv(env string) Options {
+	opts.env = env
+	return opts
+}
