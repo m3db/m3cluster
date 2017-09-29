@@ -112,7 +112,6 @@ func (c *csclient) Txn() (kv.TxnStore, error) {
 		c.txn, c.txnErr = c.createTxnStore(
 			kv.NewOptions().
 				SetNamespace(kvPrefix).
-				SetZone(c.opts.Zone()).
 				SetEnvironment(c.opts.Env()),
 		)
 
@@ -149,7 +148,7 @@ func (c *csclient) createServices(opts services.Options) (services.Services, err
 }
 
 func (c *csclient) createTxnStore(opts kv.Options) (kv.TxnStore, error) {
-	return c.txnGen(opts.Zone(), c.cacheFileFn(), opts.Namespace(), opts.Environment())
+	return c.txnGen(c.opts.Zone(), c.cacheFileFn(), opts.Namespace(), opts.Environment())
 }
 
 func (c *csclient) kvGen(fn cacheFileForZoneFn) etcdsd.KVGen {

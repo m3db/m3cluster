@@ -103,12 +103,6 @@ type Options interface {
 	// SetNamespace sets the namespace of the KV store.
 	SetNamespace(namespace string) Options
 
-	// Zone returns the zone of the KV store.
-	Zone() string
-
-	// SetZone sets the zone of the KV store.
-	SetZone(zone string) Options
-
 	// Environment returns the environment of the KV store.
 	Environment() string
 

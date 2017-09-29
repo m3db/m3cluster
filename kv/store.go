@@ -91,7 +91,6 @@ func valueFromWatch(value interface{}) Value {
 
 type options struct {
 	namespace string
-	zone      string
 	env       string
 }
 
@@ -106,15 +105,6 @@ func (opts options) Namespace() string {
 
 func (opts options) SetNamespace(namespace string) Options {
 	opts.namespace = namespace
-	return opts
-}
-
-func (opts options) Zone() string {
-	return opts.zone
-}
-
-func (opts options) SetZone(zone string) Options {
-	opts.zone = zone
 	return opts
 }
 
