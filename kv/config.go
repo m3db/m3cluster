@@ -1,4 +1,4 @@
-// Copyright (c) 2016 Uber Technologies, Inc.
+// Copyright (c) 2017 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,7 +20,7 @@
 
 package kv
 
-// Configuration configs the kv options.
+// Configuration is the config for kv options.
 type Configuration struct {
 	Environment string `yaml:"environment" validate:"nonzero"`
 	Namespace   string `yaml:"namespace" validate:"nonzero"`
