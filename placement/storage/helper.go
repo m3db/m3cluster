@@ -160,7 +160,7 @@ func (h *stagedPlacementHelper) GenerateProto(p placement.Placement) (proto.Mess
 		lastCutoverNanos := ps[l-1].CutoverNanos()
 		// When there is valid placement in the snapshots, the new placement must be scheduled after last placement.
 		if lastCutoverNanos >= p.CutoverNanos() {
-			return nil, fmt.Errorf("invalid placement: cutover nanos %d, must be later than last placement cutover nanos %d",
+			return nil, fmt.Errorf("invalid placement: cutover nanos %d must be later than last placement cutover nanos %d",
 				p.CutoverNanos(), lastCutoverNanos)
 		}
 	}
