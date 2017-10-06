@@ -125,7 +125,7 @@ func (c *csclient) Store(opts kv.Options) (kv.Store, error) {
 }
 
 func (c *csclient) TxnStore(opts kv.Options) (kv.TxnStore, error) {
-	opts, err := c.validateOverrideKVOptions(opts)
+	opts, err := c.sanitizeOptions(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +303,7 @@ func validateTopLevelNamespace(namespace string) error {
 	return nil
 }
 
-func (c *csclient) validateOverrideKVOptions(opts kv.Options) (kv.Options, error) {
+func (c *csclient) sanitizeOptions(opts kv.Options) (kv.Options, error) {
 	if opts.Environment() == "" {
 		opts = opts.SetEnvironment(c.opts.Env())
 	}
