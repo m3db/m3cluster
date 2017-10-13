@@ -803,7 +803,8 @@ func markShardAvailable(p placement.Placement, instanceID string, shardID uint32
 		}
 	}
 
-	sourceShards.Remove(shardID)
+	//add back the retired version of the shard so the filemanager can cleanup
+	shards.Add(shard.NewShard(shardID).SetState(shard.Retired))
 	if sourceShards.NumShards() == 0 {
 		return p.SetInstances(removeInstanceFromList(p.Instances(), sourceInstance.ID())), nil
 	}

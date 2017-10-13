@@ -65,6 +65,7 @@ enum ShardState {
   INITIALIZING = 0;
   AVAILABLE = 1;
   LEAVING = 2;
+  RETIRED = 3;
 }
 
 message PlacementSnapshots {
