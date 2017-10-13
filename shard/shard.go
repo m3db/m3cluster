@@ -45,6 +45,8 @@ func NewShardStateFromProto(state placementpb.ShardState) (State, error) {
 		return Available, nil
 	case placementpb.ShardState_LEAVING:
 		return Leaving, nil
+	case placementpb.ShardState_RETIRED:
+		return Retired, nil
 	default:
 		return defaultShardState, errInvalidProtoShardState
 	}
@@ -59,6 +61,8 @@ func (s State) Proto() (placementpb.ShardState, error) {
 		return placementpb.ShardState_AVAILABLE, nil
 	case Leaving:
 		return placementpb.ShardState_LEAVING, nil
+	case Retired:
+		return placementpb.ShardState_RETIRED, nil
 	default:
 		return defaultShardStateProto, errInvalidProtoShardState
 	}

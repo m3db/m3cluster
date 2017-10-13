@@ -51,6 +51,8 @@ const (
 	Available
 	// Leaving represents a shard that is intending to be removed.
 	Leaving
+	//Retired represents a shard that is read for fileset cleanup
+	Retired
 )
 
 // A Shard represents a piece of data owned by the service.
