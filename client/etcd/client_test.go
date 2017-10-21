@@ -221,6 +221,20 @@ func TestCacheFileForZone(t *testing.T) {
 	require.Equal(t, "/cacheDir/test_app_z1__r2_m3agg.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 }
 
+func TestSanitizeKVOptions(t *testing.T) {
+	opts := testOptions()
+	cs, err := NewConfigServiceClient(opts)
+	require.NoError(t, err)
+
+	kvOpts := kv.NewOptions()
+	require.NotEqual(t, opts.InstrumentOptions().Logger(), kvOpts.Logger())
+
+	kvOpts, err = cs.(*csclient).sanitizeOptions(kvOpts)
+	require.NoError(t, err)
+	require.NoError(t, kvOpts.Validate())
+	require.Equal(t, opts.InstrumentOptions().Logger(), kvOpts.Logger())
+}
+
 func TestValidateNamespace(t *testing.T) {
 	inputs := []struct {
 		ns        string
