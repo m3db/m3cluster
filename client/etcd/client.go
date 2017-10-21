@@ -110,11 +110,7 @@ func (c *csclient) KV() (kv.Store, error) {
 
 func (c *csclient) Txn() (kv.TxnStore, error) {
 	c.txnOnce.Do(func() {
-		kvOpts := kv.NewOptions().
-			SetNamespace(kvPrefix).
-			SetEnvironment(c.opts.Env()).
-			SetLogger(c.logger)
-		c.txn, c.txnErr = c.TxnStore(kvOpts)
+		c.txn, c.txnErr = c.TxnStore(kv.NewOptions())
 	})
 	return c.txn, c.txnErr
 }

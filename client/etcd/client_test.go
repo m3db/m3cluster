@@ -25,6 +25,7 @@ import (
 
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/services"
+	"github.com/m3db/m3x/log"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/integration"
@@ -227,12 +228,18 @@ func TestSanitizeKVOptions(t *testing.T) {
 	require.NoError(t, err)
 
 	kvOpts := kv.NewOptions()
-	require.NotEqual(t, opts.InstrumentOptions().Logger(), kvOpts.Logger())
-
 	kvOpts, err = cs.(*csclient).sanitizeOptions(kvOpts)
 	require.NoError(t, err)
 	require.NoError(t, kvOpts.Validate())
+	require.Equal(t, kvPrefix, kvOpts.Namespace())
+	require.Equal(t, opts.Env(), kvOpts.Environment())
 	require.Equal(t, opts.InstrumentOptions().Logger(), kvOpts.Logger())
+
+	kvOpts = kv.NewOptions().SetLogger(log.NewLevelLogger(log.SimpleLogger, log.LevelWarn))
+	kvOpts, err = cs.(*csclient).sanitizeOptions(kvOpts)
+	require.NoError(t, err)
+	require.NoError(t, kvOpts.Validate())
+	require.NotEqual(t, opts.InstrumentOptions().Logger(), kvOpts.Logger())
 }
 
 func TestValidateNamespace(t *testing.T) {
