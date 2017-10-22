@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 
@@ -309,7 +308,7 @@ func validateTopLevelNamespace(namespace string) error {
 }
 
 func (c *csclient) sanitizeOptions(opts kv.Options) (kv.Options, error) {
-	if opts.Logger() == nil || reflect.DeepEqual(opts.Logger(), log.NullLogger) {
+	if logger := opts.Logger(); logger == nil || logger == log.NullLogger {
 		opts = opts.SetLogger(c.logger)
 	}
 

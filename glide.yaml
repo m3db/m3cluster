@@ -16,7 +16,7 @@ import:
   subpackages:
   - proto
 - package: github.com/m3db/m3x
-  version: 6e9713eca6718643e105f574be392f122bcc062e
+  version: e76dc88cb5aac2852e0fa707ceb1dd648f11ad8a
 - package: github.com/prometheus/client_model
   version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
 - package: github.com/prometheus/common

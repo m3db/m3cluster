@@ -1,5 +1,5 @@
-hash: 0206ff542af1611b989062b69f6e3f5fbd1a9f79daf37590982bca520990075a
-updated: 2017-09-18T19:54:18.872848253-04:00
+hash: 7e9cd1ae7e5d10c435f2dd24a5574d32c30016e76f9e0781ec30de34ae480915
+updated: 2017-10-22T09:43:09.549193865-04:00
 imports:
 - name: github.com/apache/thrift
   version: 9549b25c77587b29be4e0b5c258221a4ed85d37a
@@ -125,7 +125,7 @@ imports:
 - name: github.com/karlseguin/ccache
   version: a2d62155777b39595c825ed3824279e642a5db3c
 - name: github.com/m3db/m3x
-  version: 6e9713eca6718643e105f574be392f122bcc062e
+  version: e76dc88cb5aac2852e0fa707ceb1dd648f11ad8a
   subpackages:
   - clock
   - close
@@ -172,7 +172,7 @@ imports:
 - name: github.com/uber-go/atomic
   version: e682c1008ac17bf26d2e4b5ad6cdd08520ed0b22
 - name: github.com/uber-go/tally
-  version: be9e53c77349ae2dd4b8c03a6dc20ed9a88b9927
+  version: 95078a8f10668bd1fa73ae46761cdc58d25436b8
   subpackages:
   - m3
   - m3/customtransports

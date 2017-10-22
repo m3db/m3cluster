@@ -222,24 +222,36 @@ func TestCacheFileForZone(t *testing.T) {
 	require.Equal(t, "/cacheDir/test_app_z1__r2_m3agg.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 }
 
-func TestSanitizeKVOptions(t *testing.T) {
+func TestSanitizeKVOptionsDefaultLogger(t *testing.T) {
 	opts := testOptions()
 	cs, err := NewConfigServiceClient(opts)
 	require.NoError(t, err)
 
-	kvOpts := kv.NewOptions()
-	kvOpts, err = cs.(*csclient).sanitizeOptions(kvOpts)
-	require.NoError(t, err)
-	require.NoError(t, kvOpts.Validate())
-	require.Equal(t, kvPrefix, kvOpts.Namespace())
-	require.Equal(t, opts.Env(), kvOpts.Environment())
-	require.Equal(t, opts.InstrumentOptions().Logger(), kvOpts.Logger())
+	inputs := []kv.Options{
+		kv.NewOptions(),
+		kv.NewOptions().SetLogger(log.NullLogger),
+	}
+	for _, input := range inputs {
+		kvOpts, err := cs.(*csclient).sanitizeOptions(input)
+		require.NoError(t, err)
+		require.NoError(t, kvOpts.Validate())
+		require.Equal(t, kvPrefix, kvOpts.Namespace())
+		require.Equal(t, opts.Env(), kvOpts.Environment())
+		require.Equal(t, opts.InstrumentOptions().Logger(), kvOpts.Logger())
+	}
+}
 
-	kvOpts = kv.NewOptions().SetLogger(log.NewLevelLogger(log.SimpleLogger, log.LevelWarn))
+func TestSanitizeKVOptionsCustomLogger(t *testing.T) {
+	opts := testOptions()
+	cs, err := NewConfigServiceClient(opts)
+	require.NoError(t, err)
+
+	logger := log.NewLevelLogger(log.SimpleLogger, log.LevelWarn)
+	kvOpts := kv.NewOptions().SetLogger(logger)
 	kvOpts, err = cs.(*csclient).sanitizeOptions(kvOpts)
 	require.NoError(t, err)
 	require.NoError(t, kvOpts.Validate())
-	require.NotEqual(t, opts.InstrumentOptions().Logger(), kvOpts.Logger())
+	require.Equal(t, logger, kvOpts.Logger())
 }
 
 func TestValidateNamespace(t *testing.T) {
