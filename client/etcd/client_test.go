@@ -323,7 +323,7 @@ func TestValidateNamespace(t *testing.T) {
 }
 
 func testOptions() Options {
-	return NewOptions().SetClusters([]Cluster{
+	clusters := []Cluster{
 		NewCluster().SetZone("zone1").SetEndpoints([]string{"i1"}),
 		NewCluster().SetZone("zone2").SetEndpoints([]string{"i2"}),
 		NewCluster().SetZone("zone3").SetEndpoints([]string{"i3"}).
@@ -332,7 +332,12 @@ func testOptions() Options {
 			SetTLSOptions(NewTLSOptions().SetCrtPath("foo.crt.pem").SetKeyPath("foo.key.pem")),
 		NewCluster().SetZone("zone5").SetEndpoints([]string{"i5"}).
 			SetTLSOptions(NewTLSOptions().SetCrtPath("foo.crt.pem").SetKeyPath("foo.key.pem").SetCACrtPath("foo_ca.pem")),
-	}).SetService("test_app").SetZone("zone1").SetEnv("env")
+	}
+	return NewOptions().
+		SetClusters(clusters).
+		SetService("test_app").
+		SetZone("zone1").
+		SetEnv("env")
 }
 
 func testNewETCDFn(t *testing.T) (newClientFn, func()) {
