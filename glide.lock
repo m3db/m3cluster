@@ -1,5 +1,5 @@
 hash: 1e617222eb01cf8535fcb696d3a350f08c872f8fb32139dbefc019a527b0e858
-updated: 2017-11-25T17:53:11.056983499-05:00
+updated: 2017-11-26T14:43:39.717517478-05:00
 imports:
 - name: github.com/apache/thrift
   version: 9549b25c77587b29be4e0b5c258221a4ed85d37a
@@ -154,7 +154,6 @@ imports:
   subpackages:
   - clock
   - close
-  - config
   - errors
   - instrument
   - log
@@ -276,8 +275,6 @@ imports:
   - status
   - tap
   - transport
-- name: gopkg.in/validator.v2
-  version: 3e4f037f12a1221a0864cf0dd2e81c452ab22448
 - name: gopkg.in/yaml.v2
   version: a83829b6f1293c91addabc89d0571c246397bbf4
 testImports:
