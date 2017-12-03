@@ -108,7 +108,7 @@ func (a mirroredAlgorithm) RemoveInstances(
 		return a.returnInitializingShards(p, instanceIDs)
 	}
 
-	p, _, err := markAllShardsAvailable(p, a.opts)
+	p, _, err := a.MarkAllShardsAvailable(p)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (a mirroredAlgorithm) AddInstances(
 		return a.reclaimLeavingShards(p, addingInstances)
 	}
 
-	p, _, err := markAllShardsAvailable(p, a.opts)
+	p, _, err := a.MarkAllShardsAvailable(p)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func (a mirroredAlgorithm) ReplaceInstances(
 		return a.returnInitializingShards(p, leavingInstanceIDs)
 	}
 
-	if p, _, err = markAllShardsAvailable(p, a.opts); err != nil {
+	if p, _, err = a.MarkAllShardsAvailable(p); err != nil {
 		return nil, err
 	}
 
