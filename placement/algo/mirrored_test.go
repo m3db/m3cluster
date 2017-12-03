@@ -257,7 +257,7 @@ func TestMirrorTestAddAndRevertBeforeCutover(t *testing.T) {
 	assert.False(t, ok)
 
 	assert.NoError(t, err)
-	assert.Equal(t, p, p2)
+	assert.Equal(t, p.SetMaxShardSetID(2), p2)
 }
 
 func TestMirrorTestAddAndRevertAfterCutover(t *testing.T) {

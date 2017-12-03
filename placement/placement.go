@@ -47,6 +47,7 @@ type placement struct {
 	isSharded        bool
 	isMirrored       bool
 	cutoverNanos     int64
+	maxShardSetID    uint32
 	version          int
 }
 
@@ -80,7 +81,8 @@ func NewPlacementFromProto(p *placementpb.Placement) (Placement, error) {
 		SetReplicaFactor(int(p.ReplicaFactor)).
 		SetIsSharded(p.IsSharded).
 		SetCutoverNanos(p.CutoverTime).
-		SetIsMirrored(p.IsMirrored), nil
+		SetIsMirrored(p.IsMirrored).
+		SetMaxShardSetID(p.MaxShardSetId), nil
 }
 
 func (p *placement) InstancesForShard(shard uint32) []Instance {
@@ -168,6 +170,15 @@ func (p *placement) SetIsMirrored(v bool) Placement {
 	return p
 }
 
+func (p *placement) MaxShardSetID() uint32 {
+	return p.maxShardSetID
+}
+
+func (p *placement) SetMaxShardSetID(v uint32) Placement {
+	p.maxShardSetID = v
+	return p
+}
+
 func (p *placement) CutoverNanos() int64 {
 	return p.cutoverNanos
 }
@@ -210,6 +221,7 @@ func (p *placement) Proto() (*placementpb.Placement, error) {
 		IsSharded:     p.IsSharded(),
 		CutoverTime:   p.CutoverNanos(),
 		IsMirrored:    p.IsMirrored(),
+		MaxShardSetId: p.MaxShardSetID(),
 	}, nil
 }
 
@@ -220,7 +232,8 @@ func (p *placement) Clone() Placement {
 		SetReplicaFactor(p.ReplicaFactor()).
 		SetIsSharded(p.IsSharded()).
 		SetIsMirrored(p.IsMirrored()).
-		SetCutoverNanos(p.CutoverNanos())
+		SetCutoverNanos(p.CutoverNanos()).
+		SetMaxShardSetID(p.MaxShardSetID())
 }
 
 // Placements represents a list of placements.
