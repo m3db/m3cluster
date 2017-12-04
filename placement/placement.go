@@ -300,9 +300,13 @@ func Validate(p Placement) error {
 	totalLeaving := 0
 	totalInit := 0
 	totalInitWithSourceID := 0
+	maxShardSetID := p.MaxShardSetID()
 	for _, instance := range p.Instances() {
 		if instance.Endpoint() == "" {
 			return fmt.Errorf("instance %s does not contain valid endpoint", instance.String())
+		}
+		if shardSetID := instance.ShardSetID(); shardSetID > maxShardSetID {
+			return fmt.Errorf("instance %s shard set id %d is larger than max shard set id %d in the placement", instance.String(), shardSetID, maxShardSetID)
 		}
 		if instance.Shards().NumShards() == 0 && p.IsSharded() {
 			return fmt.Errorf("instance %s contains no shard in a sharded placement", instance.String())

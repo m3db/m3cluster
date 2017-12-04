@@ -938,7 +938,8 @@ func TestMirrorReplaceWithLeavingShards(t *testing.T) {
 		SetShards([]uint32{0, 1, 2}).
 		SetInstances([]placement.Instance{i1, i2, i3, i4}).
 		SetIsMirrored(true).
-		SetIsSharded(true)
+		SetIsSharded(true).
+		SetMaxShardSetID(1)
 
 	opts := placement.NewOptions().SetIsMirrored(true)
 	a := NewAlgorithm(opts)
