@@ -30,6 +30,11 @@ import (
 	"github.com/m3db/m3cluster/shard"
 )
 
+const (
+	// uninitializedShardSetID represents uninitialized shard set id.
+	uninitializedShardSetID = 0
+)
+
 var (
 	errNilPlacementProto          = errors.New("nil placement proto")
 	errNilPlacementSnapshotsProto = errors.New("nil placement snapshots proto")
@@ -301,18 +306,20 @@ func Validate(p Placement) error {
 	totalInit := 0
 	totalInitWithSourceID := 0
 	maxShardSetID := p.MaxShardSetID()
+	instancesByShardSetID := make(map[uint32]Instance, p.NumInstances())
 	for _, instance := range p.Instances() {
 		if instance.Endpoint() == "" {
 			return fmt.Errorf("instance %s does not contain valid endpoint", instance.String())
-		}
-		if shardSetID := instance.ShardSetID(); shardSetID > maxShardSetID {
-			return fmt.Errorf("instance %s shard set id %d is larger than max shard set id %d in the placement", instance.String(), shardSetID, maxShardSetID)
 		}
 		if instance.Shards().NumShards() == 0 && p.IsSharded() {
 			return fmt.Errorf("instance %s contains no shard in a sharded placement", instance.String())
 		}
 		if instance.Shards().NumShards() != 0 && !p.IsSharded() {
 			return fmt.Errorf("instance %s contains shards in a non-sharded placement", instance.String())
+		}
+		shardSetID := instance.ShardSetID()
+		if shardSetID > maxShardSetID {
+			return fmt.Errorf("instance %s shard set id %d is larger than max shard set id %d in the placement", instance.String(), shardSetID, maxShardSetID)
 		}
 		for _, s := range instance.Shards().All() {
 			count, exist := shardCountMap[s.ID()]
@@ -334,6 +341,19 @@ func Validate(p Placement) error {
 				totalLeaving++
 			default:
 				return fmt.Errorf("invalid shard state %v for shard %d", s.State(), s.ID())
+			}
+		}
+		if shardSetID == uninitializedShardSetID {
+			continue
+		}
+		existingInstance, exists := instancesByShardSetID[shardSetID]
+		if !exists {
+			instancesByShardSetID[shardSetID] = instance
+		} else {
+			existingShards := existingInstance.Shards()
+			currShards := instance.Shards()
+			if !existingShards.Equals(currShards) {
+				return fmt.Errorf("instance %s and %s have the same shard set id %d but different shards", existingInstance.String(), instance.String(), shardSetID)
 			}
 		}
 	}

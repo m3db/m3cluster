@@ -402,7 +402,7 @@ func TestSelectReplaceInstanceForMirror(t *testing.T) {
 		SetZone("z1").
 		SetEndpoint("h1p1e").
 		SetWeight(1).
-		SetShardSetID(0)
+		SetShardSetID(1)
 	h1p2 := placement.NewInstance().
 		SetID("h1p2").
 		SetHostname("h1").
@@ -411,7 +411,7 @@ func TestSelectReplaceInstanceForMirror(t *testing.T) {
 		SetZone("z1").
 		SetEndpoint("h1p2e").
 		SetWeight(1).
-		SetShardSetID(1)
+		SetShardSetID(2)
 	h2p1 := placement.NewInstance().
 		SetID("h2p1").
 		SetHostname("h2").
@@ -420,7 +420,7 @@ func TestSelectReplaceInstanceForMirror(t *testing.T) {
 		SetZone("z1").
 		SetEndpoint("h2p1e").
 		SetWeight(1).
-		SetShardSetID(0)
+		SetShardSetID(1)
 	h2p2 := placement.NewInstance().
 		SetID("h2p2").
 		SetHostname("h2").
@@ -429,7 +429,7 @@ func TestSelectReplaceInstanceForMirror(t *testing.T) {
 		SetZone("z1").
 		SetEndpoint("h2p2e").
 		SetWeight(1).
-		SetShardSetID(1)
+		SetShardSetID(2)
 
 	p := placement.NewPlacement().
 		SetInstances([]placement.Instance{h1p1, h1p2, h2p1, h2p2}).
@@ -503,7 +503,7 @@ func TestSelectReplaceInstancesWithLeaving(t *testing.T) {
 		SetZone("z1").
 		SetEndpoint("h1p1e").
 		SetWeight(1).
-		SetShardSetID(0).
+		SetShardSetID(1).
 		SetShards(shard.NewShards([]shard.Shard{s1}))
 	s2 := shard.NewShard(1).SetState(shard.Initializing)
 	h2p1 := placement.NewInstance().
@@ -514,7 +514,7 @@ func TestSelectReplaceInstancesWithLeaving(t *testing.T) {
 		SetZone("z1").
 		SetEndpoint("h2p1e").
 		SetWeight(1).
-		SetShardSetID(0).
+		SetShardSetID(1).
 		SetShards(shard.NewShards([]shard.Shard{s2}))
 
 	p := placement.NewPlacement().
