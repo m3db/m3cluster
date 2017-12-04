@@ -622,7 +622,7 @@ func TestSelectAddingInstanceForMirror(t *testing.T) {
 	h2p1.SetShards(shard.NewShards([]shard.Shard{shard.NewShard(0).SetState(shard.Leaving)}))
 
 	require.Equal(t, h1p1.ShardSetID(), h2p1.ShardSetID())
-	ssID := h1p1.ShardSetID()
+	require.Equal(t, uint32(1), h1p1.ShardSetID())
 	res, err = selector.SelectAddingInstances(
 		[]placement.Instance{h1p1, h2p1},
 		p,
@@ -630,7 +630,17 @@ func TestSelectAddingInstanceForMirror(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(res))
 	for _, instance := range res {
-		require.Equal(t, ssID, instance.ShardSetID())
+		require.Equal(t, uint32(1), instance.ShardSetID())
+	}
+
+	res, err = selector.SelectAddingInstances(
+		[]placement.Instance{h1p1, h4p1},
+		p,
+	)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(res))
+	for _, instance := range res {
+		require.Equal(t, uint32(3), instance.ShardSetID())
 	}
 
 	_, err = selector.SelectAddingInstances(
