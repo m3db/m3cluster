@@ -718,13 +718,13 @@ func TestMirrorWorkflow(t *testing.T) {
 		SetEndpoint("h6p1e").
 		SetWeight(2)
 
-	p, addedInstances, err := ps.AddInstances([]placement.Instance{h5p1, h6p1})
+	_, addedInstances, err := ps.AddInstances([]placement.Instance{h5p1, h6p1})
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(addedInstances))
 	assert.Equal(t, addedInstances[0].ShardSetID(), addedInstances[1].ShardSetID())
 	assert.Equal(t, uint32(7), addedInstances[0].ShardSetID())
 
-	p, err = ps.RemoveInstances([]string{h5p1.ID(), h6p1.ID()})
+	_, err = ps.RemoveInstances([]string{h5p1.ID(), h6p1.ID()})
 	assert.NoError(t, err)
 
 	// Make sure reverting the removed instances reuses the old shard set id.
