@@ -359,17 +359,25 @@ func assignShardsToGroupedInstances(
 		shardSetIDs = nextNShardSetIDs(p, len(groups))
 	)
 	for _, group := range groups {
-		ssID := shardSetIDs[0]
-		var usedNewSSID bool
+		var (
+			useNewSSID bool
+			ssID       uint32
+		)
 		for _, instance := range group {
-			if instance.ShardSetID() == 0 {
-				usedNewSSID = true
+			_, exist := p.Instance(instance.ID())
+			if !exist {
+				useNewSSID = true
+			}
+		}
+		if useNewSSID {
+			ssID = shardSetIDs[0]
+			shardSetIDs = shardSetIDs[1:]
+		}
+		for _, instance := range group {
+			if useNewSSID {
 				instance = instance.SetShardSetID(ssID)
 			}
 			instances = append(instances, instance)
-		}
-		if usedNewSSID {
-			shardSetIDs = shardSetIDs[1:]
 		}
 	}
 
