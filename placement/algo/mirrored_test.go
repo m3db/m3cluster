@@ -1212,7 +1212,7 @@ func TestReclaimLeavingShardsWithAvailable(t *testing.T) {
 		SetID("i3").
 		SetRack("r3").
 		SetEndpoint("endpoint3").
-		SetShardSetID(1).
+		SetShardSetID(2).
 		SetWeight(1).
 		SetShards(shard.NewShards([]shard.Shard{
 			shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1"),
@@ -1222,7 +1222,7 @@ func TestReclaimLeavingShardsWithAvailable(t *testing.T) {
 		SetID("i4").
 		SetRack("r1"). // Same rack with i1.
 		SetEndpoint("endpoint4").
-		SetShardSetID(1).
+		SetShardSetID(2).
 		SetWeight(1).
 		SetShards(shard.NewShards([]shard.Shard{
 			shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i2"),
@@ -1236,12 +1236,12 @@ func TestReclaimLeavingShardsWithAvailable(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 4, p1.NumInstances())
 	assert.NoError(t, placement.Validate(p1))
-	assert.Equal(t, uint32(1), p1.MaxShardSetID())
+	assert.Equal(t, uint32(2), p1.MaxShardSetID())
 	p2, err := a.reclaimLeavingShards(p.Clone(), []placement.Instance{i1, i2})
 	assert.NoError(t, err)
 	assert.Equal(t, 4, p2.NumInstances())
 	assert.NoError(t, placement.Validate(p2))
-	assert.Equal(t, uint32(1), p2.MaxShardSetID())
+	assert.Equal(t, uint32(2), p2.MaxShardSetID())
 }
 
 func TestMarkShardAsAvailableWithMirroredAlgo(t *testing.T) {

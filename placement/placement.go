@@ -350,10 +350,16 @@ func Validate(p Placement) error {
 		if !exists {
 			instancesByShardSetID[shardSetID] = instance
 		} else {
-			existingShards := existingInstance.Shards()
-			currShards := instance.Shards()
-			if !existingShards.Equals(currShards) {
-				return fmt.Errorf("instance %s and %s have the same shard set id %d but different shards", existingInstance.String(), instance.String(), shardSetID)
+			// Both existing shard ids and current shard ids are sorted in ascending order.
+			existingShardIDs := existingInstance.Shards().AllIDs()
+			currShardIDs := instance.Shards().AllIDs()
+			if len(existingShardIDs) != len(currShardIDs) {
+				return fmt.Errorf("instance %s and %s have the same shard set id %d but different number of shards", existingInstance.String(), instance.String(), shardSetID)
+			}
+			for i := 0; i < len(existingShardIDs); i++ {
+				if existingShardIDs[i] != currShardIDs[i] {
+					return fmt.Errorf("instance %s and %s have the same shard set id %d but different shards", existingInstance.String(), instance.String(), shardSetID)
+				}
 			}
 		}
 	}
