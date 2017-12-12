@@ -69,13 +69,13 @@ func TestPlacementHelper(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, v)
 
-	_, err = helper.History(0)
+	_, err = helper.PlacementForVersion(0)
 	require.Error(t, err)
 
-	_, err = helper.History(2)
+	_, err = helper.PlacementForVersion(2)
 	require.Error(t, err)
 
-	h, err := helper.History(1)
+	h, err := helper.PlacementForVersion(1)
 	require.NoError(t, err)
 	require.Equal(t, p, h)
 
@@ -149,13 +149,13 @@ func TestPlacementSnapshotsHelper(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, v)
 
-	_, err = helper.History(0)
+	_, err = helper.PlacementForVersion(0)
 	require.Error(t, err)
 
-	_, err = helper.History(2)
+	_, err = helper.PlacementForVersion(2)
 	require.Error(t, err)
 
-	h, err := helper.History(1)
+	h, err := helper.PlacementForVersion(1)
 	require.NoError(t, err)
 	require.Equal(t, p, h)
 
@@ -209,14 +209,14 @@ func TestPlacementSnapshotsHelper(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, errNoPlacementInTheSnapshots, err)
 
-	_, err = helper.History(2)
+	_, err = helper.PlacementForVersion(2)
 	require.Error(t, err)
 	require.Equal(t, errNoPlacementInTheSnapshots, err)
 
 	_, err = store.Set(key, newProto)
 	require.NoError(t, err)
 
-	h, err = helper.History(3)
+	h, err = helper.PlacementForVersion(3)
 	require.NoError(t, err)
 	require.Equal(t, p.SetVersion(3), h)
 }

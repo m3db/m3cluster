@@ -54,13 +54,13 @@ func TestStorageWithSinglePlacement(t *testing.T) {
 	require.Equal(t, 1, v)
 	require.Equal(t, p.SetVersion(1), pGet)
 
-	_, err = ps.History(0)
+	_, err = ps.PlacementForVersion(0)
 	require.Error(t, err)
 
-	_, err = ps.History(2)
+	_, err = ps.PlacementForVersion(2)
 	require.Error(t, err)
 
-	h, err := ps.History(1)
+	h, err := ps.PlacementForVersion(1)
 	require.NoError(t, err)
 	require.Equal(t, pGet, h)
 
@@ -120,13 +120,13 @@ func TestStorageWithPlacementSnapshots(t *testing.T) {
 	require.Equal(t, 1, v)
 	require.Equal(t, p.SetVersion(1), pGet1)
 
-	_, err = ps.History(0)
+	_, err = ps.PlacementForVersion(0)
 	require.Error(t, err)
 
-	_, err = ps.History(2)
+	_, err = ps.PlacementForVersion(2)
 	require.Error(t, err)
 
-	h, err := ps.History(1)
+	h, err := ps.PlacementForVersion(1)
 	require.NoError(t, err)
 	require.Equal(t, pGet1, h)
 

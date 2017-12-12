@@ -1365,15 +1365,15 @@ func (_mr *_MockStorageRecorder) Proto() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Proto")
 }
 
-func (_m *MockStorage) History(version int) (Placement, error) {
-	ret := _m.ctrl.Call(_m, "History", version)
+func (_m *MockStorage) PlacementForVersion(version int) (Placement, error) {
+	ret := _m.ctrl.Call(_m, "PlacementForVersion", version)
 	ret0, _ := ret[0].(Placement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockStorageRecorder) History(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "History", arg0)
+func (_mr *_MockStorageRecorder) PlacementForVersion(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlacementForVersion", arg0)
 }
 
 // Mock of Service interface
@@ -1481,15 +1481,15 @@ func (_mr *_MockServiceRecorder) Proto() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Proto")
 }
 
-func (_m *MockService) History(version int) (Placement, error) {
-	ret := _m.ctrl.Call(_m, "History", version)
+func (_m *MockService) PlacementForVersion(version int) (Placement, error) {
+	ret := _m.ctrl.Call(_m, "PlacementForVersion", version)
 	ret0, _ := ret[0].(Placement)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockServiceRecorder) History(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "History", arg0)
+func (_mr *_MockServiceRecorder) PlacementForVersion(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PlacementForVersion", arg0)
 }
 
 func (_m *MockService) BuildInitialPlacement(instances []Instance, numShards int, rf int) (Placement, error) {

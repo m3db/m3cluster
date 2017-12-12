@@ -875,7 +875,7 @@ func (ms *mockStorage) Proto() (proto.Message, int, error) {
 	return nil, 0, errors.New("not implemented")
 }
 
-func (ms *mockStorage) History(v int) (placement.Placement, error) {
+func (ms *mockStorage) PlacementForVersion(v int) (placement.Placement, error) {
 	return nil, errors.New("not implemented")
 }
 

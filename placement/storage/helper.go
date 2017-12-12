@@ -52,8 +52,8 @@ type Helper interface {
 	// ValidateProto validates if the given proto message is valid for placement.
 	ValidateProto(proto proto.Message) error
 
-	// History returns the placement of a specific version.
-	History(version int) (placement.Placement, error)
+	// PlacementForVersion returns the placement of a specific version.
+	PlacementForVersion(version int) (placement.Placement, error)
 }
 
 // newHelper returns a new placement storage helper.
@@ -77,7 +77,7 @@ func newPlacementHelper(store kv.Store, key string) Helper {
 	}
 }
 
-func (h *placementHelper) History(version int) (placement.Placement, error) {
+func (h *placementHelper) PlacementForVersion(version int) (placement.Placement, error) {
 	values, err := h.store.History(h.key, version, version+1)
 	if err != nil {
 		return nil, err
@@ -206,7 +206,7 @@ func (h *stagedPlacementHelper) placements() (placement.Placements, int, error) 
 	return ps, value.Version(), err
 }
 
-func (h *stagedPlacementHelper) History(version int) (placement.Placement, error) {
+func (h *stagedPlacementHelper) PlacementForVersion(version int) (placement.Placement, error) {
 	values, err := h.store.History(h.key, version, version+1)
 	if err != nil {
 		return nil, err
