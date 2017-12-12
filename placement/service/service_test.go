@@ -875,6 +875,10 @@ func (ms *mockStorage) Proto() (proto.Message, int, error) {
 	return nil, 0, errors.New("not implemented")
 }
 
+func (ms *mockStorage) History(v int) (placement.Placement, error) {
+	return nil, errors.New("not implemented")
+}
+
 func markAllInstancesAvailable(
 	t *testing.T,
 	ps placement.Service,
