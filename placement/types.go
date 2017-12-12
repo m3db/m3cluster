@@ -431,6 +431,9 @@ type Storage interface {
 
 	// Proto returns the placement proto.
 	Proto() (proto.Message, int, error)
+
+	// History returns the placement of a specific version.
+	History(version int) (Placement, error)
 }
 
 // Service handles the placement related operations for registered services
