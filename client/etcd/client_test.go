@@ -49,7 +49,7 @@ func TestETCDClientGen(t *testing.T) {
 	c2, err := c.etcdClientGen("zone2")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(c.clis))
-	require.NotEqual(t, c1, c2)
+	require.False(t, c1 == c2)
 
 	_, err = c.etcdClientGen("zone3")
 	require.Error(t, err)
@@ -66,7 +66,7 @@ func TestETCDClientGen(t *testing.T) {
 	c1Again, err := c.etcdClientGen("zone1")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(c.clis))
-	require.Equal(t, c1, c1Again)
+	require.True(t, c1 == c1Again)
 }
 
 func TestKVAndHeartbeatServiceSharingETCDClient(t *testing.T) {
