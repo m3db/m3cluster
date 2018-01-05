@@ -84,7 +84,7 @@ func (h *placementHelper) PlacementForVersion(version int) (placement.Placement,
 	}
 
 	if len(values) != 1 {
-		return nil, fmt.Errorf("invalid number of values returned: %d, expecting 1", len(values))
+		return nil, fmt.Errorf("invalid number of placements returned: %d, expecting 1", len(values))
 	}
 
 	return placementFromValue(values[0])
