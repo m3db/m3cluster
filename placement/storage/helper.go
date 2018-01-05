@@ -87,8 +87,7 @@ func (h *placementHelper) PlacementForVersion(version int) (placement.Placement,
 		return nil, fmt.Errorf("invalid number of values returned: %d, expecting 1", len(values))
 	}
 
-	p, err := placementFromValue(values[0])
-	return p, err
+	return placementFromValue(values[0])
 }
 
 func (h *placementHelper) Placement() (placement.Placement, int, error) {
@@ -213,7 +212,7 @@ func (h *stagedPlacementHelper) PlacementForVersion(version int) (placement.Plac
 	}
 
 	if len(values) != 1 {
-		return nil, fmt.Errorf("invalid number of values returned: %d, expecting 1", len(values))
+		return nil, fmt.Errorf("invalid number of placements returned: %d, expecting 1", len(values))
 	}
 
 	ps, err := placementsFromValue(values[0])
