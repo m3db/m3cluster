@@ -292,7 +292,7 @@ func TestGeneratePlacement(t *testing.T) {
 		placement.NewOptions(),
 	)
 
-	p := ph.GeneratePlacement()
+	p := ph.generatePlacement()
 	assert.Equal(t, 2, p.NumInstances())
 }
 
@@ -331,7 +331,7 @@ func TestReturnInitShardToSource_RackConflict(t *testing.T) {
 	assert.Equal(t, 1, i4.Shards().NumShards())
 	assert.Equal(t, []shard.Shard{shard.NewShard(0).SetState(shard.Available)}, i4.Shards().All())
 
-	// make sure PlaceShards will handle the unreturned shards
+	// make sure placeShards will handle the unreturned shards
 	i1 = placement.NewInstance().SetID("i1").SetRack("r1").SetEndpoint("e1").SetWeight(1).SetShards(shard.NewShards(
 		[]shard.Shard{shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i2")},
 	))
@@ -354,7 +354,7 @@ func TestReturnInitShardToSource_RackConflict(t *testing.T) {
 		placement.NewOptions(),
 	).(*placementHelper)
 
-	err := ph.PlaceShards(i1.Shards().All(), i1, ph.Instances())
+	err := ph.placeShards(i1.Shards().All(), i1, ph.Instances())
 	assert.NoError(t, err)
 	assert.Equal(t, 0, i1.Shards().NumShards())
 	assert.Equal(t, 1, i2.Shards().NumShards())

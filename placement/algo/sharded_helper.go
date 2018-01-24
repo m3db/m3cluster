@@ -67,25 +67,25 @@ type PlacementHelper interface {
 	// HasRackConflict checks if the rack constraint is violated when moving the shard to the target rack.
 	HasRackConflict(shard uint32, from placement.Instance, toRack string) bool
 
-	// PlaceShards distributes shards to the instances in the helper, with aware of where are the shards coming from.
-	PlaceShards(shards []shard.Shard, from placement.Instance, candidates []placement.Instance) error
+	// placeShards distributes shards to the instances in the helper, with aware of where are the shards coming from.
+	placeShards(shards []shard.Shard, from placement.Instance, candidates []placement.Instance) error
 
-	// AddInstance adds an instance to the placement.
-	AddInstance(addingInstance placement.Instance) error
+	// addInstance adds an instance to the placement.
+	addInstance(addingInstance placement.Instance) error
 
-	// Optimize rebalances the load distribution in the cluster.
-	Optimize(t optimizeType) error
+	// optimize rebalances the load distribution in the cluster.
+	optimize(t optimizeType) error
 
-	// GeneratePlacement generates a placement.
-	GeneratePlacement() placement.Placement
+	// generatePlacement generates a placement.
+	generatePlacement() placement.Placement
 
-	// ReclaimLeavingShards reclaims all the leaving shards on the given instance
+	// reclaimLeavingShards reclaims all the leaving shards on the given instance
 	// by pulling them back from the rest of the cluster.
-	ReclaimLeavingShards(instance placement.Instance)
+	reclaimLeavingShards(instance placement.Instance)
 
-	// ReturnInitializingShards returns all the initializing shards on the given instance
+	// returnInitializingShards returns all the initializing shards on the given instance
 	// by returning them back to the original owners.
-	ReturnInitializingShards(instance placement.Instance)
+	returnInitializingShards(instance placement.Instance)
 }
 
 type placementHelper struct {
@@ -368,7 +368,7 @@ func (ph *placementHelper) buildInstanceHeap(instances []placement.Instance, ava
 	return newHeap(instances, availableCapacityAscending, ph.targetLoad, ph.rackToWeightMap)
 }
 
-func (ph *placementHelper) GeneratePlacement() placement.Placement {
+func (ph *placementHelper) generatePlacement() placement.Placement {
 	var instances = make([]placement.Instance, 0, len(ph.instances))
 
 	for _, instance := range ph.instances {
@@ -401,7 +401,7 @@ func (ph *placementHelper) GeneratePlacement() placement.Placement {
 		SetMaxShardSetID(maxShardSetID)
 }
 
-func (ph *placementHelper) PlaceShards(
+func (ph *placementHelper) placeShards(
 	shards []shard.Shard,
 	from placement.Instance,
 	candidates []placement.Instance,
@@ -445,7 +445,7 @@ func (ph *placementHelper) PlaceShards(
 	return nil
 }
 
-func (ph *placementHelper) ReturnInitializingShards(instance placement.Instance) {
+func (ph *placementHelper) returnInitializingShards(instance placement.Instance) {
 	shardSet := getShardMap(instance.Shards().All())
 	ph.returnInitializingShardsToSource(shardSet, instance, ph.Instances())
 }
@@ -502,7 +502,7 @@ func (ph *placementHelper) mostUnderLoadedInstance() (placement.Instance, bool) 
 	return nil, false
 }
 
-func (ph *placementHelper) Optimize(t optimizeType) error {
+func (ph *placementHelper) optimize(t optimizeType) error {
 	var fn assignLoadFn
 	switch t {
 	case safe:
@@ -510,10 +510,6 @@ func (ph *placementHelper) Optimize(t optimizeType) error {
 	case unsafe:
 		fn = ph.assignLoadToInstanceUnsafe
 	}
-	return ph.optimize(fn)
-}
-
-func (ph *placementHelper) optimize(fn assignLoadFn) error {
 	uniq := make(map[string]struct{}, len(ph.instances))
 	for {
 		ins, ok := ph.mostUnderLoadedInstance()
@@ -543,7 +539,7 @@ func (ph *placementHelper) assignLoadToInstanceUnsafe(addingInstance placement.I
 	})
 }
 
-func (ph *placementHelper) ReclaimLeavingShards(instance placement.Instance) {
+func (ph *placementHelper) reclaimLeavingShards(instance placement.Instance) {
 	if instance.Shards().NumShardsForState(shard.Leaving) == 0 {
 		// Shortcut if there is nothing to be reclaimed.
 		return
@@ -564,8 +560,8 @@ func (ph *placementHelper) ReclaimLeavingShards(instance placement.Instance) {
 	}
 }
 
-func (ph *placementHelper) AddInstance(addingInstance placement.Instance) error {
-	ph.ReclaimLeavingShards(addingInstance)
+func (ph *placementHelper) addInstance(addingInstance placement.Instance) error {
+	ph.reclaimLeavingShards(addingInstance)
 	return ph.assignLoadToInstanceUnsafe(addingInstance)
 }
 
