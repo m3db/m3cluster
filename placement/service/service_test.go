@@ -576,6 +576,7 @@ func TestFindReplaceInstance(t *testing.T) {
 	assert.Equal(t, 1, len(res))
 	assert.Equal(t, noConflictCandidates[0], res[0])
 
+	// Enable LooseRackCheck, so the rack with less conflicts will be picked.
 	p = NewPlacementService(NewMockStorage(), placement.NewOptions().SetValidZone("z1").SetLooseRackCheck(true)).(*placementService)
 	res, err = p.selector.SelectReplaceInstances(candidates, []string{i4.ID()}, s)
 	assert.NoError(t, err)
@@ -583,6 +584,7 @@ func TestFindReplaceInstance(t *testing.T) {
 	assert.Equal(t, 1, len(res))
 	assert.Equal(t, "r11", res[0].Rack())
 
+	// Disable AllowPartialReplace, so the weight from the candidate instances must be more than the replacing instance.
 	p = NewPlacementService(NewMockStorage(), placement.NewOptions().SetValidZone("z1").SetAllowPartialReplace(false)).(*placementService)
 	_, err = p.selector.SelectReplaceInstances(noConflictCandidates, []string{i3.ID()}, s)
 	assert.Error(t, err)
