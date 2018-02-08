@@ -62,6 +62,9 @@ type assignLoadFn func(instance placement.Instance) error
 type placementHelper interface {
 	PlacementHelper
 
+	// placeShards distributes shards to the instances in the helper, with aware of where are the shards coming from.
+	placeShards(shards []shard.Shard, from placement.Instance, candidates []placement.Instance) error
+
 	// addInstance adds an instance to the placement.
 	addInstance(addingInstance placement.Instance) error
 
@@ -87,9 +90,6 @@ type PlacementHelper interface {
 
 	// HasRackConflict checks if the rack constraint is violated when moving the shard to the target rack.
 	HasRackConflict(shard uint32, from placement.Instance, toRack string) bool
-
-	// placeShards distributes shards to the instances in the helper, with aware of where are the shards coming from.
-	placeShards(shards []shard.Shard, from placement.Instance, candidates []placement.Instance) error
 }
 
 type helper struct {
