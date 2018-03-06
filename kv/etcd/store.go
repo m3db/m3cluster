@@ -395,15 +395,13 @@ func (c *client) update(key string, events []*clientv3.Event) error {
 		nv  kv.Value
 		err error
 	)
-
 	if len(events) == 0 {
-		nv, err = c.getFromKVStore(key)
+		if nv, err = c.getFromKVStore(key); err != nil {
+			// This is triggered by initializing a new watch and no value available for the key.
+			return nil
+		}
 	} else {
 		nv = c.getFromEtcdEvents(key, events)
-	}
-
-	if err != nil {
-		return nil
 	}
 
 	c.RLock()
