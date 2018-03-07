@@ -823,8 +823,7 @@ func tryCleanupShardState(
 	opts placement.Options,
 ) (placement.Placement, error) {
 	if opts.ShardStateType() == placement.SimpleShardState {
-		p, err := cleanupShardState(p, opts)
-		return p, err
+		return cleanupShardState(p, opts)
 	}
 	return p, nil
 }
