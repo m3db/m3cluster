@@ -119,7 +119,6 @@ func (a rackAwarePlacementAlgorithm) RemoveInstances(
 			return nil, err
 		}
 	}
-
 	return tryCleanupShardState(p, a.opts)
 }
 
