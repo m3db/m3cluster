@@ -818,6 +818,28 @@ func markShardAvailable(p placement.Placement, instanceID string, shardID uint32
 	return p, nil
 }
 
+func tryCleanupShardState(
+	p placement.Placement,
+	opts placement.Options,
+) (placement.Placement, error) {
+	if opts.ShardStateType() == placement.SimpleShardState {
+		p, err := cleanupShardState(p, opts)
+		return p, err
+	}
+	return p, nil
+}
+
+func cleanupShardState(
+	p placement.Placement,
+	opts placement.Options,
+) (placement.Placement, error) {
+	p, _, err := markAllShardsAvailable(
+		p,
+		opts.SetIsShardCutoverFn(nil).SetIsShardCutoffFn(nil),
+	)
+	return p, err
+}
+
 func markAllShardsAvailable(
 	p placement.Placement,
 	opts placement.Options,
