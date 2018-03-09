@@ -331,11 +331,11 @@ type Options interface {
 	// SetIsSharded sets IsSharded.
 	SetIsSharded(sharded bool) Options
 
-	// ShardStateType describes the way to manage shard state in the placement.
-	ShardStateType() ShardStateType
+	// ShardStateMode describes the mode to manage shard state in the placement.
+	ShardStateMode() ShardStateMode
 
-	// SetShardStateType sets ShardStateType.
-	SetShardStateType(value ShardStateType) Options
+	// SetShardStateMode sets ShardStateMode.
+	SetShardStateMode(value ShardStateMode) Options
 
 	// Dryrun will try to perform the placement operation but will not persist the final result.
 	Dryrun() bool
@@ -410,15 +410,15 @@ type Options interface {
 	SetNowFn(fn clock.NowFn) Options
 }
 
-// ShardStateType describes the way to manage shard state in the placement.
-type ShardStateType int
+// ShardStateMode describes the way to manage shard state in the placement.
+type ShardStateMode int
 
 const (
-	// IgnoreShardState means the shard state in the placement should be ignored.
-	IgnoreShardState ShardStateType = iota
+	// StableShardStateOnly means the placement should only keep stable shard state.
+	StableShardStateOnly ShardStateMode = iota
 
-	// TransitionalShardStates means the transitional shard states will be included in the placement.
-	TransitionalShardStates
+	// IncludeTransitionalShardStates means the placement will include transitional shard states.
+	IncludeTransitionalShardStates
 )
 
 // Storage provides read and write access to placement.

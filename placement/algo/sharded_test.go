@@ -1192,7 +1192,7 @@ func TestGoodCaseWithSimpleShardStateType(t *testing.T) {
 		SetPlacementCutoverNanosFn(timeNanosGen(1)).
 		SetShardCutoverNanosFn(timeNanosGen(2)).
 		SetShardCutoffNanosFn(timeNanosGen(3)).
-		SetShardStateType(placement.IgnoreShardState)
+		SetShardStateMode(placement.StableShardStateOnly)
 	a := newShardedAlgorithm(opts)
 	p, err := a.InitialPlacement(instances, ids, 1)
 	require.NoError(t, err)

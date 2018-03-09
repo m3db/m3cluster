@@ -42,7 +42,7 @@ func TestPlacementOptions(t *testing.T) {
 	assert.False(t, o.LooseRackCheck())
 	assert.True(t, o.AllowPartialReplace())
 	assert.True(t, o.IsSharded())
-	assert.Equal(t, TransitionalShardStates, o.ShardStateType())
+	assert.Equal(t, IncludeTransitionalShardStates, o.ShardStateMode())
 	assert.False(t, o.Dryrun())
 	assert.False(t, o.IsMirrored())
 	assert.False(t, o.IsStaged())
@@ -60,8 +60,8 @@ func TestPlacementOptions(t *testing.T) {
 	o = o.SetIsSharded(false)
 	assert.False(t, o.IsSharded())
 
-	o = o.SetShardStateType(IgnoreShardState)
-	assert.Equal(t, IgnoreShardState, o.ShardStateType())
+	o = o.SetShardStateMode(StableShardStateOnly)
+	assert.Equal(t, StableShardStateOnly, o.ShardStateMode())
 
 	o = o.SetDryrun(true)
 	assert.True(t, o.Dryrun())
