@@ -24,13 +24,13 @@
 package services
 
 import (
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	metadatapb "github.com/m3db/m3cluster/generated/proto/metadatapb"
 	placement "github.com/m3db/m3cluster/placement"
 	campaign "github.com/m3db/m3cluster/services/leader/campaign"
 	shard "github.com/m3db/m3cluster/shard"
-	watch "github.com/m3db/m3x/watch"
-	time "time"
 )
 
 // Mock of Options interface
@@ -187,9 +187,9 @@ func (_mr *_MockServicesRecorder) Query(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Query", arg0, arg1)
 }
 
-func (_m *MockServices) Watch(service ServiceID, opts QueryOptions) (watch.Watch, error) {
+func (_m *MockServices) Watch(service ServiceID, opts QueryOptions) (Watch, error) {
 	ret := _m.ctrl.Call(_m, "Watch", service, opts)
-	ret0, _ := ret[0].(watch.Watch)
+	ret0, _ := ret[0].(Watch)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -925,9 +925,9 @@ func (_mr *_MockHeartbeatServiceRecorder) Delete(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0)
 }
 
-func (_m *MockHeartbeatService) Watch() (watch.Watch, error) {
+func (_m *MockHeartbeatService) Watch() (Watch, error) {
 	ret := _m.ctrl.Call(_m, "Watch")
-	ret0, _ := ret[0].(watch.Watch)
+	ret0, _ := ret[0].(Watch)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
