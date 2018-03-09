@@ -98,23 +98,6 @@ type Watch interface {
 	Get() Service
 }
 
-// Watchable is a container of a service.Service value
-// that can be subscribed to by issuing a watch
-type Watchable interface {
-	// NumWatches returns the number of active watches
-	NumWatches() int
-
-	// Update the current service for the watchable
-	Update(service Service)
-
-	// Get returns the latest service of the service watchable
-	Get() Service
-
-	// Watch creates a subscription to watch the service
-	// and returns the current service instance
-	Watch() (Service, Watch, error)
-}
-
 // Service describes the metadata and instances of a service
 type Service interface {
 	// Instance returns the service instance with the instance id
