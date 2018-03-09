@@ -414,12 +414,11 @@ type Options interface {
 type ShardStateType int
 
 const (
-	// SimpleShardState means all shards in the placement will be in Available state.
-	SimpleShardState ShardStateType = iota
+	// IgnoreShardState means the shard state in the placement should be ignored.
+	IgnoreShardState ShardStateType = iota
 
-	// TransitionShardState means the shard states around transition (Initializing or Leaving)
-	// will also be included in the placement.
-	TransitionShardState
+	// TransitionalShardStates means the transitional shard states will be included in the placement.
+	TransitionalShardStates
 )
 
 // Storage provides read and write access to placement.

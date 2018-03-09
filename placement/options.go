@@ -79,7 +79,7 @@ func NewOptions() Options {
 	return options{
 		allowPartialReplace: defaultAllowPartialReplace,
 		isSharded:           defaultIsSharded,
-		shardStateType:      TransitionShardState,
+		shardStateType:      TransitionalShardStates,
 		iopts:               instrument.NewOptions(),
 		placementCutOverFn:  defaultTimeNanosFn,
 		shardCutOverFn:      defaultTimeNanosFn,

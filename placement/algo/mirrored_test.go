@@ -1334,7 +1334,7 @@ func TestMirrorAlgoWithSimpleShardStateType(t *testing.T) {
 
 	a := NewAlgorithm(placement.NewOptions().SetIsMirrored(true).
 		SetPlacementCutoverNanosFn(timeNanosGen(1)).
-		SetShardStateType(placement.SimpleShardState))
+		SetShardStateType(placement.IgnoreShardState))
 	p, err := a.InitialPlacement(instances, ids, 2)
 	assert.NoError(t, err)
 	assert.NoError(t, placement.Validate(p))
