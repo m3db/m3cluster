@@ -1,5 +1,5 @@
-hash: 1e617222eb01cf8535fcb696d3a350f08c872f8fb32139dbefc019a527b0e858
-updated: 2017-11-26T14:43:39.717517478-05:00
+hash: d917a18f866eb7f696a73263857be14754741ee64f5179c4940dcf555b426be5
+updated: 2018-03-10T18:56:40.18925-05:00
 imports:
 - name: github.com/apache/thrift
   version: 9549b25c77587b29be4e0b5c258221a4ed85d37a
@@ -195,10 +195,8 @@ imports:
   version: bb4de0191aa41b5507caa14b0650cdbddcd9280b
 - name: github.com/StackExchange/wmi
   version: e542ed97d15e640bdc14b5c12162d59e8fc67324
-- name: github.com/uber-go/atomic
-  version: e682c1008ac17bf26d2e4b5ad6cdd08520ed0b22
 - name: github.com/uber-go/tally
-  version: 95078a8f10668bd1fa73ae46761cdc58d25436b8
+  version: 522328b48efad0c6034dba92bf39228694e9d31f
   subpackages:
   - m3
   - m3/customtransports
@@ -256,12 +254,16 @@ imports:
   - googleapis/api/annotations
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: 401e0e00e4bb830a10496d64cd95e068c5bf50de
+  version: 8e4536a86ab602859c20df5ebfd0bd4228d08655
   subpackages:
   - balancer
+  - balancer/base
+  - balancer/roundrobin
   - codes
   - connectivity
   - credentials
+  - encoding
+  - encoding/proto
   - grpclb/grpc_lb_v1/messages
   - grpclog
   - health/grpc_health_v1
@@ -271,6 +273,8 @@ imports:
   - naming
   - peer
   - resolver
+  - resolver/dns
+  - resolver/passthrough
   - stats
   - status
   - tap
