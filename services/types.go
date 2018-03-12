@@ -88,6 +88,7 @@ type Services interface {
 
 // Watch is a watcher that issues notification when a service is updated
 type Watch interface {
+	// Close closes the watch.
 	Close()
 
 	// C returns the notification channel
