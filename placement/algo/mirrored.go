@@ -416,20 +416,20 @@ func groupInstancesByShardSetID(
 		var (
 			ssID   = instance.ShardSetID()
 			weight = instance.Weight()
-			rack   = instance.Rack()
+			ig     = instance.IsolationGroup()
 			shards = instance.Shards()
 		)
 		meta, ok := shardSetMap[ssID]
 		if !ok {
 			meta = &shardSetMetadata{
 				weight: weight,
-				racks:  make(map[string]struct{}, rf),
+				igs:    make(map[string]struct{}, rf),
 				shards: shards,
 			}
 			shardSetMap[ssID] = meta
 		}
-		if _, ok := meta.racks[rack]; ok {
-			return nil, fmt.Errorf("found duplicated rack %s for shardset id %d", rack, ssID)
+		if _, ok := meta.igs[ig]; ok {
+			return nil, fmt.Errorf("found duplicated isolation group %s for shardset id %d", ig, ssID)
 		}
 
 		if meta.weight != weight {
@@ -440,7 +440,7 @@ func groupInstancesByShardSetID(
 			return nil, fmt.Errorf("found different shards: %v and %v, for shardset id %d", meta.shards, shards, ssID)
 		}
 
-		meta.racks[rack] = struct{}{}
+		meta.igs[ig] = struct{}{}
 		meta.count++
 	}
 
@@ -456,7 +456,7 @@ func groupInstancesByShardSetID(
 			res,
 			placement.NewInstance().
 				SetID(ssIDStr).
-				SetRack(ssIDStr).
+				SetIsolationGroup(ssIDStr).
 				SetWeight(meta.weight).
 				SetShardSetID(ssID).
 				SetShards(meta.shards.Clone()),
@@ -564,6 +564,6 @@ func instancesFromMirror(
 type shardSetMetadata struct {
 	weight uint32
 	count  int
-	racks  map[string]struct{}
+	igs    map[string]struct{}
 	shards shard.Shards
 }
