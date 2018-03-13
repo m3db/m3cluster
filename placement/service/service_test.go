@@ -272,11 +272,11 @@ func TestBadAddReplica(t *testing.T) {
 		10, 1)
 	assert.NoError(t, err)
 
-	// not enough isolation groups/instances
+	// Not enough isolation groups/instances.
 	_, err = p.AddReplica()
 	assert.Error(t, err)
 
-	// could not find placement for service
+	// Could not find placement for service.
 	p = NewPlacementService(NewMockStorage(), placement.NewOptions().SetValidZone("z1"))
 	_, err = p.AddReplica()
 	assert.Error(t, err)
@@ -317,15 +317,15 @@ func TestBadRemoveInstance(t *testing.T) {
 		10, 1)
 	assert.NoError(t, err)
 
-	// leaving instance not exist
+	// Leaving instance not exist.
 	_, err = p.RemoveInstances([]string{"not_exist"})
 	assert.Error(t, err)
 
-	// not enough isolation groups/instances after removal
+	// Not enough isolation groups/instances after removal.
 	_, err = p.RemoveInstances([]string{"i1"})
 	assert.Error(t, err)
 
-	// could not find placement for service
+	// Could not find placement for service.
 	p = NewPlacementService(NewMockStorage(), placement.NewOptions().SetValidZone("z1"))
 	_, err = p.RemoveInstances([]string{"i1"})
 	assert.Error(t, err)
@@ -340,21 +340,21 @@ func TestBadReplaceInstance(t *testing.T) {
 	}, 10, 1)
 	assert.NoError(t, err)
 
-	// leaving instance not exist
+	// Leaving instance not exist.
 	_, _, err = p.ReplaceInstances(
 		[]string{"not_exist"},
 		[]placement.Instance{placement.NewEmptyInstance("i2", "r2", "z1", "endpoint", 1)},
 	)
 	assert.Error(t, err)
 
-	// adding instance already exist
+	// Adding instance already exist.
 	_, _, err = p.ReplaceInstances(
 		[]string{"i1"},
 		[]placement.Instance{placement.NewEmptyInstance("i4", "r4", "z1", "endpoint", 1)},
 	)
 	assert.Error(t, err)
 
-	// not enough isolation groups after replace
+	// Not enough isolation groups after replace.
 	_, err = p.AddReplica()
 	assert.NoError(t, err)
 	_, _, err = p.ReplaceInstances(
@@ -363,7 +363,7 @@ func TestBadReplaceInstance(t *testing.T) {
 	)
 	assert.Error(t, err)
 
-	// could not find placement for service
+	// Could not find placement for service.
 	p = NewPlacementService(NewMockStorage(), placement.NewOptions().SetValidZone("z1"))
 	_, _, err = p.ReplaceInstances(
 		[]string{"i1"},

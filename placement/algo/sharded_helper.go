@@ -93,17 +93,17 @@ type PlacementHelper interface {
 }
 
 type helper struct {
-	targetLoad         map[string]int
-	shardToInstanceMap map[uint32]map[placement.Instance]struct{}
-	igToInstancesMap   map[string]map[placement.Instance]struct{}
-	igToWeightMap      map[string]uint32
-	totalWeight        uint32
-	rf                 int
-	uniqueShards       []uint32
-	instances          map[string]placement.Instance
-	maxShardSetID      uint32
-	log                log.Logger
-	opts               placement.Options
+	targetLoad          map[string]int
+	shardToInstanceMap  map[uint32]map[placement.Instance]struct{}
+	groupToInstancesMap map[string]map[placement.Instance]struct{}
+	groupToWeightMap    map[string]uint32
+	totalWeight         uint32
+	rf                  int
+	uniqueShards        []uint32
+	instances           map[string]placement.Instance
+	maxShardSetID       uint32
+	log                 log.Logger
+	opts                placement.Options
 }
 
 // NewPlacementHelper returns a placement helper
@@ -213,21 +213,21 @@ func newHelper(p placement.Placement, targetRF int, opts placement.Options) plac
 
 func (ph *helper) scanCurrentLoad() {
 	ph.shardToInstanceMap = make(map[uint32]map[placement.Instance]struct{}, len(ph.uniqueShards))
-	ph.igToInstancesMap = make(map[string]map[placement.Instance]struct{})
-	ph.igToWeightMap = make(map[string]uint32)
+	ph.groupToInstancesMap = make(map[string]map[placement.Instance]struct{})
+	ph.groupToWeightMap = make(map[string]uint32)
 	totalWeight := uint32(0)
 	for _, instance := range ph.instances {
-		if _, exist := ph.igToInstancesMap[instance.IsolationGroup()]; !exist {
-			ph.igToInstancesMap[instance.IsolationGroup()] = make(map[placement.Instance]struct{})
+		if _, exist := ph.groupToInstancesMap[instance.IsolationGroup()]; !exist {
+			ph.groupToInstancesMap[instance.IsolationGroup()] = make(map[placement.Instance]struct{})
 		}
-		ph.igToInstancesMap[instance.IsolationGroup()][instance] = struct{}{}
+		ph.groupToInstancesMap[instance.IsolationGroup()][instance] = struct{}{}
 
 		if instance.IsLeaving() {
 			// Leaving instances are not counted as usable capacities in the placement.
 			continue
 		}
 
-		ph.igToWeightMap[instance.IsolationGroup()] = ph.igToWeightMap[instance.IsolationGroup()] + instance.Weight()
+		ph.groupToWeightMap[instance.IsolationGroup()] = ph.groupToWeightMap[instance.IsolationGroup()] + instance.Weight()
 		totalWeight += instance.Weight()
 
 		for _, s := range instance.Shards().All() {
@@ -241,11 +241,11 @@ func (ph *helper) scanCurrentLoad() {
 }
 
 func (ph *helper) buildTargetLoad() {
-	overWeightedIG := 0
+	overWeightedGroups := 0
 	overWeight := uint32(0)
-	for _, weight := range ph.igToWeightMap {
+	for _, weight := range ph.groupToWeightMap {
 		if isOverWeighted(weight, ph.totalWeight, ph.rf) {
-			overWeightedIG++
+			overWeightedGroups++
 			overWeight += weight
 		}
 	}
@@ -256,7 +256,7 @@ func (ph *helper) buildTargetLoad() {
 			// We should not set a target load for leaving instances.
 			continue
 		}
-		igWeight := ph.igToWeightMap[instance.IsolationGroup()]
+		igWeight := ph.groupToWeightMap[instance.IsolationGroup()]
 		if isOverWeighted(igWeight, ph.totalWeight, ph.rf) {
 			// If the instance is on a over-sized isolation group, the target load
 			// equals (shardLen / capacity of the isolation group).
@@ -264,7 +264,7 @@ func (ph *helper) buildTargetLoad() {
 		} else {
 			// If the instance is on a normal isolation group, get the target load
 			// with aware of other over-sized isolation group.
-			targetLoad[instance.ID()] = ph.getShardLen() * (ph.rf - overWeightedIG) * int(instance.Weight()) / int(ph.totalWeight-overWeight)
+			targetLoad[instance.ID()] = ph.getShardLen() * (ph.rf - overWeightedGroups) * int(instance.Weight()) / int(ph.totalWeight-overWeight)
 		}
 	}
 	ph.targetLoad = targetLoad
@@ -371,7 +371,7 @@ func (ph *helper) CanMoveShard(shard uint32, from placement.Instance, toIsolatio
 }
 
 func (ph *helper) buildInstanceHeap(instances []placement.Instance, availableCapacityAscending bool) (heap.Interface, error) {
-	return newHeap(instances, availableCapacityAscending, ph.targetLoad, ph.igToWeightMap)
+	return newHeap(instances, availableCapacityAscending, ph.targetLoad, ph.groupToWeightMap)
 }
 
 func (ph *helper) generatePlacement() placement.Placement {
