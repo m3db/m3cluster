@@ -67,7 +67,7 @@ func (f *mirroredSelector) SelectInitialInstances(
 		groupedHosts, ungrouped := groupHostsWithIGCheck(hosts, rf)
 		if len(ungrouped) != 0 {
 			for _, host := range ungrouped {
-				f.logger.Warnf("could not group host %s, isolation group %s, weight %d", host.name, host.ig, host.weight)
+				f.logger.Warnf("could not group host %s, isolation group %s, weight %d", host.name, host.isolationGroup, host.weight)
 			}
 		}
 		if len(groupedHosts) == 0 {
@@ -199,7 +199,7 @@ func (f *mirroredSelector) SelectReplaceInstances(
 			continue
 		}
 
-		if _, ok := conflictIGs[candidateHost.ig]; ok {
+		if _, ok := conflictIGs[candidateHost.isolationGroup]; ok {
 			continue
 		}
 
@@ -279,18 +279,18 @@ func groupHostsWithIGCheck(hosts []host, rf int) ([][]host, []host) {
 	}
 
 	var (
-		uniqIGs = make(map[string]*ig, len(hosts))
-		rh      = igsByNumHost(make([]*ig, 0, len(hosts)))
+		uniqIGs = make(map[string]*group, len(hosts))
+		rh      = groupsByNumHost(make([]*group, 0, len(hosts)))
 	)
 	for _, h := range hosts {
-		r, ok := uniqIGs[h.ig]
+		r, ok := uniqIGs[h.isolationGroup]
 		if !ok {
-			r = &ig{
-				ig:    h.ig,
-				hosts: make([]host, 0, rf),
+			r = &group{
+				isolationGroup: h.isolationGroup,
+				hosts:          make([]host, 0, rf),
 			}
 
-			uniqIGs[h.ig] = r
+			uniqIGs[h.isolationGroup] = r
 			rh = append(rh, r)
 		}
 		r.hosts = append(r.hosts, h)
@@ -304,15 +304,15 @@ func groupHostsWithIGCheck(hosts []host, rf int) ([][]host, []host) {
 	res := make([][]host, 0, int(math.Ceil(float64(len(hosts))/float64(rf))))
 	for rh.Len() >= rf {
 		// When there are more than rf isolation groups available, try to make a group.
-		seenIGs := make(map[string]*ig, rf)
+		seenIGs := make(map[string]*group, rf)
 		groups := make([]host, 0, rf)
 		for i := 0; i < rf; i++ {
-			r := heap.Pop(&rh).(*ig)
+			r := heap.Pop(&rh).(*group)
 			// Move the host from the isolation group to the group.
 			// The isolation groups in the heap always have at least one host.
 			groups = append(groups, r.hosts[len(r.hosts)-1])
 			r.hosts = r.hosts[:len(r.hosts)-1]
-			seenIGs[r.ig] = r
+			seenIGs[r.isolationGroup] = r
 		}
 		if len(groups) == rf {
 			res = append(res, groups)
@@ -400,15 +400,15 @@ func shouldUseNewShardSetID(
 
 type host struct {
 	name           string
-	ig             string
+	isolationGroup string
 	weight         uint32
 	portToInstance map[uint32]placement.Instance
 }
 
-func newHost(name, ig string, weight uint32) host {
+func newHost(name, isolationGroup string, weight uint32) host {
 	return host{
 		name:           name,
-		ig:             ig,
+		isolationGroup: isolationGroup,
 		weight:         weight,
 		portToInstance: make(map[uint32]placement.Instance),
 	}
@@ -419,42 +419,42 @@ func (h host) addInstance(port uint32, instance placement.Instance) error {
 		return fmt.Errorf("could not add instance %s to host %s, weight mismatch: %d and %d",
 			instance.ID(), h.name, instance.Weight(), h.weight)
 	}
-	if h.ig != instance.IsolationGroup() {
+	if h.isolationGroup != instance.IsolationGroup() {
 		return fmt.Errorf("could not add instance %s to host %s, isolation group mismatch: %s and %s",
-			instance.ID(), h.name, instance.IsolationGroup(), h.ig)
+			instance.ID(), h.name, instance.IsolationGroup(), h.isolationGroup)
 	}
 	h.portToInstance[port] = instance
 	return nil
 }
 
-type ig struct {
-	ig    string
-	hosts []host
+type group struct {
+	isolationGroup string
+	hosts          []host
 }
 
-type igsByNumHost []*ig
+type groupsByNumHost []*group
 
-func (h igsByNumHost) Len() int {
+func (h groupsByNumHost) Len() int {
 	return len(h)
 }
 
-func (h igsByNumHost) Less(i, j int) bool {
+func (h groupsByNumHost) Less(i, j int) bool {
 	return len(h[i].hosts) > len(h[j].hosts)
 }
 
-func (h igsByNumHost) Swap(i, j int) {
+func (h groupsByNumHost) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
 
-func (h *igsByNumHost) Push(i interface{}) {
-	r := i.(*ig)
+func (h *groupsByNumHost) Push(i interface{}) {
+	r := i.(*group)
 	*h = append(*h, r)
 }
 
-func (h *igsByNumHost) Pop() interface{} {
+func (h *groupsByNumHost) Pop() interface{} {
 	old := *h
 	n := len(old)
-	ig := old[n-1]
+	g := old[n-1]
 	*h = old[0 : n-1]
-	return ig
+	return g
 }

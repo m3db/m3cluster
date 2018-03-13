@@ -381,7 +381,7 @@ func TestInstance(t *testing.T) {
 	i1 := NewInstance().
 		SetID("id").
 		SetEndpoint("endpoint").
-		SetIsolationGroup("ig").
+		SetIsolationGroup("isolationGroup").
 		SetWeight(1).
 		SetShardSetID(0).
 		SetZone("zone").
@@ -395,7 +395,7 @@ func TestInstance(t *testing.T) {
 	})
 	i1.SetShards(s)
 	description := fmt.Sprintf(
-		"Instance[ID=id, IsolationGroup=ig, Zone=zone, Weight=1, Endpoint=endpoint, Hostname=host1, Port=123, ShardSetID=0, Shards=%s]",
+		"Instance[ID=id, IsolationGroup=isolationGroup, Zone=zone, Weight=1, Endpoint=endpoint, Hostname=host1, Port=123, ShardSetID=0, Shards=%s]",
 		s.String())
 	assert.Equal(t, description, i1.String())
 
@@ -406,14 +406,14 @@ func TestInstance(t *testing.T) {
 	assert.Equal(t, "endpoint", i1.Endpoint())
 	assert.Equal(t, uint32(1), i1.Weight())
 	assert.Equal(t, "zone", i1.Zone())
-	assert.Equal(t, "ig", i1.IsolationGroup())
+	assert.Equal(t, "isolationGroup", i1.IsolationGroup())
 
 	i1.Shards().Remove(1)
 	assert.False(t, i1.Shards().Contains(1))
 	assert.False(t, i1.Shards().Contains(100))
 	assert.Equal(t, 2, i1.Shards().NumShards())
 	assert.Equal(t, "id", i1.ID())
-	assert.Equal(t, "ig", i1.IsolationGroup())
+	assert.Equal(t, "isolationGroup", i1.IsolationGroup())
 }
 
 func TestInstanceIsLeaving(t *testing.T) {

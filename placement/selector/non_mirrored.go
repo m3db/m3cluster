@@ -58,13 +58,13 @@ func (f *nonMirroredSelector) SelectAddingInstances(
 		return nil, err
 	}
 
-	candidateIGMap := buildIGMap(candidates)
+	candidateGroups := buildIsolationGroupMap(candidates)
 
-	existingIGMap := buildIGMap(p.Instances())
+	existingGroups := buildIsolationGroupMap(p.Instances())
 
 	// If there is a isolation group not in the current placement, prefer the isolation group.
-	for r, instances := range candidateIGMap {
-		if _, exist := existingIGMap[r]; !exist {
+	for r, instances := range candidateGroups {
+		if _, exist := existingGroups[r]; !exist {
 			// All the isolation groups have at least 1 instance.
 			return instances[:1], nil
 		}
@@ -72,18 +72,18 @@ func (f *nonMirroredSelector) SelectAddingInstances(
 
 	// Otherwise sort the isolation groups in the current placement
 	// by capacity and find a instance from least sized isolation group.
-	igs := make(sortableValues, 0, len(existingIGMap))
-	for ig, instances := range existingIGMap {
+	groups := make(sortableValues, 0, len(existingGroups))
+	for group, instances := range existingGroups {
 		weight := 0
 		for _, i := range instances {
 			weight += int(i.Weight())
 		}
-		igs = append(igs, sortableValue{value: ig, weight: weight})
+		groups = append(groups, sortableValue{value: group, weight: weight})
 	}
-	sort.Sort(igs)
+	sort.Sort(groups)
 
-	for _, ig := range igs {
-		if i, exist := candidateIGMap[ig.value.(string)]; exist {
+	for _, group := range groups {
+		if i, exist := candidateGroups[group.value.(string)]; exist {
 			for _, instance := range i {
 				return []placement.Instance{instance}, nil
 			}
@@ -113,21 +113,21 @@ func (f *nonMirroredSelector) SelectReplaceInstances(
 	}
 
 	// Map isolation group to instances.
-	igMap := buildIGMap(candidates)
+	candidateGroups := buildIsolationGroupMap(candidates)
 
 	// Otherwise sort the candidate instances by the number of conflicts.
 	ph := algo.NewPlacementHelper(p, f.opts)
-	instances := make([]sortableValue, 0, len(igMap))
-	for ig, instancesInIG := range igMap {
+	instances := make([]sortableValue, 0, len(candidateGroups))
+	for group, instancesInGroup := range candidateGroups {
 		conflicts := 0
 		for _, leaving := range leavingInstances {
 			for _, s := range leaving.Shards().All() {
-				if !ph.CanMoveShard(s.ID(), leaving, ig) {
+				if !ph.CanMoveShard(s.ID(), leaving, group) {
 					conflicts++
 				}
 			}
 		}
-		for _, instance := range instancesInIG {
+		for _, instance := range instancesInGroup {
 			instances = append(instances, sortableValue{value: instance, weight: conflicts})
 		}
 	}
@@ -231,7 +231,7 @@ func knapsack(instances []placement.Instance, targetWeight int) ([]placement.Ins
 	panic("should never reach here")
 }
 
-func buildIGMap(candidates []placement.Instance) map[string][]placement.Instance {
+func buildIsolationGroupMap(candidates []placement.Instance) map[string][]placement.Instance {
 	result := make(map[string][]placement.Instance, len(candidates))
 	for _, instance := range candidates {
 		if _, exist := result[instance.IsolationGroup()]; !exist {
