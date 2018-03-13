@@ -141,7 +141,7 @@ func (s *store) setWithLock(key string, val proto.Message) (int, error) {
 		lastVersion = vals[len(vals)-1].version
 	}
 	newVersion := lastVersion + 1
-	s.updateInternal(key, newVersion, data)
+	s.updateInternalWithLock(key, newVersion, data)
 	return newVersion, nil
 }
 
@@ -158,7 +158,7 @@ func (s *store) SetIfNotExists(key string, val proto.Message) (int, error) {
 		return 0, kv.ErrAlreadyExists
 	}
 
-	s.updateInternal(key, 1, data)
+	s.updateInternalWithLock(key, 1, data)
 	return 1, nil
 }
 
@@ -182,11 +182,11 @@ func (s *store) CheckAndSet(key string, version int, val proto.Message) (int, er
 	}
 
 	newVersion := version + 1
-	s.updateInternal(key, newVersion, data)
+	s.updateInternalWithLock(key, newVersion, data)
 	return newVersion, nil
 }
 
-func (s *store) updateInternal(key string, newVersion int, data []byte) {
+func (s *store) updateInternalWithLock(key string, newVersion int, data []byte) {
 	s.revision++
 	fv := &value{
 		version:  newVersion,
