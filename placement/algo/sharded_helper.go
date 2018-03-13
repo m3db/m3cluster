@@ -88,8 +88,8 @@ type PlacementHelper interface {
 	// Instances returns the list of instances managed by the PlacementHelper.
 	Instances() []placement.Instance
 
-	// CanMove checks if the shard can be moved from the instance to the target isolation group.
-	CanMove(shard uint32, from placement.Instance, isolationGroup string) bool
+	// CanMoveShard checks if the shard can be moved from the instance to the target isolation group.
+	CanMoveShard(shard uint32, fromInstance placement.Instance, toIsolationGroup string) bool
 }
 
 type helper struct {
@@ -356,18 +356,18 @@ func (ph *helper) moveShard(candidateShard shard.Shard, from, to placement.Insta
 	return true
 }
 
-func (ph *helper) CanMove(shard uint32, from placement.Instance, toIsolationGroup string) bool {
+func (ph *helper) CanMoveShard(shard uint32, from placement.Instance, toIsolationGroup string) bool {
 	if from != nil {
 		if from.IsolationGroup() == toIsolationGroup {
-			return false
+			return true
 		}
 	}
 	for instance := range ph.shardToInstanceMap[shard] {
 		if instance.IsolationGroup() == toIsolationGroup {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func (ph *helper) buildInstanceHeap(instances []placement.Instance, availableCapacityAscending bool) (heap.Interface, error) {
@@ -601,7 +601,7 @@ func (ph *helper) canAssignInstance(shardID uint32, from, to placement.Instance)
 		// and i1 should be able to take it and mark it as "Available"
 		return false
 	}
-	return !ph.CanMove(shardID, from, to.IsolationGroup())
+	return ph.CanMoveShard(shardID, from, to.IsolationGroup())
 }
 
 func (ph *helper) assignShardToInstance(s shard.Shard, to placement.Instance) {

@@ -122,7 +122,7 @@ func (f *nonMirroredSelector) SelectReplaceInstances(
 		conflicts := 0
 		for _, leaving := range leavingInstances {
 			for _, s := range leaving.Shards().All() {
-				if ph.CanMove(s.ID(), leaving, ig) {
+				if !ph.CanMoveShard(s.ID(), leaving, ig) {
 					conflicts++
 				}
 			}
