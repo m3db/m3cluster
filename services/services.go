@@ -39,9 +39,11 @@ import (
 	"github.com/uber-go/tally"
 )
 
-var (
+const (
 	defaultGaugeInterval = 10 * time.Second
+)
 
+var (
 	errNoServiceName             = errors.New("no service specified")
 	errNoServiceID               = errors.New("no service id specified")
 	errNoInstanceID              = errors.New("no instance id specified")
