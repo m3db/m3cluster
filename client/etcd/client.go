@@ -186,7 +186,7 @@ func (c *csclient) txnGen(
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
-	key := key(zone, namespaces...)
+	key := kvStoreCacheKey(zone, namespaces...)
 	store, ok := c.stores[key]
 	if ok {
 		return store, nil
@@ -259,13 +259,6 @@ func (c *csclient) etcdClientGen(zone string) (*clientv3.Client, error) {
 
 	c.clis[zone] = cli
 	return cli, nil
-}
-
-func key(zone string, namespaces ...string) string {
-	parts := make([]string, 0, 1+len(namespaces))
-	parts = append(parts, zone)
-	parts = append(parts, namespaces...)
-	return strings.Join(parts, hierarchySeparator)
 }
 
 func newClient(cluster Cluster) (*clientv3.Client, error) {
@@ -357,4 +350,11 @@ func (c *csclient) sanitizeOptions(opts kv.OverrideOptions) (kv.OverrideOptions,
 	}
 
 	return opts, nil
+}
+
+func kvStoreCacheKey(zone string, namespaces ...string) string {
+	parts := make([]string, 0, 1+len(namespaces))
+	parts = append(parts, zone)
+	parts = append(parts, namespaces...)
+	return strings.Join(parts, hierarchySeparator)
 }
