@@ -110,16 +110,16 @@ func (c *csclient) KV() (kv.Store, error) {
 
 func (c *csclient) Txn() (kv.TxnStore, error) {
 	c.txnOnce.Do(func() {
-		c.txn, c.txnErr = c.TxnStore(kv.NewOptions())
+		c.txn, c.txnErr = c.TxnStore(kv.NewOverrideOptions())
 	})
 	return c.txn, c.txnErr
 }
 
-func (c *csclient) Store(opts kv.Options) (kv.Store, error) {
+func (c *csclient) Store(opts kv.OverrideOptions) (kv.Store, error) {
 	return c.TxnStore(opts)
 }
 
-func (c *csclient) TxnStore(opts kv.Options) (kv.TxnStore, error) {
+func (c *csclient) TxnStore(opts kv.OverrideOptions) (kv.TxnStore, error) {
 	opts, err := c.sanitizeOptions(opts)
 	if err != nil {
 		return nil, err
@@ -143,28 +143,27 @@ func (c *csclient) createServices(opts services.OverrideOptions) (services.Servi
 	)
 }
 
-func (c *csclient) createTxnStore(opts kv.Options) (kv.TxnStore, error) {
+func (c *csclient) createTxnStore(opts kv.OverrideOptions) (kv.TxnStore, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
-	return c.txnGen(opts.Zone(), c.cacheFileFn(), opts.Logger(), opts.Namespace(), opts.Environment())
+	return c.txnGen(opts.Zone(), c.cacheFileFn(), opts.Namespace(), opts.Environment())
 }
 
 func (c *csclient) kvGen(fn cacheFileForZoneFn) services.KVGen {
 	return services.KVGen(func(zone string) (kv.Store, error) {
-		return c.txnGen(zone, fn, c.logger)
+		return c.txnGen(zone, fn)
 	})
 }
 
 func (c *csclient) newkvOptions(
 	zone string,
 	cacheFileFn cacheFileForZoneFn,
-	logger log.Logger,
 	namespaces ...string,
 ) etcdkv.Options {
 	opts := etcdkv.NewOptions().
 		SetInstrumentsOptions(instrument.NewOptions().
-			SetLogger(logger).
+			SetLogger(c.logger).
 			SetMetricsScope(c.kvScope)).
 		SetCacheFileFn(cacheFileFn(zone))
 
@@ -180,7 +179,6 @@ func (c *csclient) newkvOptions(
 func (c *csclient) txnGen(
 	zone string,
 	cacheFileFn cacheFileForZoneFn,
-	logger log.Logger,
 	namespaces ...string,
 ) (kv.TxnStore, error) {
 	cli, err := c.etcdClientGen(zone)
@@ -191,7 +189,7 @@ func (c *csclient) txnGen(
 	return etcdkv.NewStore(
 		cli.KV,
 		cli.Watcher,
-		c.newkvOptions(zone, cacheFileFn, logger, namespaces...),
+		c.newkvOptions(zone, cacheFileFn, namespaces...),
 	)
 }
 
@@ -323,11 +321,7 @@ func validateTopLevelNamespace(namespace string) error {
 	return nil
 }
 
-func (c *csclient) sanitizeOptions(opts kv.Options) (kv.Options, error) {
-	if logger := opts.Logger(); logger == nil || logger == log.NullLogger {
-		opts = opts.SetLogger(c.logger)
-	}
-
+func (c *csclient) sanitizeOptions(opts kv.OverrideOptions) (kv.OverrideOptions, error) {
 	if opts.Zone() == "" {
 		opts = opts.SetZone(c.opts.Zone())
 	}
