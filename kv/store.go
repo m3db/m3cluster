@@ -30,7 +30,6 @@ var (
 	errEmptyZone        = errors.New("empty kv zone")
 	errEmptyEnvironment = errors.New("empty kv environment")
 	errEmptyNamespace   = errors.New("empty kv namespace")
-	errNoLogger         = errors.New("no kv logger")
 )
 
 type valueWatch struct {
