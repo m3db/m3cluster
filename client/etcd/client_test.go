@@ -229,7 +229,7 @@ func TestCacheFileForZone(t *testing.T) {
 	require.Equal(t, "/cacheDir/test_app_z1__r2_m3agg.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 }
 
-func TestSanitizeKVOptions(t *testing.T) {
+func TestSanitizeKVOverrideOptions(t *testing.T) {
 	opts := testOptions()
 	cs, err := NewConfigServiceClient(opts)
 	require.NoError(t, err)
@@ -242,32 +242,39 @@ func TestSanitizeKVOptions(t *testing.T) {
 	require.Equal(t, kvPrefix, opts1.Namespace())
 }
 
-func TestSanitizeKVOptionsDefaultLogger(t *testing.T) {
+func TestReuseKVStore(t *testing.T) {
 	opts := testOptions()
 	cs, err := NewConfigServiceClient(opts)
 	require.NoError(t, err)
 
-	inputs := []kv.OverrideOptions{
-		kv.NewOverrideOptions(),
-	}
-	for _, input := range inputs {
-		kvOpts, err := cs.(*csclient).sanitizeOptions(input)
-		require.NoError(t, err)
-		require.NoError(t, kvOpts.Validate())
-		require.Equal(t, kvPrefix, kvOpts.Namespace())
-		require.Equal(t, opts.Env(), kvOpts.Environment())
-	}
-}
-
-func TestSanitizeKVOptionsCustomLogger(t *testing.T) {
-	opts := testOptions()
-	cs, err := NewConfigServiceClient(opts)
+	store1, err := cs.Txn()
 	require.NoError(t, err)
 
-	kvOpts := kv.NewOverrideOptions()
-	kvOpts, err = cs.(*csclient).sanitizeOptions(kvOpts)
+	store2, err := cs.KV()
 	require.NoError(t, err)
-	require.NoError(t, kvOpts.Validate())
+	require.Equal(t, store1, store2)
+
+	store3, err := cs.Store(kv.NewOverrideOptions())
+	require.NoError(t, err)
+	require.Equal(t, store1, store3)
+
+	store4, err := cs.TxnStore(kv.NewOverrideOptions())
+	require.NoError(t, err)
+	require.Equal(t, store1, store4)
+
+	store5, err := cs.Store(kv.NewOverrideOptions().SetNamespace("foo"))
+	require.NoError(t, err)
+	require.NotEqual(t, store1, store5)
+
+	store6, err := cs.TxnStore(kv.NewOverrideOptions().SetNamespace("foo"))
+	require.NoError(t, err)
+	require.Equal(t, store5, store6)
+
+	client := cs.(*csclient)
+
+	client.storeLock.Lock()
+	require.Equal(t, 2, len(client.stores))
+	client.storeLock.Unlock()
 }
 
 func TestValidateNamespace(t *testing.T) {

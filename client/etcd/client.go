@@ -58,7 +58,7 @@ type newClientFn func(cluster Cluster) (*clientv3.Client, error)
 
 type cacheFileForZoneFn func(zone string) etcdkv.CacheFileFn
 
-// NewConfigServiceClient returns a ConfigServiceClient
+// NewConfigServiceClient returns a ConfigServiceClient.
 func NewConfigServiceClient(opts Options) (client.Client, error) {
 	if err := opts.Validate(); err != nil {
 		return nil, err
@@ -77,6 +77,7 @@ func NewConfigServiceClient(opts Options) (client.Client, error) {
 		clis:    make(map[string]*clientv3.Client),
 		logger:  opts.InstrumentOptions().Logger(),
 		newFn:   newClient,
+		stores:  make(map[string]kv.TxnStore),
 	}, nil
 }
 
@@ -92,9 +93,8 @@ type csclient struct {
 	logger  log.Logger
 	newFn   newClientFn
 
-	txnOnce sync.Once
-	txn     kv.TxnStore
-	txnErr  error
+	storeLock sync.Mutex
+	stores    map[string]kv.TxnStore
 }
 
 func (c *csclient) Services(opts services.OverrideOptions) (services.Services, error) {
@@ -109,10 +109,7 @@ func (c *csclient) KV() (kv.Store, error) {
 }
 
 func (c *csclient) Txn() (kv.TxnStore, error) {
-	c.txnOnce.Do(func() {
-		c.txn, c.txnErr = c.TxnStore(kv.NewOverrideOptions())
-	})
-	return c.txn, c.txnErr
+	return c.TxnStore(kv.NewOverrideOptions())
 }
 
 func (c *csclient) Store(opts kv.OverrideOptions) (kv.Store, error) {
@@ -186,11 +183,24 @@ func (c *csclient) txnGen(
 		return nil, err
 	}
 
-	return etcdkv.NewStore(
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
+
+	key := key(zone, namespaces...)
+	store, ok := c.stores[key]
+	if ok {
+		return store, nil
+	}
+	if store, err = etcdkv.NewStore(
 		cli.KV,
 		cli.Watcher,
 		c.newkvOptions(zone, cacheFileFn, namespaces...),
-	)
+	); err != nil {
+		return nil, err
+	}
+
+	c.stores[key] = store
+	return store, nil
 }
 
 func (c *csclient) heartbeatGen() services.HeartbeatGen {
@@ -249,6 +259,13 @@ func (c *csclient) etcdClientGen(zone string) (*clientv3.Client, error) {
 
 	c.clis[zone] = cli
 	return cli, nil
+}
+
+func key(zone string, namespaces ...string) string {
+	parts := make([]string, 0, 1+len(namespaces))
+	parts = append(parts, zone)
+	parts = append(parts, namespaces...)
+	return strings.Join(parts, hierarchySeparator)
 }
 
 func newClient(cluster Cluster) (*clientv3.Client, error) {
