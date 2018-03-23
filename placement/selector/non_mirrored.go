@@ -225,7 +225,7 @@ func selectSingleCandidate(
 	candidateGroups := buildIsolationGroupMap(candidates)
 	existingGroups := buildIsolationGroupMap(p.Instances())
 
-	// If there is a isolation group not in the current placement, prefer the isolation group.
+	// If there is an isolation group not in the current placement, prefer the isolation group.
 	for r, instances := range candidateGroups {
 		if _, exist := existingGroups[r]; !exist {
 			// All the isolation groups have at least 1 instance.

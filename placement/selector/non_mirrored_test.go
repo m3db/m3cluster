@@ -296,7 +296,7 @@ func TestSelectAddingInstanceForNonMirrored(t *testing.T) {
 	tests := []struct {
 		name                  string
 		placement             placement.Placement
-		selector              placement.InstanceSelector
+		opts                  placement.Options
 		candidates            []placement.Instance
 		expectedNumAdded      int
 		expectedInstanceAdded placement.Instance
@@ -304,7 +304,7 @@ func TestSelectAddingInstanceForNonMirrored(t *testing.T) {
 		{
 			name:                  "New Isolation Group",
 			placement:             placement.NewPlacement().SetInstances([]placement.Instance{i1}),
-			selector:              newNonMirroredSelector(placement.NewOptions().SetAddAllCandidates(false)),
+			opts:                  placement.NewOptions().SetAddAllCandidates(false),
 			candidates:            []placement.Instance{i2, i3},
 			expectedNumAdded:      1,
 			expectedInstanceAdded: i2,
@@ -312,7 +312,7 @@ func TestSelectAddingInstanceForNonMirrored(t *testing.T) {
 		{
 			name:                  "Least Weighted Isolation Group",
 			placement:             placement.NewPlacement().SetInstances([]placement.Instance{i1, i4}),
-			selector:              newNonMirroredSelector(placement.NewOptions().SetAddAllCandidates(false)),
+			opts:                  placement.NewOptions().SetAddAllCandidates(false),
 			candidates:            []placement.Instance{i2, i3},
 			expectedNumAdded:      1,
 			expectedInstanceAdded: i2,
@@ -320,7 +320,7 @@ func TestSelectAddingInstanceForNonMirrored(t *testing.T) {
 		{
 			name:             "Add All Candidates",
 			placement:        placement.NewPlacement().SetInstances([]placement.Instance{i1}),
-			selector:         newNonMirroredSelector(placement.NewOptions().SetAddAllCandidates(true)),
+			opts:             placement.NewOptions().SetAddAllCandidates(true),
 			candidates:       []placement.Instance{i2, i3, i4},
 			expectedNumAdded: 3,
 		},
@@ -328,7 +328,8 @@ func TestSelectAddingInstanceForNonMirrored(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			added, err := test.selector.SelectAddingInstances(test.candidates, test.placement)
+			selector := newNonMirroredSelector(test.opts)
+			added, err := selector.SelectAddingInstances(test.candidates, test.placement)
 			require.NoError(t, err)
 			require.Equal(t, test.expectedNumAdded, len(added))
 			if test.expectedInstanceAdded != nil {
