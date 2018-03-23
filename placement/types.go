@@ -183,6 +183,19 @@ type Placement interface {
 	Clone() Placement
 }
 
+// Watch watches for updates of a placement.
+type Watch interface {
+	// C returns the notification channel.
+	C() <-chan struct{}
+
+	// Get returns the latest version of the placement.
+	// It will return nil when the placement is deleted.
+	Get() Placement
+
+	// Close stops watching for placement updates.
+	Close()
+}
+
 // DoneFn is called when caller is done using the resource.
 type DoneFn func()
 
@@ -429,6 +442,9 @@ type Storage interface {
 
 	// Placement reads placement and version.
 	Placement() (Placement, int, error)
+
+	// Watch returns a watch for the placement updates.
+	Watch() (Watch, error)
 
 	// Delete deletes the placement.
 	Delete() error
