@@ -89,7 +89,7 @@ func (f *nonMirroredSelector) SelectReplaceInstances(
 	}
 
 	if f.opts.AddAllCandidates() {
-		if err := f.validateReplaceInstances(candidates, leavingInstances, p); err != nil {
+		if err := f.validateReplaceInstances(candidates, leavingInstances); err != nil {
 			return nil, err
 		}
 		return candidates, nil
@@ -144,7 +144,6 @@ func (f *nonMirroredSelector) selectReplaceInstances(
 
 func (f *nonMirroredSelector) validateReplaceInstances(
 	candidates, leavingInstances []placement.Instance,
-	p placement.Placement,
 ) error {
 	var leavingWeight int
 	for _, instance := range leavingInstances {
