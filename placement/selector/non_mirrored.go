@@ -154,7 +154,7 @@ func (f *nonMirroredSelector) validateReplaceInstances(
 		candidateWeight += int(instance.Weight())
 	}
 
-	if leavingWeight-candidateWeight > 0 && !f.opts.AllowPartialReplace() {
+	if leavingWeight > candidateWeight && !f.opts.AllowPartialReplace() {
 		return fmt.Errorf("could not find enough instances to replace %v, %d weight could not be replaced",
 			leavingInstances, leavingWeight)
 	}
