@@ -21,42 +21,48 @@
 package storage
 
 import (
+	"errors"
+
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/placement"
 	"github.com/m3db/m3x/log"
 )
 
+var (
+	errPlacementNotAvailable = errors.New("placement is not available")
+)
+
 type w struct {
-	w      kv.ValueWatch
+	kv.ValueWatch
 	logger log.Logger
 }
 
-func newPlacementWatch(vw kv.ValueWatch, opts placement.Options) placement.Watch {
+func newPlacementWatch(vw kv.ValueWatch, logger log.Logger) placement.Watch {
 	return &w{
-		w:      vw,
-		logger: opts.InstrumentOptions().Logger(),
+		ValueWatch: vw,
+		logger:     logger,
 	}
 }
 
 func (w *w) C() <-chan struct{} {
-	return w.w.C()
+	return w.ValueWatch.C()
 }
 
-func (w *w) Get() placement.Placement {
-	v := w.w.Get()
+func (w *w) Get() (placement.Placement, error) {
+	v := w.ValueWatch.Get()
 	if v == nil {
 		w.logger.Errorf("received nil placement from kv")
-		return nil
+		return nil, errPlacementNotAvailable
 	}
 	p, err := placementFromValue(v)
 	if err != nil {
 		w.logger.Errorf("could not process placement from kv with version %d, %v", v.Version(), err)
-		return nil
+		return nil, err
 	}
 	w.logger.Infof("successfully processed placement from kv with version %d", v.Version())
-	return p
+	return p, nil
 }
 
 func (w *w) Close() {
-	w.w.Close()
+	w.ValueWatch.Close()
 }

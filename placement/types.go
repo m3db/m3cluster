@@ -189,8 +189,7 @@ type Watch interface {
 	C() <-chan struct{}
 
 	// Get returns the latest version of the placement.
-	// It will return nil when the placement is deleted.
-	Get() Placement
+	Get() (Placement, error)
 
 	// Close stops watching for placement updates.
 	Close()

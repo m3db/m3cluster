@@ -160,7 +160,7 @@ func (s *storage) Watch() (placement.Watch, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newPlacementWatch(w, s.opts), nil
+	return newPlacementWatch(w, s.logger), nil
 }
 
 func (s *storage) PlacementForVersion(version int) (placement.Placement, error) {
