@@ -265,7 +265,7 @@ func (s *store) Commit(conditions []kv.Condition, ops []kv.Op) (kv.Response, err
 		}
 
 		if expectedVersion != v.Version() {
-			return nil, errConditionCheckFailed
+			return nil, kv.ErrConditionCheckFailed
 		}
 	}
 
