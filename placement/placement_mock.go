@@ -674,10 +674,11 @@ func (_mr *MockWatchMockRecorder) C() *gomock.Call {
 }
 
 // Get mocks base method
-func (_m *MockWatch) Get() Placement {
+func (_m *MockWatch) Get() (Placement, error) {
 	ret := _m.ctrl.Call(_m, "Get")
 	ret0, _ := ret[0].(Placement)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Get indicates an expected call of Get
