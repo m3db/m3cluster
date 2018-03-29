@@ -25,7 +25,6 @@ import (
 
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/placement"
-	"github.com/m3db/m3x/log"
 )
 
 var (
@@ -34,35 +33,20 @@ var (
 
 type w struct {
 	kv.ValueWatch
-	logger log.Logger
 }
 
-func newPlacementWatch(vw kv.ValueWatch, logger log.Logger) placement.Watch {
-	return &w{
-		ValueWatch: vw,
-		logger:     logger,
-	}
-}
-
-func (w *w) C() <-chan struct{} {
-	return w.ValueWatch.C()
+func newPlacementWatch(vw kv.ValueWatch) placement.Watch {
+	return &w{vw}
 }
 
 func (w *w) Get() (placement.Placement, error) {
 	v := w.ValueWatch.Get()
 	if v == nil {
-		w.logger.Errorf("received nil placement from kv")
 		return nil, errPlacementNotAvailable
 	}
 	p, err := placementFromValue(v)
 	if err != nil {
-		w.logger.Errorf("could not process placement from kv with version %d, %v", v.Version(), err)
 		return nil, err
 	}
-	w.logger.Infof("successfully processed placement from kv with version %d", v.Version())
 	return p, nil
-}
-
-func (w *w) Close() {
-	w.ValueWatch.Close()
 }
