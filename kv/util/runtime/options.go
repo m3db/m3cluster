@@ -23,7 +23,6 @@ package runtime
 import (
 	"time"
 
-	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3x/instrument"
 )
 
@@ -45,17 +44,17 @@ type Options interface {
 	// InitWatchTimeout returns the initial watch timeout.
 	InitWatchTimeout() time.Duration
 
-	// SetKVStore sets the kv store.
-	SetKVStore(value kv.Store) Options
+	// SetNotifier sets the notifier.
+	SetNotifier(value Notifier) Options
 
-	// KVStore returns the kv store.
-	KVStore() kv.Store
+	// Notifier returns the notifier.
+	Notifier() Notifier
 
-	// SetUnmarshalFn sets the unmarshal function.
-	SetUnmarshalFn(value UnmarshalFn) Options
+	// SetGetFn sets the get function.
+	SetGetFn(value GetFn) Options
 
-	// UnmarshalFn returns the unmarshal function.
-	UnmarshalFn() UnmarshalFn
+	// GetFn returns the get function.
+	GetFn() GetFn
 
 	// SetProcessFn sets the process function.
 	SetProcessFn(value ProcessFn) Options
@@ -67,8 +66,8 @@ type Options interface {
 type options struct {
 	instrumentOpts   instrument.Options
 	initWatchTimeout time.Duration
-	kvStore          kv.Store
-	unmarshalFn      UnmarshalFn
+	notifier         Notifier
+	getFn            GetFn
 	processFn        ProcessFn
 }
 
@@ -100,24 +99,24 @@ func (o *options) InitWatchTimeout() time.Duration {
 	return o.initWatchTimeout
 }
 
-func (o *options) SetKVStore(value kv.Store) Options {
+func (o *options) SetNotifier(value Notifier) Options {
 	opts := *o
-	opts.kvStore = value
+	opts.notifier = value
 	return &opts
 }
 
-func (o *options) KVStore() kv.Store {
-	return o.kvStore
+func (o *options) Notifier() Notifier {
+	return o.notifier
 }
 
-func (o *options) SetUnmarshalFn(value UnmarshalFn) Options {
+func (o *options) SetGetFn(value GetFn) Options {
 	opts := *o
-	opts.unmarshalFn = value
+	opts.getFn = value
 	return &opts
 }
 
-func (o *options) UnmarshalFn() UnmarshalFn {
-	return o.unmarshalFn
+func (o *options) GetFn() GetFn {
+	return o.getFn
 }
 
 func (o *options) SetProcessFn(value ProcessFn) Options {

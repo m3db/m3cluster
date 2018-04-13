@@ -78,20 +78,20 @@ func TestStagedPlacementWatcherUnwatchSuccess(t *testing.T) {
 
 func TestStagedPlacementWatcherToStagedPlacementNotWatching(t *testing.T) {
 	watcher, _ := testStagedPlacementWatcher(t)
-	_, err := watcher.toStagedPlacement(nil)
+	_, err := watcher.toStagedPlacementWithLock(nil)
 	require.Equal(t, errPlacementWatcherIsNotWatching, err)
 }
 
 func TestStagedPlacementWatcherToPlacementNilValue(t *testing.T) {
 	watcher, _ := testStagedPlacementWatcher(t)
 	watcher.state = placementWatcherWatching
-	_, err := watcher.toStagedPlacement(nil)
+	_, err := watcher.toStagedPlacementWithLock(nil)
 	require.Equal(t, errNilValue, err)
 }
 
 func TestStagedPlacementWatcherToStagedPlacementUnmarshalError(t *testing.T) {
 	watcher, _ := testStagedPlacementWatcher(t)
-	_, err := watcher.toStagedPlacement(mem.NewValueWithData(1, []byte("abcd")))
+	_, err := watcher.toStagedPlacementWithLock(mem.NewValueWithData(1, []byte("abcd")))
 	require.Error(t, err)
 }
 
@@ -100,7 +100,7 @@ func TestStagedPlacementWatcherToStagedPlacementSuccess(t *testing.T) {
 	watcher.state = placementWatcherWatching
 	val, err := store.Get(testStagedPlacementKey)
 	require.NoError(t, err)
-	p, err := watcher.toStagedPlacement(val)
+	p, err := watcher.toStagedPlacementWithLock(val)
 	require.NoError(t, err)
 	pss := p.(*stagedPlacement)
 	require.Equal(t, 1, pss.version)
@@ -120,22 +120,21 @@ func TestStagedPlacementWatcherProcessSuccess(t *testing.T) {
 		allInstances [][]Instance
 		numCloses    int
 	)
-	opts := NewActiveStagedPlacementOptions().
+	value := mem.NewValue(1, testStagedPlacementProto)
+	watcher, _ := testStagedPlacementWatcher(t)
+	watcher.state = placementWatcherWatching
+	watcher.nowFn = func() time.Time { return time.Unix(0, 99999) }
+	watcher.placementOpts = NewActiveStagedPlacementOptions().
 		SetOnPlacementsAddedFn(func(placements []Placement) {
 			for _, placement := range placements {
 				allInstances = append(allInstances, placement.Instances())
 			}
 		})
-	pss, err := NewStagedPlacementFromProto(1, testStagedPlacementProto, opts)
-	require.NoError(t, err)
-	watcher, _ := testStagedPlacementWatcher(t)
-	watcher.state = placementWatcherWatching
-	watcher.nowFn = func() time.Time { return time.Unix(0, 99999) }
 	watcher.placement = &mockPlacement{
 		closeFn: func() error { numCloses++; return nil },
 	}
 
-	require.NoError(t, watcher.process(pss))
+	require.NoError(t, watcher.process(value))
 	require.NotNil(t, watcher.placement)
 	require.Equal(t, [][]Instance{testActivePlacements[1].Instances()}, allInstances)
 	require.Equal(t, 1, numCloses)
@@ -147,7 +146,8 @@ func testStagedPlacementWatcher(t *testing.T) (*stagedPlacementWatcher, kv.Store
 	require.NoError(t, err)
 
 	watcherOpts := testStagedPlacementWatcherOptions().SetStagedPlacementStore(store)
-	watcher := NewStagedPlacementWatcher(watcherOpts)
+	watcher, err := NewStagedPlacementWatcher(watcherOpts)
+	require.NoError(t, err)
 	return watcher.(*stagedPlacementWatcher), store
 }
 
