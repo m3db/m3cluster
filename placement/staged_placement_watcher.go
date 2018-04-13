@@ -35,6 +35,7 @@ var (
 	errNilValue                      = errors.New("nil value received")
 	errPlacementWatcherIsNotWatching = errors.New("placement watcher is not watching")
 	errPlacementWatcherIsWatching    = errors.New("placement watcher is watching")
+	errInvalidValueType              = errors.New("invalid update from kv, not kv.Value type")
 )
 
 type placementWatcherState int
@@ -158,7 +159,7 @@ func (t *stagedPlacementWatcher) process(update interface{}) error {
 
 	value, ok := update.(kv.Value)
 	if !ok {
-		return errors.New("invalid update from kv, not kv.Value type")
+		return errInvalidValueType
 	}
 
 	t.logger.Infof("processing update from kv for key %s with version %d", t.key, value.Version())

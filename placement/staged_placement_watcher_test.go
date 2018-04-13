@@ -113,6 +113,8 @@ func TestStagedPlacementWatcherToStagedPlacementSuccess(t *testing.T) {
 func TestStagedPlacementWatcherProcessNotWatching(t *testing.T) {
 	watcher, _ := testStagedPlacementWatcher(t)
 	require.Equal(t, errPlacementWatcherIsNotWatching, watcher.process(nil))
+	require.NoError(t, watcher.Watch())
+	require.Equal(t, errInvalidValueType, watcher.process(nil))
 }
 
 func TestStagedPlacementWatcherProcessSuccess(t *testing.T) {
