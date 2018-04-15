@@ -167,7 +167,6 @@ func (v *value) watchUpdates(updatable Updatable) {
 			v.Unlock()
 			continue
 		}
-
 		if err = v.updateWithLockFn(update); err != nil {
 			v.log.Errorf("error updating value: %v", err)
 		}

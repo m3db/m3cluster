@@ -160,12 +160,10 @@ func (t *stagedPlacementWatcher) process(update interface{}) error {
 	if t.state != placementWatcherWatching {
 		return errPlacementWatcherIsNotWatching
 	}
-
 	value, ok := update.(kv.Value)
 	if !ok {
 		return errInvalidValueType
 	}
-
 	t.logger.Infof("processing update from kv for key %s with version %d", t.key, value.Version())
 	ps, err := t.toStagedPlacementWithLock(value)
 	if err != nil {
