@@ -35,8 +35,6 @@ var (
 	errNilValue                      = errors.New("nil value received")
 	errPlacementWatcherIsNotWatching = errors.New("placement watcher is not watching")
 	errPlacementWatcherIsWatching    = errors.New("placement watcher is watching")
-	errInvalidValueType              = errors.New("invalid type of update from kv, expecting kv.Value")
-	errInvalidWatchType              = errors.New("invalid type of watch from kv, expecting kv.ValueWatch")
 )
 
 type placementWatcherState int
@@ -76,11 +74,7 @@ func NewStagedPlacementWatcher(opts StagedPlacementWatcherOptions) (StagedPlacem
 		return opts.StagedPlacementStore().Watch(watcher.key)
 	}
 	getFn := func(value runtime.Updatable) (interface{}, error) {
-		placementWatch, ok := value.(kv.ValueWatch)
-		if !ok {
-			return nil, errInvalidWatchType
-		}
-		return placementWatch.Get(), nil
+		return value.(kv.ValueWatch).Get(), nil
 	}
 	valueOpts := runtime.NewOptions().
 		SetInstrumentOptions(opts.InstrumentOptions()).
@@ -142,9 +136,6 @@ func (t *stagedPlacementWatcher) toStagedPlacementWithLock(value kv.Value) (Stag
 	if t.state != placementWatcherWatching {
 		return nil, errPlacementWatcherIsNotWatching
 	}
-	if value == nil {
-		return nil, errNilValue
-	}
 	t.proto.Reset()
 	if err := value.Unmarshal(t.proto); err != nil {
 		return nil, err
@@ -160,10 +151,10 @@ func (t *stagedPlacementWatcher) process(update interface{}) error {
 	if t.state != placementWatcherWatching {
 		return errPlacementWatcherIsNotWatching
 	}
-	value, ok := update.(kv.Value)
-	if !ok {
-		return errInvalidValueType
+	if update == nil {
+		return errNilValue
 	}
+	value := update.(kv.Value)
 	t.logger.Infof("processing update from kv for key %s with version %d", t.key, value.Version())
 	ps, err := t.toStagedPlacementWithLock(value)
 	if err != nil {
