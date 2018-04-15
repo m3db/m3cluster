@@ -57,7 +57,7 @@ type Updatable interface {
 type UpdatableFn func() (Updatable, error)
 
 // GetFn returns the latest value.
-type GetFn func(value Updatable) (interface{}, error)
+type GetFn func(updatable Updatable) (interface{}, error)
 
 // ProcessFn processes a value.
 type ProcessFn func(value interface{}) error
@@ -177,10 +177,7 @@ func (v *value) updateWithLock(update interface{}) error {
 	if update == nil {
 		return errNilValue
 	}
-	if err := v.processFn(update); err != nil {
-		return err
-	}
-	return nil
+	return v.processFn(update)
 }
 
 // IsCreateWatchError returns whether the error is a CreateWatchError.
