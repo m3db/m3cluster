@@ -84,7 +84,6 @@ type value struct {
 
 	updatable Updatable
 	status    valueStatus
-	currValue interface{}
 }
 
 // NewValue creates a new value.
@@ -181,7 +180,6 @@ func (v *value) updateWithLock(update interface{}) error {
 	if err := v.processFn(update); err != nil {
 		return err
 	}
-	v.currValue = update
 	return nil
 }
 

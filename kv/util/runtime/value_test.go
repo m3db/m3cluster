@@ -244,7 +244,6 @@ func TestValueUpdateProcessError(t *testing.T) {
 	rv.processFn = func(interface{}) error { return errProcess }
 
 	require.Error(t, rv.updateWithLockFn(mem.NewValue(3, nil)))
-	require.Nil(t, rv.currValue)
 }
 
 func TestValueUpdateSuccess(t *testing.T) {
@@ -253,7 +252,6 @@ func TestValueUpdateSuccess(t *testing.T) {
 
 	var outputs []kv.Value
 	rv := NewValue(testValueOptions()).(*value)
-	rv.currValue = mem.NewValue(2, nil)
 	rv.processFn = func(v interface{}) error {
 		outputs = append(outputs, v.(kv.Value))
 		return nil
@@ -262,7 +260,6 @@ func TestValueUpdateSuccess(t *testing.T) {
 	input := mem.NewValue(3, nil)
 	require.NoError(t, rv.updateWithLock(input))
 	require.Equal(t, []kv.Value{input}, outputs)
-	require.Equal(t, input, rv.currValue)
 }
 
 func testValueOptions() Options {
