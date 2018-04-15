@@ -59,7 +59,9 @@ func TestValueWatchCreateWatchError(t *testing.T) {
 	}
 	rv := NewValue(testValueOptions().SetUpdatableFn(updatableFn)).(*value)
 
-	require.Equal(t, CreateWatchError{innerError: errWatch}, rv.Watch())
+	err := rv.Watch()
+	require.Equal(t, CreateWatchError{innerError: errWatch}, err)
+	require.True(t, IsCreateWatchError(err))
 	require.Equal(t, valueNotWatching, rv.status)
 
 	rv.Unwatch()
@@ -76,7 +78,9 @@ func TestValueWatchWatchTimeout(t *testing.T) {
 	mockWatch.EXPECT().Close().Do(func() { close(notifyCh) })
 	rv := NewValue(testValueOptions().SetUpdatableFn(testUpdatableFn(mockWatch))).(*value)
 
-	require.Equal(t, InitValueError{innerError: errInitWatchTimeout}, rv.Watch())
+	err := rv.Watch()
+	require.Equal(t, InitValueError{innerError: errInitWatchTimeout}, err)
+	require.False(t, IsCreateWatchError(err))
 	require.Equal(t, valueWatching, rv.status)
 
 	rv.Unwatch()

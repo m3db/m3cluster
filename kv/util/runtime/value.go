@@ -185,6 +185,12 @@ func (v *value) updateWithLock(update interface{}) error {
 	return nil
 }
 
+// IsCreateWatchError returns whether the error is a CreateWatchError.
+func IsCreateWatchError(err error) bool {
+	_, ok := err.(CreateWatchError)
+	return ok
+}
+
 // CreateWatchError is returned when encountering an error creating a watch.
 type CreateWatchError struct {
 	innerError error
