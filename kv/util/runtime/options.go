@@ -44,11 +44,11 @@ type Options interface {
 	// InitWatchTimeout returns the initial watch timeout.
 	InitWatchTimeout() time.Duration
 
-	// SetNotifier sets the notifier.
-	SetNotifier(value Notifier) Options
+	// SetUpdatableFn sets the updatable function.
+	SetUpdatableFn(value UpdatableFn) Options
 
-	// Notifier returns the notifier.
-	Notifier() Notifier
+	// UpdatableFn returns the updatable function.
+	UpdatableFn() UpdatableFn
 
 	// SetGetFn sets the get function.
 	SetGetFn(value GetFn) Options
@@ -66,7 +66,7 @@ type Options interface {
 type options struct {
 	instrumentOpts   instrument.Options
 	initWatchTimeout time.Duration
-	notifier         Notifier
+	updatableFn      UpdatableFn
 	getFn            GetFn
 	processFn        ProcessFn
 }
@@ -99,14 +99,14 @@ func (o *options) InitWatchTimeout() time.Duration {
 	return o.initWatchTimeout
 }
 
-func (o *options) SetNotifier(value Notifier) Options {
+func (o *options) SetUpdatableFn(value UpdatableFn) Options {
 	opts := *o
-	opts.notifier = value
+	opts.updatableFn = value
 	return &opts
 }
 
-func (o *options) Notifier() Notifier {
-	return o.notifier
+func (o *options) UpdatableFn() UpdatableFn {
+	return o.updatableFn
 }
 
 func (o *options) SetGetFn(value GetFn) Options {

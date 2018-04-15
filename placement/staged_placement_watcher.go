@@ -35,7 +35,8 @@ var (
 	errNilValue                      = errors.New("nil value received")
 	errPlacementWatcherIsNotWatching = errors.New("placement watcher is not watching")
 	errPlacementWatcherIsWatching    = errors.New("placement watcher is watching")
-	errInvalidValueType              = errors.New("invalid update from kv, not kv.Value type")
+	errInvalidValueType              = errors.New("invalid type of update from kv, expecting kv.Value")
+	errInvalidWatchType              = errors.New("invalid type of watch from kv, expecting kv.ValueWatch")
 )
 
 type placementWatcherState int
@@ -71,17 +72,20 @@ func NewStagedPlacementWatcher(opts StagedPlacementWatcherOptions) (StagedPlacem
 	}
 	watcher.doneFn = watcher.onActiveStagedPlacementDone
 
-	placementWatch, err := opts.StagedPlacementStore().Watch(watcher.key)
-	if err != nil {
-		return nil, err
+	updatableFn := func() (runtime.Updatable, error) {
+		return opts.StagedPlacementStore().Watch(watcher.key)
 	}
-	getFn := func() (interface{}, error) {
+	getFn := func(value runtime.Updatable) (interface{}, error) {
+		placementWatch, ok := value.(kv.ValueWatch)
+		if !ok {
+			return nil, errInvalidWatchType
+		}
 		return placementWatch.Get(), nil
 	}
 	valueOpts := runtime.NewOptions().
 		SetInstrumentOptions(opts.InstrumentOptions()).
 		SetInitWatchTimeout(opts.InitWatchTimeout()).
-		SetNotifier(placementWatch).
+		SetUpdatableFn(updatableFn).
 		SetGetFn(getFn).
 		SetProcessFn(watcher.process)
 	watcher.Value = runtime.NewValue(valueOpts)

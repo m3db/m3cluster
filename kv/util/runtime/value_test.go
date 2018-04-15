@@ -44,9 +44,26 @@ func TestValueWatchAlreadyWatching(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockWatch := kv.NewMockValueWatch(ctrl)
-	rv := NewValue(testValueOptions().SetNotifier(mockWatch)).(*value)
+	rv := NewValue(testValueOptions().SetUpdatableFn(testUpdatableFn(mockWatch))).(*value)
 	rv.status = valueWatching
 	require.NoError(t, rv.Watch())
+}
+
+func TestValueWatchCreateWatchError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	errWatch := errors.New("error creating watch")
+	updatableFn := func() (Updatable, error) {
+		return nil, errWatch
+	}
+	rv := NewValue(testValueOptions().SetUpdatableFn(updatableFn)).(*value)
+
+	require.Equal(t, CreateWatchError{innerError: errWatch}, rv.Watch())
+	require.Equal(t, valueNotWatching, rv.status)
+
+	rv.Unwatch()
+	require.Equal(t, valueNotWatching, rv.status)
 }
 
 func TestValueWatchWatchTimeout(t *testing.T) {
@@ -57,7 +74,7 @@ func TestValueWatchWatchTimeout(t *testing.T) {
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(notifyCh).MinTimes(1)
 	mockWatch.EXPECT().Close().Do(func() { close(notifyCh) })
-	rv := NewValue(testValueOptions().SetNotifier(mockWatch)).(*value)
+	rv := NewValue(testValueOptions().SetUpdatableFn(testUpdatableFn(mockWatch))).(*value)
 
 	require.Equal(t, InitValueError{innerError: errInitWatchTimeout}, rv.Watch())
 	require.Equal(t, valueWatching, rv.status)
@@ -78,8 +95,8 @@ func TestValueWatchUpdateError(t *testing.T) {
 	mockWatch.EXPECT().Close().Do(func() { close(notifyCh) })
 
 	opts := testValueOptions().
-		SetNotifier(mockWatch).
-		SetGetFn(func() (interface{}, error) { return nil, nil })
+		SetUpdatableFn(testUpdatableFn(mockWatch)).
+		SetGetFn(func(Updatable) (interface{}, error) { return nil, nil })
 	rv := NewValue(opts).(*value)
 	rv.updateWithLockFn = func(interface{}) error { return errUpdate }
 
@@ -101,8 +118,8 @@ func TestValueWatchSuccess(t *testing.T) {
 	mockWatch.EXPECT().Close().Do(func() { close(notifyCh) })
 
 	opts := testValueOptions().
-		SetNotifier(mockWatch).
-		SetGetFn(func() (interface{}, error) { return nil, nil })
+		SetUpdatableFn(testUpdatableFn(mockWatch)).
+		SetGetFn(func(Updatable) (interface{}, error) { return nil, nil })
 	rv := NewValue(opts).(*value)
 	rv.updateWithLockFn = func(interface{}) error { return nil }
 
@@ -151,8 +168,8 @@ func TestValueWatchUpdatesError(t *testing.T) {
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(watchCh).AnyTimes()
 	mockWatch.EXPECT().Close().Do(func() { close(watchCh) })
-	rv.notifier = mockWatch
-	rv.getFn = func() (interface{}, error) { return nil, nil }
+	rv.updatable = mockWatch
+	rv.getFn = func(Updatable) (interface{}, error) { return nil, nil }
 	rv.status = valueWatching
 	go rv.watchUpdates(mockWatch)
 
@@ -173,7 +190,7 @@ func TestValueWatchValueUnwatched(t *testing.T) {
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(ch).AnyTimes()
 	mockWatch.EXPECT().Close().Do(func() { close(ch) }).AnyTimes()
-	rv.notifier = mockWatch
+	rv.updatable = mockWatch
 	rv.status = valueNotWatching
 	go rv.watchUpdates(mockWatch)
 
@@ -195,7 +212,7 @@ func TestValueWatchValueDifferentWatch(t *testing.T) {
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(ch).AnyTimes()
 	mockWatch.EXPECT().Close().Do(func() { close(ch) }).AnyTimes()
-	rv.notifier = kv.NewMockValueWatch(ctrl)
+	rv.updatable = kv.NewMockValueWatch(ctrl)
 	rv.status = valueWatching
 	go rv.watchUpdates(mockWatch)
 
@@ -255,6 +272,16 @@ func testValueWithMemStore(t *testing.T) (kv.Store, *value) {
 	store := mem.NewStore()
 	w, err := store.Watch(testValueKey)
 	require.NoError(t, err)
-	opts := testValueOptions().SetNotifier(w).SetGetFn(func() (interface{}, error) { return w.Get(), nil })
+	opts := testValueOptions().
+		SetUpdatableFn(testUpdatableFn(w)).
+		SetGetFn(func(value Updatable) (interface{}, error) {
+			return value.(kv.ValueWatch).Get(), nil
+		})
 	return store, NewValue(opts).(*value)
+}
+
+func testUpdatableFn(n Updatable) UpdatableFn {
+	return func() (Updatable, error) {
+		return n, nil
+	}
 }

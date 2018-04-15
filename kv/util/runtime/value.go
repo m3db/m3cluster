@@ -26,13 +26,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/m3db/m3x/close"
 	"github.com/m3db/m3x/log"
 )
 
 var (
 	errInitWatchTimeout = errors.New("init watch timeout")
 	errNilValue         = errors.New("nil kv value")
-	errNilNotifier      = errors.New("nil notifier")
 )
 
 // Value is a value that can be updated during runtime.
@@ -44,18 +44,20 @@ type Value interface {
 	Unwatch()
 }
 
-// Notifier sends notifications for updates.
+// Updatable can be updated.
 // TODO: Move to m3x/watch.
-type Notifier interface {
-	// C returns the notification channel.
-	C() <-chan struct{}
+type Updatable interface {
+	close.SimpleCloser
 
-	// Close stops watching for value updates.
-	Close()
+	// C returns the notification channel for updates.
+	C() <-chan struct{}
 }
 
+// UpdatableFn returns an updatable.
+type UpdatableFn func() (Updatable, error)
+
 // GetFn returns the latest value.
-type GetFn func() (interface{}, error)
+type GetFn func(value Updatable) (interface{}, error)
 
 // ProcessFn processes a value.
 type ProcessFn func(value interface{}) error
@@ -75,11 +77,12 @@ type value struct {
 
 	opts             Options
 	log              log.Logger
-	notifier         Notifier
+	updatableFn      UpdatableFn
 	getFn            GetFn
 	processFn        ProcessFn
 	updateWithLockFn updateWithLockFn
 
+	updatable Updatable
 	status    valueStatus
 	currValue interface{}
 }
@@ -89,11 +92,11 @@ func NewValue(
 	opts Options,
 ) Value {
 	v := &value{
-		opts:      opts,
-		log:       opts.InstrumentOptions().Logger(),
-		notifier:  opts.Notifier(),
-		getFn:     opts.GetFn(),
-		processFn: opts.ProcessFn(),
+		opts:        opts,
+		log:         opts.InstrumentOptions().Logger(),
+		updatableFn: opts.UpdatableFn(),
+		getFn:       opts.GetFn(),
+		processFn:   opts.ProcessFn(),
 	}
 	v.updateWithLockFn = v.updateWithLock
 	return v
@@ -103,27 +106,28 @@ func (v *value) Watch() error {
 	v.Lock()
 	defer v.Unlock()
 
-	if v.notifier == nil {
-		return errNilNotifier
-	}
-
 	if v.status == valueWatching {
 		return nil
 	}
+	updatable, err := v.updatableFn()
+	if err != nil {
+		return CreateWatchError{innerError: err}
+	}
+	v.status = valueWatching
+	v.updatable = updatable
 	// NB(xichen): we want to start watching updates even though
 	// we may fail to initialize the value temporarily (e.g., during
 	// a network partition) so the value will be updated when the
 	// error condition is resolved.
-	defer func() { go v.watchUpdates(v.notifier) }()
+	defer func() { go v.watchUpdates(v.updatable) }()
 
-	v.status = valueWatching
 	select {
-	case <-v.notifier.C():
+	case <-v.updatable.C():
 	case <-time.After(v.opts.InitWatchTimeout()):
 		return InitValueError{innerError: errInitWatchTimeout}
 	}
 
-	update, err := v.getFn()
+	update, err := v.getFn(v.updatable)
 	if err != nil {
 		return InitValueError{innerError: err}
 	}
@@ -142,23 +146,22 @@ func (v *value) Unwatch() {
 	if v.status == valueNotWatching {
 		return
 	}
-	if v.notifier != nil {
-		v.notifier.Close()
-	}
+	v.updatable.Close()
 	v.status = valueNotWatching
+	v.updatable = nil
 }
 
-func (v *value) watchUpdates(notifier Notifier) {
-	for range notifier.C() {
+func (v *value) watchUpdates(updatable Updatable) {
+	for range updatable.C() {
 		v.Lock()
 		// If we are not watching, or we are watching with a different
 		// watch because we stopped the current watch and started a new
 		// one, return immediately.
-		if v.status != valueWatching || v.notifier != notifier {
+		if v.status != valueWatching || v.updatable != updatable {
 			v.Unlock()
 			return
 		}
-		update, err := v.getFn()
+		update, err := v.getFn(updatable)
 		if err != nil {
 			v.log.Errorf("error getting update: %v", err)
 			v.Unlock()
