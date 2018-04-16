@@ -148,8 +148,7 @@ func testStagedPlacementWatcher(t *testing.T) (*stagedPlacementWatcher, kv.Store
 	require.NoError(t, err)
 
 	watcherOpts := testStagedPlacementWatcherOptions().SetStagedPlacementStore(store)
-	watcher, err := NewStagedPlacementWatcher(watcherOpts)
-	require.NoError(t, err)
+	watcher := NewStagedPlacementWatcher(watcherOpts)
 	return watcher.(*stagedPlacementWatcher), store
 }
 
