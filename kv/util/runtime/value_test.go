@@ -61,7 +61,6 @@ func TestValueWatchCreateWatchError(t *testing.T) {
 
 	err := rv.Watch()
 	require.Equal(t, CreateWatchError{innerError: errWatch}, err)
-	require.True(t, IsCreateWatchError(err))
 	require.Equal(t, valueNotWatching, rv.status)
 
 	rv.Unwatch()
@@ -80,7 +79,6 @@ func TestValueWatchWatchTimeout(t *testing.T) {
 
 	err := rv.Watch()
 	require.Equal(t, InitValueError{innerError: errInitWatchTimeout}, err)
-	require.False(t, IsCreateWatchError(err))
 	require.Equal(t, valueWatching, rv.status)
 
 	rv.Unwatch()
@@ -281,7 +279,7 @@ func testValueWithMemStore(t *testing.T) (kv.Store, *value) {
 	return store, NewValue(opts).(*value)
 }
 
-func testUpdatableFn(n Updatable) UpdatableFn {
+func testUpdatableFn(n Updatable) NewUpdatableFn {
 	return func() (Updatable, error) {
 		return n, nil
 	}

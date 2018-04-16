@@ -53,8 +53,8 @@ type Updatable interface {
 	C() <-chan struct{}
 }
 
-// UpdatableFn returns an updatable.
-type UpdatableFn func() (Updatable, error)
+// NewUpdatableFn creates an updatable.
+type NewUpdatableFn func() (Updatable, error)
 
 // GetFn returns the latest value.
 type GetFn func(updatable Updatable) (interface{}, error)
@@ -77,7 +77,7 @@ type value struct {
 
 	opts             Options
 	log              log.Logger
-	updatableFn      UpdatableFn
+	newUpdatableFn   NewUpdatableFn
 	getFn            GetFn
 	processFn        ProcessFn
 	updateWithLockFn updateWithLockFn
@@ -91,11 +91,11 @@ func NewValue(
 	opts Options,
 ) Value {
 	v := &value{
-		opts:        opts,
-		log:         opts.InstrumentOptions().Logger(),
-		updatableFn: opts.UpdatableFn(),
-		getFn:       opts.GetFn(),
-		processFn:   opts.ProcessFn(),
+		opts:           opts,
+		log:            opts.InstrumentOptions().Logger(),
+		newUpdatableFn: opts.UpdatableFn(),
+		getFn:          opts.GetFn(),
+		processFn:      opts.ProcessFn(),
 	}
 	v.updateWithLockFn = v.updateWithLock
 	return v
@@ -108,7 +108,7 @@ func (v *value) Watch() error {
 	if v.status == valueWatching {
 		return nil
 	}
-	updatable, err := v.updatableFn()
+	updatable, err := v.newUpdatableFn()
 	if err != nil {
 		return CreateWatchError{innerError: err}
 	}
@@ -178,12 +178,6 @@ func (v *value) updateWithLock(update interface{}) error {
 		return errNilValue
 	}
 	return v.processFn(update)
-}
-
-// IsCreateWatchError returns whether the error is a CreateWatchError.
-func IsCreateWatchError(err error) bool {
-	_, ok := err.(CreateWatchError)
-	return ok
 }
 
 // CreateWatchError is returned when encountering an error creating a watch.
