@@ -60,7 +60,7 @@ type stagedPlacementWatcher struct {
 }
 
 // NewStagedPlacementWatcher creates a new staged placement watcher.
-func NewStagedPlacementWatcher(opts StagedPlacementWatcherOptions) (StagedPlacementWatcher, error) {
+func NewStagedPlacementWatcher(opts StagedPlacementWatcherOptions) StagedPlacementWatcher {
 	watcher := &stagedPlacementWatcher{
 		key:           opts.StagedPlacementKey(),
 		logger:        opts.InstrumentOptions().Logger(),
@@ -83,7 +83,7 @@ func NewStagedPlacementWatcher(opts StagedPlacementWatcherOptions) (StagedPlacem
 		SetGetFn(getFn).
 		SetProcessFn(watcher.process)
 	watcher.Value = runtime.NewValue(valueOpts)
-	return watcher, nil
+	return watcher
 }
 
 func (t *stagedPlacementWatcher) Watch() error {
