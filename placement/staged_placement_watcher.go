@@ -79,7 +79,7 @@ func NewStagedPlacementWatcher(opts StagedPlacementWatcherOptions) StagedPlaceme
 	valueOpts := runtime.NewOptions().
 		SetInstrumentOptions(opts.InstrumentOptions()).
 		SetInitWatchTimeout(opts.InitWatchTimeout()).
-		SetUpdatableFn(updatableFn).
+		SetNewUpdatableFn(updatableFn).
 		SetGetFn(getFn).
 		SetProcessFn(watcher.process)
 	watcher.Value = runtime.NewValue(valueOpts)
