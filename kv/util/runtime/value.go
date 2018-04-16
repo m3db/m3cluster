@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3x/close"
 	"github.com/m3db/m3x/log"
 )
@@ -60,6 +61,7 @@ type NewUpdatableFn func() (Updatable, error)
 type GetFn func(updatable Updatable) (interface{}, error)
 
 // ProcessFn processes a value.
+// If the value is versionable, then only newer value will be processed.
 type ProcessFn func(value interface{}) error
 
 // processWithLockFn updates a value while holding a lock.
@@ -84,6 +86,7 @@ type value struct {
 
 	updatable Updatable
 	status    valueStatus
+	currValue interface{}
 }
 
 // NewValue creates a new value.
@@ -177,7 +180,41 @@ func (v *value) processWithLock(update interface{}) error {
 	if update == nil {
 		return errNilValue
 	}
-	return v.processFn(update)
+	if !v.isNewerUpdate(update) {
+		return nil
+	}
+	if err := v.processFn(update); err != nil {
+		return err
+	}
+	v.currValue = update
+	return nil
+}
+
+func (v *value) isNewerUpdate(update interface{}) bool {
+	if v.currValue == nil {
+		return true
+	}
+	versionedCurrValue, ok := v.currValue.(kv.Versionable)
+	if !ok {
+		return true
+	}
+	versionedUpdate, ok := update.(kv.Versionable)
+	if !ok {
+		// Current value is already versioned but the update is not versionable.
+		v.log.Warnf(
+			"ignore update without version which is not newer than the version of the current value: %d",
+			versionedCurrValue.Version(),
+		)
+		return false
+	}
+	if versionedUpdate.IsNewer(versionedCurrValue) {
+		v.log.Warnf(
+			"ignore update with version %d which is not newer than the version of the current value: %d",
+			versionedUpdate.Version(), versionedCurrValue.Version(),
+		)
+		return true
+	}
+	return false
 }
 
 // CreateWatchError is returned when encountering an error creating a watch.

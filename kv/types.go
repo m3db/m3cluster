@@ -57,16 +57,22 @@ var (
 	ErrConditionCheckFailed = errors.New("condition check failed")
 )
 
-// A Value provides access to a versioned value in the configuration store
-type Value interface {
-	// Unmarshal retrieves the stored value
-	Unmarshal(v proto.Message) error
-
-	// Version returns the current version of the value
+// Versionable is a resource that can be versioned.
+// TODO: Move to m3x/watch/runtime.
+type Versionable interface {
+	// Version returns the current version of the object.
 	Version() int
 
-	// IsNewer returns if this Value is newer than the other Value
-	IsNewer(other Value) bool
+	// IsNewer returns whether this object is newer than the other object.
+	IsNewer(other Versionable) bool
+}
+
+// A Value provides access to a versioned value in the configuration store
+type Value interface {
+	Versionable
+
+	// Unmarshal retrieves the stored value
+	Unmarshal(v proto.Message) error
 }
 
 // ValueWatch provides updates to a Value

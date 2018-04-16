@@ -233,6 +233,32 @@ func TestValueUpdateNilValueError(t *testing.T) {
 	require.Equal(t, errNilValue, rv.processWithLockFn(nil))
 }
 
+func TestValueUpdateStaleUpdate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	rv := NewValue(testValueOptions()).(*value)
+	currValue := mem.NewValue(3, nil)
+	rv.currValue = currValue
+	newValue := mem.NewValue(3, nil)
+	require.NoError(t, rv.processWithLockFn(newValue))
+	require.Equal(t, currValue, rv.currValue)
+}
+
+func TestValueIsNewer(t *testing.T) {
+	rv := NewValue(testValueOptions()).(*value)
+	require.True(t, rv.isNewerUpdate(2))
+	rv.currValue = 2
+	require.True(t, rv.isNewerUpdate(1))
+	v := mem.NewValue(3, nil)
+	require.True(t, rv.isNewerUpdate(v))
+	rv.currValue = v
+	require.False(t, rv.isNewerUpdate(100))
+	require.False(t, rv.isNewerUpdate(mem.NewValue(3, nil)))
+	require.False(t, rv.isNewerUpdate(mem.NewValue(2, nil)))
+	require.True(t, rv.isNewerUpdate(mem.NewValue(4, nil)))
+}
+
 func TestValueUpdateProcessError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
