@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/m3db/m3cluster/kv"
+	"github.com/m3db/m3x/close"
 	"github.com/m3db/m3x/log"
 )
 
@@ -37,9 +38,6 @@ var (
 
 // Value is a value that can be updated during runtime.
 type Value interface {
-	// Key is the key associated with value.
-	Key() string
-
 	// Watch starts watching for value updates.
 	Watch() error
 
@@ -47,14 +45,27 @@ type Value interface {
 	Unwatch()
 }
 
-// UnmarshalFn unmarshals a kv value and extracts its payload.
-type UnmarshalFn func(value kv.Value) (interface{}, error)
+// Updatable can be updated.
+// TODO: Move to m3x/watch.
+type Updatable interface {
+	close.SimpleCloser
+
+	// C returns the notification channel for updates.
+	C() <-chan struct{}
+}
+
+// NewUpdatableFn creates an updatable.
+type NewUpdatableFn func() (Updatable, error)
+
+// GetFn returns the latest value.
+type GetFn func(updatable Updatable) (kv.Versionable, error)
 
 // ProcessFn processes a value.
-type ProcessFn func(value interface{}) error
+// If the value is versionable, then only newer value will be processed.
+type ProcessFn func(value kv.Versionable) error
 
 // updateWithLockFn updates a value while holding a lock.
-type updateWithLockFn func(value kv.Value) error
+type updateWithLockFn func(value kv.Versionable) error
 
 type valueStatus int
 
@@ -66,37 +77,32 @@ const (
 type value struct {
 	sync.RWMutex
 
-	key              string
-	store            kv.Store
 	opts             Options
 	log              log.Logger
-	unmarshalFn      UnmarshalFn
+	newUpdatableFn   NewUpdatableFn
+	getFn            GetFn
 	processFn        ProcessFn
 	updateWithLockFn updateWithLockFn
 
+	updatable Updatable
 	status    valueStatus
-	watch     kv.ValueWatch
-	currValue kv.Value
+	currValue kv.Versionable
 }
 
 // NewValue creates a new value.
 func NewValue(
-	key string,
 	opts Options,
 ) Value {
 	v := &value{
-		key:         key,
-		opts:        opts,
-		store:       opts.KVStore(),
-		log:         opts.InstrumentOptions().Logger(),
-		unmarshalFn: opts.UnmarshalFn(),
-		processFn:   opts.ProcessFn(),
+		opts:           opts,
+		log:            opts.InstrumentOptions().Logger(),
+		newUpdatableFn: opts.NewUpdatableFn(),
+		getFn:          opts.GetFn(),
+		processFn:      opts.ProcessFn(),
 	}
 	v.updateWithLockFn = v.updateWithLock
 	return v
 }
-
-func (v *value) Key() string { return v.key }
 
 func (v *value) Watch() error {
 	v.Lock()
@@ -105,29 +111,30 @@ func (v *value) Watch() error {
 	if v.status == valueWatching {
 		return nil
 	}
-	watch, err := v.store.Watch(v.key)
+	updatable, err := v.newUpdatableFn()
 	if err != nil {
 		return CreateWatchError{innerError: err}
 	}
 	v.status = valueWatching
-	v.watch = watch
-
-	select {
-	case <-watch.C():
-	case <-time.After(v.opts.InitWatchTimeout()):
-		err = errInitWatchTimeout
-	}
-
-	if err == nil {
-		err = v.updateWithLockFn(watch.Get())
-	}
-
+	v.updatable = updatable
 	// NB(xichen): we want to start watching updates even though
 	// we may fail to initialize the value temporarily (e.g., during
 	// a network partition) so the value will be updated when the
 	// error condition is resolved.
-	go v.watchUpdates(v.watch)
+	defer func() { go v.watchUpdates(v.updatable) }()
+
+	select {
+	case <-v.updatable.C():
+	case <-time.After(v.opts.InitWatchTimeout()):
+		return InitValueError{innerError: errInitWatchTimeout}
+	}
+
+	update, err := v.getFn(v.updatable)
 	if err != nil {
+		return InitValueError{innerError: err}
+	}
+
+	if err = v.updateWithLockFn(update); err != nil {
 		return InitValueError{innerError: err}
 	}
 	return nil
@@ -141,47 +148,60 @@ func (v *value) Unwatch() {
 	if v.status == valueNotWatching {
 		return
 	}
-	v.watch.Close()
+	v.updatable.Close()
 	v.status = valueNotWatching
-	v.watch = nil
+	v.updatable = nil
 }
 
-func (v *value) watchUpdates(watch kv.ValueWatch) {
-	for range watch.C() {
+func (v *value) watchUpdates(updatable Updatable) {
+	for range updatable.C() {
 		v.Lock()
 		// If we are not watching, or we are watching with a different
 		// watch because we stopped the current watch and started a new
 		// one, return immediately.
-		if v.status != valueWatching || v.watch != watch {
+		if v.status != valueWatching || v.updatable != updatable {
 			v.Unlock()
 			return
 		}
-		if err := v.updateWithLockFn(watch.Get()); err != nil {
+		update, err := v.getFn(updatable)
+		if err != nil {
+			v.log.Errorf("error getting update: %v", err)
+			v.Unlock()
+			continue
+		}
+		if err = v.updateWithLockFn(update); err != nil {
 			v.log.Errorf("error updating value: %v", err)
 		}
 		v.Unlock()
 	}
 }
 
-func (v *value) updateWithLock(update kv.Value) error {
+func (v *value) updateWithLock(update kv.Versionable) error {
 	if update == nil {
 		return errNilValue
 	}
-	if v.currValue != nil && !update.IsNewer(v.currValue) {
-		v.log.Warnf("ignore kv update with version %d which is not newer than the version of the current value: %d", update.Version(), v.currValue.Version())
+	if !v.isNewerUpdate(update) {
 		return nil
 	}
-	v.log.Infof("received kv update with version %d for key %s", update.Version(), v.key)
-	latest, err := v.unmarshalFn(update)
-	if err != nil {
-		err = fmt.Errorf("error unmarshalling value for version %d: %v", update.Version(), err)
-		return err
-	}
-	if err := v.processFn(latest); err != nil {
+	if err := v.processFn(update); err != nil {
 		return err
 	}
 	v.currValue = update
 	return nil
+}
+
+func (v *value) isNewerUpdate(update kv.Versionable) bool {
+	if v.currValue == nil {
+		return true
+	}
+	if update.IsNewer(v.currValue) {
+		return true
+	}
+	v.log.Warnf(
+		"ignore update with version %d which is not newer than the version of the current value: %d",
+		update.Version(), v.currValue.Version(),
+	)
+	return false
 }
 
 // CreateWatchError is returned when encountering an error creating a watch.

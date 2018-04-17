@@ -656,7 +656,7 @@ func newValue(val []byte, ver, rev int64) *value {
 	}
 }
 
-func (c *value) IsNewer(other kv.Value) bool {
+func (c *value) IsNewer(other kv.Versionable) bool {
 	othervalue, ok := other.(*value)
 	if ok {
 		return c.Rev > othervalue.Rev

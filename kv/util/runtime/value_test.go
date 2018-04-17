@@ -43,7 +43,8 @@ func TestValueWatchAlreadyWatching(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	_, rv := testValueWithMockStore(ctrl)
+	mockWatch := kv.NewMockValueWatch(ctrl)
+	rv := NewValue(testValueOptions().SetNewUpdatableFn(testUpdatableFn(mockWatch))).(*value)
 	rv.status = valueWatching
 	require.NoError(t, rv.Watch())
 }
@@ -52,11 +53,14 @@ func TestValueWatchCreateWatchError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	store, rv := testValueWithMockStore(ctrl)
 	errWatch := errors.New("error creating watch")
-	store.EXPECT().Watch(rv.key).Return(nil, errWatch)
+	updatableFn := func() (Updatable, error) {
+		return nil, errWatch
+	}
+	rv := NewValue(testValueOptions().SetNewUpdatableFn(updatableFn)).(*value)
 
-	require.Equal(t, CreateWatchError{innerError: errWatch}, rv.Watch())
+	err := rv.Watch()
+	require.Equal(t, CreateWatchError{innerError: errWatch}, err)
 	require.Equal(t, valueNotWatching, rv.status)
 
 	rv.Unwatch()
@@ -67,14 +71,14 @@ func TestValueWatchWatchTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	store, rv := testValueWithMockStore(ctrl)
 	notifyCh := make(chan struct{})
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(notifyCh).MinTimes(1)
 	mockWatch.EXPECT().Close().Do(func() { close(notifyCh) })
-	store.EXPECT().Watch(rv.key).Return(mockWatch, nil)
+	rv := NewValue(testValueOptions().SetNewUpdatableFn(testUpdatableFn(mockWatch))).(*value)
 
-	require.Equal(t, InitValueError{innerError: errInitWatchTimeout}, rv.Watch())
+	err := rv.Watch()
+	require.Equal(t, InitValueError{innerError: errInitWatchTimeout}, err)
 	require.Equal(t, valueWatching, rv.status)
 
 	rv.Unwatch()
@@ -85,16 +89,18 @@ func TestValueWatchUpdateError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	store, rv := testValueWithMockStore(ctrl)
 	errUpdate := errors.New("error updating")
-	rv.updateWithLockFn = func(kv.Value) error { return errUpdate }
 	notifyCh := make(chan struct{}, 1)
 	notifyCh <- struct{}{}
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(notifyCh).MinTimes(1)
-	mockWatch.EXPECT().Get().Return(nil)
 	mockWatch.EXPECT().Close().Do(func() { close(notifyCh) })
-	store.EXPECT().Watch(rv.key).Return(mockWatch, nil)
+
+	opts := testValueOptions().
+		SetNewUpdatableFn(testUpdatableFn(mockWatch)).
+		SetGetFn(func(Updatable) (kv.Versionable, error) { return nil, nil })
+	rv := NewValue(opts).(*value)
+	rv.updateWithLockFn = func(kv.Versionable) error { return errUpdate }
 
 	require.Equal(t, InitValueError{innerError: errUpdate}, rv.Watch())
 	require.Equal(t, valueWatching, rv.status)
@@ -107,15 +113,17 @@ func TestValueWatchSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	store, rv := testValueWithMockStore(ctrl)
-	rv.updateWithLockFn = func(kv.Value) error { return nil }
 	notifyCh := make(chan struct{}, 1)
 	notifyCh <- struct{}{}
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(notifyCh).MinTimes(1)
-	mockWatch.EXPECT().Get().Return(nil)
 	mockWatch.EXPECT().Close().Do(func() { close(notifyCh) })
-	store.EXPECT().Watch(rv.key).Return(mockWatch, nil)
+
+	opts := testValueOptions().
+		SetNewUpdatableFn(testUpdatableFn(mockWatch)).
+		SetGetFn(func(Updatable) (kv.Versionable, error) { return nil, nil })
+	rv := NewValue(opts).(*value)
+	rv.updateWithLockFn = func(kv.Versionable) error { return nil }
 
 	require.NoError(t, rv.Watch())
 	require.Equal(t, valueWatching, rv.status)
@@ -128,15 +136,15 @@ func TestValueUnwatchNotWatching(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	_, rv := testValueWithMockStore(ctrl)
+	rv := NewValue(testValueOptions()).(*value)
 	rv.status = valueNotWatching
 	rv.Unwatch()
 	require.Equal(t, valueNotWatching, rv.status)
 }
 
 func TestValueWatchUnWatchMultipleTimes(t *testing.T) {
-	store, rv := testValueWithMemStore()
-	rv.updateWithLockFn = func(kv.Value) error { return nil }
+	store, rv := testValueWithMemStore(t)
+	rv.updateWithLockFn = func(kv.Versionable) error { return nil }
 	_, err := store.SetIfNotExists(testValueKey, &commonpb.BoolProto{})
 	require.NoError(t, err)
 
@@ -153,19 +161,19 @@ func TestValueWatchUpdatesError(t *testing.T) {
 
 	watchCh := make(chan struct{})
 	doneCh := make(chan struct{})
-	_, rv := testValueWithMockStore(ctrl)
+	rv := NewValue(testValueOptions()).(*value)
 	errUpdate := errors.New("error updating")
-	rv.updateWithLockFn = func(kv.Value) error {
+	rv.updateWithLockFn = func(kv.Versionable) error {
 		close(doneCh)
 		return errUpdate
 	}
-	watch := kv.NewMockValueWatch(ctrl)
-	watch.EXPECT().C().Return(watchCh).AnyTimes()
-	watch.EXPECT().Get().Return(nil)
-	watch.EXPECT().Close().Do(func() { close(watchCh) })
-	rv.watch = watch
+	mockWatch := kv.NewMockValueWatch(ctrl)
+	mockWatch.EXPECT().C().Return(watchCh).AnyTimes()
+	mockWatch.EXPECT().Close().Do(func() { close(watchCh) })
+	rv.updatable = mockWatch
+	rv.getFn = func(Updatable) (kv.Versionable, error) { return nil, nil }
 	rv.status = valueWatching
-	go rv.watchUpdates(watch)
+	go rv.watchUpdates(mockWatch)
 
 	watchCh <- struct{}{}
 	<-doneCh
@@ -177,17 +185,16 @@ func TestValueWatchValueUnwatched(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	_, rv := testValueWithMockStore(ctrl)
+	rv := NewValue(testValueOptions()).(*value)
 	var updated int32
-	rv.updateWithLockFn = func(kv.Value) error { atomic.AddInt32(&updated, 1); return nil }
+	rv.updateWithLockFn = func(kv.Versionable) error { atomic.AddInt32(&updated, 1); return nil }
 	ch := make(chan struct{})
-	watch := kv.NewMockValueWatch(ctrl)
-	watch.EXPECT().C().Return(ch).AnyTimes()
-	watch.EXPECT().Get().Return(nil).AnyTimes()
-	watch.EXPECT().Close().Do(func() { close(ch) }).AnyTimes()
-	rv.watch = watch
+	mockWatch := kv.NewMockValueWatch(ctrl)
+	mockWatch.EXPECT().C().Return(ch).AnyTimes()
+	mockWatch.EXPECT().Close().Do(func() { close(ch) }).AnyTimes()
+	rv.updatable = mockWatch
 	rv.status = valueNotWatching
-	go rv.watchUpdates(watch)
+	go rv.watchUpdates(mockWatch)
 
 	ch <- struct{}{}
 	// Given the update goroutine a chance to run.
@@ -200,17 +207,16 @@ func TestValueWatchValueDifferentWatch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	_, rv := testValueWithMockStore(ctrl)
+	rv := NewValue(testValueOptions()).(*value)
 	var updated int32
-	rv.updateWithLockFn = func(kv.Value) error { atomic.AddInt32(&updated, 1); return nil }
+	rv.updateWithLockFn = func(kv.Versionable) error { atomic.AddInt32(&updated, 1); return nil }
 	ch := make(chan struct{})
-	watch := kv.NewMockValueWatch(ctrl)
-	watch.EXPECT().C().Return(ch).AnyTimes()
-	watch.EXPECT().Get().Return(nil).AnyTimes()
-	watch.EXPECT().Close().Do(func() { close(ch) }).AnyTimes()
-	rv.watch = kv.NewMockValueWatch(ctrl)
+	mockWatch := kv.NewMockValueWatch(ctrl)
+	mockWatch.EXPECT().C().Return(ch).AnyTimes()
+	mockWatch.EXPECT().Close().Do(func() { close(ch) }).AnyTimes()
+	rv.updatable = kv.NewMockValueWatch(ctrl)
 	rv.status = valueWatching
-	go rv.watchUpdates(watch)
+	go rv.watchUpdates(mockWatch)
 
 	ch <- struct{}{}
 	// Given the update goroutine a chance to run.
@@ -223,7 +229,7 @@ func TestValueUpdateNilValueError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	_, rv := testValueWithMockStore(ctrl)
+	rv := NewValue(testValueOptions()).(*value)
 	require.Equal(t, errNilValue, rv.updateWithLockFn(nil))
 }
 
@@ -231,7 +237,7 @@ func TestValueUpdateStaleUpdate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	_, rv := testValueWithMockStore(ctrl)
+	rv := NewValue(testValueOptions()).(*value)
 	currValue := mem.NewValue(3, nil)
 	rv.currValue = currValue
 	newValue := mem.NewValue(3, nil)
@@ -239,29 +245,25 @@ func TestValueUpdateStaleUpdate(t *testing.T) {
 	require.Equal(t, currValue, rv.currValue)
 }
 
-func TestValueUpdateUnmarshalError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	_, rv := testValueWithMockStore(ctrl)
-	errUnmarshal := errors.New("error unmarshaling")
-	rv.unmarshalFn = func(v kv.Value) (interface{}, error) { return nil, errUnmarshal }
-
-	require.Error(t, rv.updateWithLockFn(mem.NewValue(3, nil)))
-	require.Nil(t, rv.currValue)
+func TestValueIsNewer(t *testing.T) {
+	rv := NewValue(testValueOptions()).(*value)
+	v := mem.NewValue(3, nil)
+	require.True(t, rv.isNewerUpdate(v))
+	rv.currValue = v
+	require.False(t, rv.isNewerUpdate(mem.NewValue(3, nil)))
+	require.False(t, rv.isNewerUpdate(mem.NewValue(2, nil)))
+	require.True(t, rv.isNewerUpdate(mem.NewValue(4, nil)))
 }
 
 func TestValueUpdateProcessError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	_, rv := testValueWithMockStore(ctrl)
+	rv := NewValue(testValueOptions()).(*value)
 	errProcess := errors.New("error processing")
-	rv.unmarshalFn = func(v kv.Value) (interface{}, error) { return nil, nil }
-	rv.processFn = func(v interface{}) error { return errProcess }
+	rv.processFn = func(kv.Versionable) error { return errProcess }
 
 	require.Error(t, rv.updateWithLockFn(mem.NewValue(3, nil)))
-	require.Nil(t, rv.currValue)
 }
 
 func TestValueUpdateSuccess(t *testing.T) {
@@ -269,10 +271,8 @@ func TestValueUpdateSuccess(t *testing.T) {
 	defer ctrl.Finish()
 
 	var outputs []kv.Value
-	_, rv := testValueWithMockStore(ctrl)
-	rv.currValue = mem.NewValue(2, nil)
-	rv.unmarshalFn = func(v kv.Value) (interface{}, error) { return v, nil }
-	rv.processFn = func(v interface{}) error {
+	rv := NewValue(testValueOptions()).(*value)
+	rv.processFn = func(v kv.Versionable) error {
 		outputs = append(outputs, v.(kv.Value))
 		return nil
 	}
@@ -280,26 +280,29 @@ func TestValueUpdateSuccess(t *testing.T) {
 	input := mem.NewValue(3, nil)
 	require.NoError(t, rv.updateWithLock(input))
 	require.Equal(t, []kv.Value{input}, outputs)
-	require.Equal(t, input, rv.currValue)
 }
 
-func testValueOptions(store kv.Store) Options {
+func testValueOptions() Options {
 	return NewOptions().
 		SetInstrumentOptions(instrument.NewOptions()).
 		SetInitWatchTimeout(100 * time.Millisecond).
-		SetKVStore(store).
-		SetUnmarshalFn(nil).
 		SetProcessFn(nil)
 }
 
-func testValueWithMockStore(ctrl *gomock.Controller) (*kv.MockStore, *value) {
-	store := kv.NewMockStore(ctrl)
-	opts := testValueOptions(store)
-	return store, NewValue(testValueKey, opts).(*value)
+func testValueWithMemStore(t *testing.T) (kv.Store, *value) {
+	store := mem.NewStore()
+	w, err := store.Watch(testValueKey)
+	require.NoError(t, err)
+	opts := testValueOptions().
+		SetNewUpdatableFn(testUpdatableFn(w)).
+		SetGetFn(func(value Updatable) (kv.Versionable, error) {
+			return value.(kv.ValueWatch).Get(), nil
+		})
+	return store, NewValue(opts).(*value)
 }
 
-func testValueWithMemStore() (kv.Store, *value) {
-	store := mem.NewStore()
-	opts := testValueOptions(store)
-	return store, NewValue(testValueKey, opts).(*value)
+func testUpdatableFn(n Updatable) NewUpdatableFn {
+	return func() (Updatable, error) {
+		return n, nil
+	}
 }

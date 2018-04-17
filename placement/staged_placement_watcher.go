@@ -28,6 +28,7 @@ import (
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/kv/util/runtime"
 	"github.com/m3db/m3x/clock"
+	"github.com/m3db/m3x/log"
 )
 
 var (
@@ -48,8 +49,10 @@ type stagedPlacementWatcher struct {
 	runtime.Value
 
 	nowFn         clock.NowFn
+	key           string
 	placementOpts ActiveStagedPlacementOptions
 	doneFn        DoneFn
+	logger        log.Logger
 
 	state     placementWatcherState
 	proto     *placementpb.PlacementSnapshots
@@ -59,19 +62,27 @@ type stagedPlacementWatcher struct {
 // NewStagedPlacementWatcher creates a new staged placement watcher.
 func NewStagedPlacementWatcher(opts StagedPlacementWatcherOptions) StagedPlacementWatcher {
 	watcher := &stagedPlacementWatcher{
+		key:           opts.StagedPlacementKey(),
+		logger:        opts.InstrumentOptions().Logger(),
 		nowFn:         opts.ClockOptions().NowFn(),
 		placementOpts: opts.ActiveStagedPlacementOptions(),
 		proto:         &placementpb.PlacementSnapshots{},
 	}
 	watcher.doneFn = watcher.onActiveStagedPlacementDone
 
+	updatableFn := func() (runtime.Updatable, error) {
+		return opts.StagedPlacementStore().Watch(watcher.key)
+	}
+	getFn := func(value runtime.Updatable) (kv.Versionable, error) {
+		return value.(kv.ValueWatch).Get(), nil
+	}
 	valueOpts := runtime.NewOptions().
 		SetInstrumentOptions(opts.InstrumentOptions()).
 		SetInitWatchTimeout(opts.InitWatchTimeout()).
-		SetKVStore(opts.StagedPlacementStore()).
-		SetUnmarshalFn(watcher.toStagedPlacement).
+		SetNewUpdatableFn(updatableFn).
+		SetGetFn(getFn).
 		SetProcessFn(watcher.process)
-	watcher.Value = runtime.NewValue(opts.StagedPlacementKey(), valueOpts)
+	watcher.Value = runtime.NewValue(valueOpts)
 	return watcher
 }
 
@@ -121,15 +132,9 @@ func (t *stagedPlacementWatcher) Unwatch() error {
 
 func (t *stagedPlacementWatcher) onActiveStagedPlacementDone() { t.RUnlock() }
 
-func (t *stagedPlacementWatcher) toStagedPlacement(value kv.Value) (interface{}, error) {
-	t.Lock()
-	defer t.Unlock()
-
+func (t *stagedPlacementWatcher) toStagedPlacementWithLock(value kv.Value) (StagedPlacement, error) {
 	if t.state != placementWatcherWatching {
 		return nil, errPlacementWatcherIsNotWatching
-	}
-	if value == nil {
-		return nil, errNilValue
 	}
 	t.proto.Reset()
 	if err := value.Unmarshal(t.proto); err != nil {
@@ -139,14 +144,23 @@ func (t *stagedPlacementWatcher) toStagedPlacement(value kv.Value) (interface{},
 	return NewStagedPlacementFromProto(version, t.proto, t.placementOpts)
 }
 
-func (t *stagedPlacementWatcher) process(value interface{}) error {
+func (t *stagedPlacementWatcher) process(update kv.Versionable) error {
 	t.Lock()
 	defer t.Unlock()
 
 	if t.state != placementWatcherWatching {
 		return errPlacementWatcherIsNotWatching
 	}
-	ps := value.(StagedPlacement)
+	if update == nil {
+		return errNilValue
+	}
+	value := update.(kv.Value)
+	t.logger.Infof("processing update from kv for key %s with version %d", t.key, value.Version())
+	ps, err := t.toStagedPlacementWithLock(value)
+	if err != nil {
+		t.logger.Errorf("could not convert kv update to staged placement: %v", err)
+		return err
+	}
 	placement := ps.ActiveStagedPlacement(t.nowFn().UnixNano())
 	if t.placement != nil {
 		t.placement.Close()

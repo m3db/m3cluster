@@ -23,7 +23,6 @@ package runtime
 import (
 	"time"
 
-	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3x/instrument"
 )
 
@@ -45,17 +44,17 @@ type Options interface {
 	// InitWatchTimeout returns the initial watch timeout.
 	InitWatchTimeout() time.Duration
 
-	// SetKVStore sets the kv store.
-	SetKVStore(value kv.Store) Options
+	// SetNewUpdatableFn sets the new updatable function.
+	SetNewUpdatableFn(value NewUpdatableFn) Options
 
-	// KVStore returns the kv store.
-	KVStore() kv.Store
+	// NewUpdatableFn returns the new updatable function.
+	NewUpdatableFn() NewUpdatableFn
 
-	// SetUnmarshalFn sets the unmarshal function.
-	SetUnmarshalFn(value UnmarshalFn) Options
+	// SetGetFn sets the get function.
+	SetGetFn(value GetFn) Options
 
-	// UnmarshalFn returns the unmarshal function.
-	UnmarshalFn() UnmarshalFn
+	// GetFn returns the get function.
+	GetFn() GetFn
 
 	// SetProcessFn sets the process function.
 	SetProcessFn(value ProcessFn) Options
@@ -67,8 +66,8 @@ type Options interface {
 type options struct {
 	instrumentOpts   instrument.Options
 	initWatchTimeout time.Duration
-	kvStore          kv.Store
-	unmarshalFn      UnmarshalFn
+	newUpdatableFn   NewUpdatableFn
+	getFn            GetFn
 	processFn        ProcessFn
 }
 
@@ -100,24 +99,24 @@ func (o *options) InitWatchTimeout() time.Duration {
 	return o.initWatchTimeout
 }
 
-func (o *options) SetKVStore(value kv.Store) Options {
+func (o *options) SetNewUpdatableFn(value NewUpdatableFn) Options {
 	opts := *o
-	opts.kvStore = value
+	opts.newUpdatableFn = value
 	return &opts
 }
 
-func (o *options) KVStore() kv.Store {
-	return o.kvStore
+func (o *options) NewUpdatableFn() NewUpdatableFn {
+	return o.newUpdatableFn
 }
 
-func (o *options) SetUnmarshalFn(value UnmarshalFn) Options {
+func (o *options) SetGetFn(value GetFn) Options {
 	opts := *o
-	opts.unmarshalFn = value
+	opts.getFn = value
 	return &opts
 }
 
-func (o *options) UnmarshalFn() UnmarshalFn {
-	return o.unmarshalFn
+func (o *options) GetFn() GetFn {
+	return o.getFn
 }
 
 func (o *options) SetProcessFn(value ProcessFn) Options {
