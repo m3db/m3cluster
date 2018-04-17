@@ -75,22 +75,24 @@ func NewValue(
 }
 
 func (v *value) initValue() {
-	updatableFn := func() (watch.Updatable, error) {
-		return v.store.Watch(v.key)
-	}
-	getUpdateFn := func(value watch.Updatable) (interface{}, error) {
-		return value.(kv.ValueWatch).Get(), nil
-	}
 	valueOpts := watch.NewOptions().
 		SetInstrumentOptions(v.opts.InstrumentOptions()).
 		SetInitWatchTimeout(v.opts.InitWatchTimeout()).
-		SetNewUpdatableFn(updatableFn).
-		SetGetUpdateFn(getUpdateFn).
+		SetNewUpdatableFn(v.newUpdatableFn).
+		SetGetUpdateFn(v.getUpdateFn).
 		SetProcessFn(v.updateWithLockFn)
 	v.Value = watch.NewValue(valueOpts)
 }
 
 func (v *value) Key() string { return v.key }
+
+func (v *value) newUpdatableFn() (watch.Updatable, error) {
+	return v.store.Watch(v.key)
+}
+
+func (v *value) getUpdateFn(updatable watch.Updatable) (interface{}, error) {
+	return updatable.(kv.ValueWatch).Get(), nil
+}
 
 func (v *value) updateWithLock(value interface{}) error {
 	update := value.(kv.Value)
@@ -101,8 +103,7 @@ func (v *value) updateWithLock(value interface{}) error {
 	v.log.Infof("received kv update with version %d for key %s", update.Version(), v.key)
 	latest, err := v.unmarshalFn(update)
 	if err != nil {
-		err = fmt.Errorf("error unmarshalling value for version %d: %v", update.Version(), err)
-		return err
+		return fmt.Errorf("error unmarshalling value for version %d: %v", update.Version(), err)
 	}
 	if err := v.processFn(latest); err != nil {
 		return err
