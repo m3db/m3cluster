@@ -100,7 +100,7 @@ func TestValueWatchUpdateError(t *testing.T) {
 		SetNewUpdatableFn(testUpdatableFn(mockWatch)).
 		SetGetFn(func(Updatable) (interface{}, error) { return nil, nil })
 	rv := NewValue(opts).(*value)
-	rv.processWithLockFn = func(interface{}) error { return errUpdate }
+	rv.updateWithLockFn = func(interface{}) error { return errUpdate }
 
 	require.Equal(t, InitValueError{innerError: errUpdate}, rv.Watch())
 	require.Equal(t, valueWatching, rv.status)
@@ -123,7 +123,7 @@ func TestValueWatchSuccess(t *testing.T) {
 		SetNewUpdatableFn(testUpdatableFn(mockWatch)).
 		SetGetFn(func(Updatable) (interface{}, error) { return nil, nil })
 	rv := NewValue(opts).(*value)
-	rv.processWithLockFn = func(interface{}) error { return nil }
+	rv.updateWithLockFn = func(interface{}) error { return nil }
 
 	require.NoError(t, rv.Watch())
 	require.Equal(t, valueWatching, rv.status)
@@ -144,7 +144,7 @@ func TestValueUnwatchNotWatching(t *testing.T) {
 
 func TestValueWatchUnWatchMultipleTimes(t *testing.T) {
 	store, rv := testValueWithMemStore(t)
-	rv.processWithLockFn = func(interface{}) error { return nil }
+	rv.updateWithLockFn = func(interface{}) error { return nil }
 	_, err := store.SetIfNotExists(testValueKey, &commonpb.BoolProto{})
 	require.NoError(t, err)
 
@@ -163,7 +163,7 @@ func TestValueWatchUpdatesError(t *testing.T) {
 	doneCh := make(chan struct{})
 	rv := NewValue(testValueOptions()).(*value)
 	errUpdate := errors.New("error updating")
-	rv.processWithLockFn = func(interface{}) error {
+	rv.updateWithLockFn = func(interface{}) error {
 		close(doneCh)
 		return errUpdate
 	}
@@ -187,7 +187,7 @@ func TestValueWatchValueUnwatched(t *testing.T) {
 
 	rv := NewValue(testValueOptions()).(*value)
 	var updated int32
-	rv.processWithLockFn = func(interface{}) error { atomic.AddInt32(&updated, 1); return nil }
+	rv.updateWithLockFn = func(interface{}) error { atomic.AddInt32(&updated, 1); return nil }
 	ch := make(chan struct{})
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(ch).AnyTimes()
@@ -209,7 +209,7 @@ func TestValueWatchValueDifferentWatch(t *testing.T) {
 
 	rv := NewValue(testValueOptions()).(*value)
 	var updated int32
-	rv.processWithLockFn = func(interface{}) error { atomic.AddInt32(&updated, 1); return nil }
+	rv.updateWithLockFn = func(interface{}) error { atomic.AddInt32(&updated, 1); return nil }
 	ch := make(chan struct{})
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(ch).AnyTimes()
@@ -230,7 +230,7 @@ func TestValueUpdateNilValueError(t *testing.T) {
 	defer ctrl.Finish()
 
 	rv := NewValue(testValueOptions()).(*value)
-	require.Equal(t, errNilValue, rv.processWithLockFn(nil))
+	require.Equal(t, errNilValue, rv.updateWithLockFn(nil))
 }
 
 func TestValueUpdateStaleUpdate(t *testing.T) {
@@ -241,7 +241,7 @@ func TestValueUpdateStaleUpdate(t *testing.T) {
 	currValue := mem.NewValue(3, nil)
 	rv.currValue = currValue
 	newValue := mem.NewValue(3, nil)
-	require.NoError(t, rv.processWithLockFn(newValue))
+	require.NoError(t, rv.updateWithLockFn(newValue))
 	require.Equal(t, currValue, rv.currValue)
 }
 
@@ -267,7 +267,7 @@ func TestValueUpdateProcessError(t *testing.T) {
 	errProcess := errors.New("error processing")
 	rv.processFn = func(interface{}) error { return errProcess }
 
-	require.Error(t, rv.processWithLockFn(mem.NewValue(3, nil)))
+	require.Error(t, rv.updateWithLockFn(mem.NewValue(3, nil)))
 }
 
 func TestValueUpdateSuccess(t *testing.T) {
@@ -282,7 +282,7 @@ func TestValueUpdateSuccess(t *testing.T) {
 	}
 
 	input := mem.NewValue(3, nil)
-	require.NoError(t, rv.processWithLock(input))
+	require.NoError(t, rv.updateWithLock(input))
 	require.Equal(t, []kv.Value{input}, outputs)
 }
 

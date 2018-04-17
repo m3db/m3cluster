@@ -158,7 +158,7 @@ func (t *stagedPlacementWatcher) process(update interface{}) error {
 	t.logger.Infof("processing update from kv for key %s with version %d", t.key, value.Version())
 	ps, err := t.toStagedPlacementWithLock(value)
 	if err != nil {
-		t.logger.Errorf("could not convert kv update to staged placement, %v", err)
+		t.logger.Errorf("could not convert kv update to staged placement: %v", err)
 		return err
 	}
 	placement := ps.ActiveStagedPlacement(t.nowFn().UnixNano())

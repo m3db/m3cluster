@@ -64,8 +64,8 @@ type GetFn func(updatable Updatable) (interface{}, error)
 // If the value is versionable, then only newer value will be processed.
 type ProcessFn func(value interface{}) error
 
-// processWithLockFn updates a value while holding a lock.
-type processWithLockFn func(value interface{}) error
+// updateWithLockFn updates a value while holding a lock.
+type updateWithLockFn func(value interface{}) error
 
 type valueStatus int
 
@@ -77,12 +77,12 @@ const (
 type value struct {
 	sync.RWMutex
 
-	opts              Options
-	log               log.Logger
-	newUpdatableFn    NewUpdatableFn
-	getFn             GetFn
-	processFn         ProcessFn
-	processWithLockFn processWithLockFn
+	opts             Options
+	log              log.Logger
+	newUpdatableFn   NewUpdatableFn
+	getFn            GetFn
+	processFn        ProcessFn
+	updateWithLockFn updateWithLockFn
 
 	updatable Updatable
 	status    valueStatus
@@ -100,7 +100,7 @@ func NewValue(
 		getFn:          opts.GetFn(),
 		processFn:      opts.ProcessFn(),
 	}
-	v.processWithLockFn = v.processWithLock
+	v.updateWithLockFn = v.updateWithLock
 	return v
 }
 
@@ -134,7 +134,7 @@ func (v *value) Watch() error {
 		return InitValueError{innerError: err}
 	}
 
-	if err = v.processWithLockFn(update); err != nil {
+	if err = v.updateWithLockFn(update); err != nil {
 		return InitValueError{innerError: err}
 	}
 	return nil
@@ -169,14 +169,14 @@ func (v *value) watchUpdates(updatable Updatable) {
 			v.Unlock()
 			continue
 		}
-		if err = v.processWithLockFn(update); err != nil {
+		if err = v.updateWithLockFn(update); err != nil {
 			v.log.Errorf("error updating value: %v", err)
 		}
 		v.Unlock()
 	}
 }
 
-func (v *value) processWithLock(update interface{}) error {
+func (v *value) updateWithLock(update interface{}) error {
 	if update == nil {
 		return errNilValue
 	}
