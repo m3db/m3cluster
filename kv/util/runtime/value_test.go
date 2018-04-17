@@ -98,9 +98,9 @@ func TestValueWatchUpdateError(t *testing.T) {
 
 	opts := testValueOptions().
 		SetNewUpdatableFn(testUpdatableFn(mockWatch)).
-		SetGetFn(func(Updatable) (interface{}, error) { return nil, nil })
+		SetGetFn(func(Updatable) (kv.Versionable, error) { return nil, nil })
 	rv := NewValue(opts).(*value)
-	rv.updateWithLockFn = func(interface{}) error { return errUpdate }
+	rv.updateWithLockFn = func(kv.Versionable) error { return errUpdate }
 
 	require.Equal(t, InitValueError{innerError: errUpdate}, rv.Watch())
 	require.Equal(t, valueWatching, rv.status)
@@ -121,9 +121,9 @@ func TestValueWatchSuccess(t *testing.T) {
 
 	opts := testValueOptions().
 		SetNewUpdatableFn(testUpdatableFn(mockWatch)).
-		SetGetFn(func(Updatable) (interface{}, error) { return nil, nil })
+		SetGetFn(func(Updatable) (kv.Versionable, error) { return nil, nil })
 	rv := NewValue(opts).(*value)
-	rv.updateWithLockFn = func(interface{}) error { return nil }
+	rv.updateWithLockFn = func(kv.Versionable) error { return nil }
 
 	require.NoError(t, rv.Watch())
 	require.Equal(t, valueWatching, rv.status)
@@ -144,7 +144,7 @@ func TestValueUnwatchNotWatching(t *testing.T) {
 
 func TestValueWatchUnWatchMultipleTimes(t *testing.T) {
 	store, rv := testValueWithMemStore(t)
-	rv.updateWithLockFn = func(interface{}) error { return nil }
+	rv.updateWithLockFn = func(kv.Versionable) error { return nil }
 	_, err := store.SetIfNotExists(testValueKey, &commonpb.BoolProto{})
 	require.NoError(t, err)
 
@@ -163,7 +163,7 @@ func TestValueWatchUpdatesError(t *testing.T) {
 	doneCh := make(chan struct{})
 	rv := NewValue(testValueOptions()).(*value)
 	errUpdate := errors.New("error updating")
-	rv.updateWithLockFn = func(interface{}) error {
+	rv.updateWithLockFn = func(kv.Versionable) error {
 		close(doneCh)
 		return errUpdate
 	}
@@ -171,7 +171,7 @@ func TestValueWatchUpdatesError(t *testing.T) {
 	mockWatch.EXPECT().C().Return(watchCh).AnyTimes()
 	mockWatch.EXPECT().Close().Do(func() { close(watchCh) })
 	rv.updatable = mockWatch
-	rv.getFn = func(Updatable) (interface{}, error) { return nil, nil }
+	rv.getFn = func(Updatable) (kv.Versionable, error) { return nil, nil }
 	rv.status = valueWatching
 	go rv.watchUpdates(mockWatch)
 
@@ -187,7 +187,7 @@ func TestValueWatchValueUnwatched(t *testing.T) {
 
 	rv := NewValue(testValueOptions()).(*value)
 	var updated int32
-	rv.updateWithLockFn = func(interface{}) error { atomic.AddInt32(&updated, 1); return nil }
+	rv.updateWithLockFn = func(kv.Versionable) error { atomic.AddInt32(&updated, 1); return nil }
 	ch := make(chan struct{})
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(ch).AnyTimes()
@@ -209,7 +209,7 @@ func TestValueWatchValueDifferentWatch(t *testing.T) {
 
 	rv := NewValue(testValueOptions()).(*value)
 	var updated int32
-	rv.updateWithLockFn = func(interface{}) error { atomic.AddInt32(&updated, 1); return nil }
+	rv.updateWithLockFn = func(kv.Versionable) error { atomic.AddInt32(&updated, 1); return nil }
 	ch := make(chan struct{})
 	mockWatch := kv.NewMockValueWatch(ctrl)
 	mockWatch.EXPECT().C().Return(ch).AnyTimes()
@@ -247,13 +247,9 @@ func TestValueUpdateStaleUpdate(t *testing.T) {
 
 func TestValueIsNewer(t *testing.T) {
 	rv := NewValue(testValueOptions()).(*value)
-	require.True(t, rv.isNewerUpdate(2))
-	rv.currValue = 2
-	require.True(t, rv.isNewerUpdate(1))
 	v := mem.NewValue(3, nil)
 	require.True(t, rv.isNewerUpdate(v))
 	rv.currValue = v
-	require.False(t, rv.isNewerUpdate(100))
 	require.False(t, rv.isNewerUpdate(mem.NewValue(3, nil)))
 	require.False(t, rv.isNewerUpdate(mem.NewValue(2, nil)))
 	require.True(t, rv.isNewerUpdate(mem.NewValue(4, nil)))
@@ -265,7 +261,7 @@ func TestValueUpdateProcessError(t *testing.T) {
 
 	rv := NewValue(testValueOptions()).(*value)
 	errProcess := errors.New("error processing")
-	rv.processFn = func(interface{}) error { return errProcess }
+	rv.processFn = func(kv.Versionable) error { return errProcess }
 
 	require.Error(t, rv.updateWithLockFn(mem.NewValue(3, nil)))
 }
@@ -276,7 +272,7 @@ func TestValueUpdateSuccess(t *testing.T) {
 
 	var outputs []kv.Value
 	rv := NewValue(testValueOptions()).(*value)
-	rv.processFn = func(v interface{}) error {
+	rv.processFn = func(v kv.Versionable) error {
 		outputs = append(outputs, v.(kv.Value))
 		return nil
 	}
@@ -299,7 +295,7 @@ func testValueWithMemStore(t *testing.T) (kv.Store, *value) {
 	require.NoError(t, err)
 	opts := testValueOptions().
 		SetNewUpdatableFn(testUpdatableFn(w)).
-		SetGetFn(func(value Updatable) (interface{}, error) {
+		SetGetFn(func(value Updatable) (kv.Versionable, error) {
 			return value.(kv.ValueWatch).Get(), nil
 		})
 	return store, NewValue(opts).(*value)

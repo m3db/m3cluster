@@ -58,14 +58,14 @@ type Updatable interface {
 type NewUpdatableFn func() (Updatable, error)
 
 // GetFn returns the latest value.
-type GetFn func(updatable Updatable) (interface{}, error)
+type GetFn func(updatable Updatable) (kv.Versionable, error)
 
 // ProcessFn processes a value.
 // If the value is versionable, then only newer value will be processed.
-type ProcessFn func(value interface{}) error
+type ProcessFn func(value kv.Versionable) error
 
 // updateWithLockFn updates a value while holding a lock.
-type updateWithLockFn func(value interface{}) error
+type updateWithLockFn func(value kv.Versionable) error
 
 type valueStatus int
 
@@ -86,7 +86,7 @@ type value struct {
 
 	updatable Updatable
 	status    valueStatus
-	currValue interface{}
+	currValue kv.Versionable
 }
 
 // NewValue creates a new value.
@@ -176,7 +176,7 @@ func (v *value) watchUpdates(updatable Updatable) {
 	}
 }
 
-func (v *value) updateWithLock(update interface{}) error {
+func (v *value) updateWithLock(update kv.Versionable) error {
 	if update == nil {
 		return errNilValue
 	}
@@ -190,30 +190,17 @@ func (v *value) updateWithLock(update interface{}) error {
 	return nil
 }
 
-func (v *value) isNewerUpdate(update interface{}) bool {
+func (v *value) isNewerUpdate(update kv.Versionable) bool {
 	if v.currValue == nil {
 		return true
 	}
-	versionedCurrValue, ok := v.currValue.(kv.Versionable)
-	if !ok {
+	if update.IsNewer(v.currValue) {
 		return true
 	}
-	versionedUpdate, ok := update.(kv.Versionable)
-	if !ok {
-		// Current value is already versioned but the update is not versionable.
-		v.log.Warnf(
-			"ignore update without version which is not newer than the version of the current value: %d",
-			versionedCurrValue.Version(),
-		)
-		return false
-	}
-	if versionedUpdate.IsNewer(versionedCurrValue) {
-		v.log.Warnf(
-			"ignore update with version %d which is not newer than the version of the current value: %d",
-			versionedUpdate.Version(), versionedCurrValue.Version(),
-		)
-		return true
-	}
+	v.log.Warnf(
+		"ignore update with version %d which is not newer than the version of the current value: %d",
+		update.Version(), v.currValue.Version(),
+	)
 	return false
 }
 
