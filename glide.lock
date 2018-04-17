@@ -1,5 +1,5 @@
-hash: 5609fd8147c2846fab461341e5a12b39e850e17cc7e6f9258e0af5c00f236b5a
-updated: 2018-04-17T14:03:47.076294-04:00
+hash: 5fa7233335cd9b7984b89f3370216f6364a726370a6d61cd02a69df68b0d1e03
+updated: 2018-04-17T15:44:39.573853-04:00
 imports:
 - name: github.com/apache/thrift
   version: 9549b25c77587b29be4e0b5c258221a4ed85d37a
@@ -148,7 +148,7 @@ imports:
 - name: github.com/jonboulle/clockwork
   version: 2eee05ed794112d45db504eb05aa693efd2b8b09
 - name: github.com/m3db/m3x
-  version: 420f73cea72d46beb3337e1a45aacd0bf56dfbf8
+  version: a35dcd8fbd6f764e0579f6e1fad598e4fbffcb13
   subpackages:
   - clock
   - close

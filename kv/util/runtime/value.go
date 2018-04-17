@@ -45,13 +45,13 @@ type ProcessFn func(value interface{}) error
 type value struct {
 	watch.Value
 
-	key              string
-	store            kv.Store
-	opts             Options
-	log              log.Logger
-	unmarshalFn      UnmarshalFn
-	processFn        ProcessFn
-	updateWithLockFn watch.ProcessFn
+	key         string
+	store       kv.Store
+	opts        Options
+	log         log.Logger
+	unmarshalFn UnmarshalFn
+	processFn   ProcessFn
+	updateFn    watch.ProcessFn
 
 	currValue kv.Value
 }
@@ -69,7 +69,7 @@ func NewValue(
 		unmarshalFn: opts.UnmarshalFn(),
 		processFn:   opts.ProcessFn(),
 	}
-	v.updateWithLockFn = v.updateWithLock
+	v.updateFn = v.update
 	v.initValue()
 	return v
 }
@@ -80,7 +80,7 @@ func (v *value) initValue() {
 		SetInitWatchTimeout(v.opts.InitWatchTimeout()).
 		SetNewUpdatableFn(v.newUpdatableFn).
 		SetGetUpdateFn(v.getUpdateFn).
-		SetProcessFn(v.updateWithLockFn)
+		SetProcessFn(v.updateFn)
 	v.Value = watch.NewValue(valueOpts)
 }
 
@@ -94,7 +94,7 @@ func (v *value) getUpdateFn(updatable watch.Updatable) (interface{}, error) {
 	return updatable.(kv.ValueWatch).Get(), nil
 }
 
-func (v *value) updateWithLock(value interface{}) error {
+func (v *value) update(value interface{}) error {
 	update := value.(kv.Value)
 	if v.currValue != nil && !update.IsNewer(v.currValue) {
 		v.log.Warnf("ignore kv update with version %d which is not newer than the version of the current value: %d", update.Version(), v.currValue.Version())

@@ -118,7 +118,7 @@ func TestValueWatchUpdateError(t *testing.T) {
 
 	store, rv := testValueWithMockStore(ctrl)
 	errUpdate := errors.New("error updating")
-	rv.updateWithLockFn = func(interface{}) error {
+	rv.updateFn = func(interface{}) error {
 		return errUpdate
 	}
 	rv.initValue()
@@ -146,7 +146,7 @@ func TestValueWatchSuccess(t *testing.T) {
 	defer ctrl.Finish()
 
 	store, rv := testValueWithMockStore(ctrl)
-	rv.updateWithLockFn = func(interface{}) error { return nil }
+	rv.updateFn = func(interface{}) error { return nil }
 	rv.initValue()
 	notifyCh := make(chan struct{}, 1)
 	notifyCh <- struct{}{}
@@ -165,7 +165,7 @@ func TestValueWatchUnWatchMultipleTimes(t *testing.T) {
 	defer leaktest.Check(t)()
 
 	store, rv := testValueWithMemStore()
-	rv.updateWithLockFn = func(interface{}) error { return nil }
+	rv.updateFn = func(interface{}) error { return nil }
 	rv.initValue()
 	_, err := store.SetIfNotExists(testValueKey, &commonpb.BoolProto{})
 	require.NoError(t, err)
@@ -187,7 +187,7 @@ func TestValueUpdateStaleUpdate(t *testing.T) {
 	currValue := mem.NewValue(3, nil)
 	rv.currValue = currValue
 	newValue := mem.NewValue(3, nil)
-	require.NoError(t, rv.updateWithLockFn(newValue))
+	require.NoError(t, rv.updateFn(newValue))
 	require.Equal(t, currValue, rv.currValue)
 }
 
@@ -201,7 +201,7 @@ func TestValueUpdateUnmarshalError(t *testing.T) {
 	errUnmarshal := errors.New("error unmarshaling")
 	rv.unmarshalFn = func(v kv.Value) (interface{}, error) { return nil, errUnmarshal }
 
-	require.Error(t, rv.updateWithLockFn(mem.NewValue(3, nil)))
+	require.Error(t, rv.updateFn(mem.NewValue(3, nil)))
 	require.Nil(t, rv.currValue)
 }
 
@@ -216,7 +216,7 @@ func TestValueUpdateProcessError(t *testing.T) {
 	rv.unmarshalFn = func(v kv.Value) (interface{}, error) { return nil, nil }
 	rv.processFn = func(v interface{}) error { return errProcess }
 
-	require.Error(t, rv.updateWithLockFn(mem.NewValue(3, nil)))
+	require.Error(t, rv.updateFn(mem.NewValue(3, nil)))
 	require.Nil(t, rv.currValue)
 }
 
@@ -236,7 +236,7 @@ func TestValueUpdateSuccess(t *testing.T) {
 	}
 
 	input := mem.NewValue(3, nil)
-	require.NoError(t, rv.updateWithLock(input))
+	require.NoError(t, rv.update(input))
 	require.Equal(t, []kv.Value{input}, outputs)
 	require.Equal(t, input, rv.currValue)
 }
