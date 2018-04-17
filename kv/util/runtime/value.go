@@ -45,15 +45,15 @@ type ProcessFn func(value interface{}) error
 type value struct {
 	watch.Value
 
-	key         string
-	store       kv.Store
-	opts        Options
-	log         log.Logger
-	unmarshalFn UnmarshalFn
-	processFn   ProcessFn
-
-	currValue        kv.Value
+	key              string
+	store            kv.Store
+	opts             Options
+	log              log.Logger
+	unmarshalFn      UnmarshalFn
+	processFn        ProcessFn
 	updateWithLockFn watch.ProcessFn
+
+	currValue kv.Value
 }
 
 // NewValue creates a new value.
