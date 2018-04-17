@@ -73,7 +73,7 @@ func NewStagedPlacementWatcher(opts StagedPlacementWatcherOptions) StagedPlaceme
 	updatableFn := func() (runtime.Updatable, error) {
 		return opts.StagedPlacementStore().Watch(watcher.key)
 	}
-	getFn := func(value runtime.Updatable) (interface{}, error) {
+	getFn := func(value runtime.Updatable) (kv.Versionable, error) {
 		return value.(kv.ValueWatch).Get(), nil
 	}
 	valueOpts := runtime.NewOptions().
@@ -144,7 +144,7 @@ func (t *stagedPlacementWatcher) toStagedPlacementWithLock(value kv.Value) (Stag
 	return NewStagedPlacementFromProto(version, t.proto, t.placementOpts)
 }
 
-func (t *stagedPlacementWatcher) process(update interface{}) error {
+func (t *stagedPlacementWatcher) process(update kv.Versionable) error {
 	t.Lock()
 	defer t.Unlock()
 
