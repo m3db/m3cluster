@@ -1,13 +1,13 @@
 package: github.com/m3db/m3cluster
 import:
 - package: github.com/m3db/m3x
-  version: a35dcd8fbd6f764e0579f6e1fad598e4fbffcb13
+  version: 29bc232d9ad2e6c4a1804ccce095bb730fb1c6bc
 
 - package: google.golang.org/grpc
   version: 1.7.3
 
 - package: github.com/coreos/etcd
-  version: 3.2.10
+  version: 3.2.10 
   subpackages:
   - clientv3
   - integration
@@ -38,18 +38,6 @@ import:
 
 - package: go.uber.org/atomic
   version: ^1
-
-- package: github.com/shirou/gopsutil
-  version: ^2.0.0
-
-- package: github.com/go-ole/go-ole
-  version: de8695c8edbf8236f30d6e1376e20b198a028d42
-
-- package: github.com/shirou/w32
-  version: bb4de0191aa41b5507caa14b0650cdbddcd9280b
-
-- package: github.com/StackExchange/wmi
-  version: ^1.0.0
 
 - package: golang.org/x/crypto
   version: 1351f936d976c60a0a48d728281922cf63eafb8d
