@@ -1094,7 +1094,7 @@ func TestIncompatibleWithShardedAlgo(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, errIncompatibleWithShardedAlgo, err)
 
-	_, err = a.MarkShardAvailable(p, "i2", 0)
+	_, err = a.MarkShardsAvailable(p, "i2", 0)
 	assert.Error(t, err)
 	assert.Equal(t, errIncompatibleWithShardedAlgo, err)
 }
@@ -1124,19 +1124,19 @@ func TestMarkShardAsAvailableWithShardedAlgo(t *testing.T) {
 	a := newShardedAlgorithm(placement.NewOptions().
 		SetIsShardCutoverFn(genShardCutoverFn(tenMinutesInThePast)).
 		SetIsShardCutoffFn(genShardCutoffFn(tenMinutesInThePast, time.Hour)))
-	_, err := a.MarkShardAvailable(p, "i2", 0)
+	_, err := a.MarkShardsAvailable(p, "i2", 0)
 	assert.Error(t, err)
 
 	a = newShardedAlgorithm(placement.NewOptions().
 		SetIsShardCutoverFn(genShardCutoverFn(tenMinutesInTheFuture)).
 		SetIsShardCutoffFn(genShardCutoffFn(tenMinutesInTheFuture, time.Hour)))
-	_, err = a.MarkShardAvailable(p, "i2", 0)
+	_, err = a.MarkShardsAvailable(p, "i2", 0)
 	assert.Error(t, err)
 
 	a = newShardedAlgorithm(placement.NewOptions().
 		SetIsShardCutoverFn(genShardCutoverFn(oneHourInTheFuture)).
 		SetIsShardCutoffFn(genShardCutoffFn(oneHourInTheFuture, time.Hour)))
-	p, err = a.MarkShardAvailable(p, "i2", 0)
+	p, err = a.MarkShardsAvailable(p, "i2", 0)
 	assert.NoError(t, err)
 	assert.NoError(t, placement.Validate(p))
 }
