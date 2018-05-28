@@ -463,10 +463,10 @@ func TestMarkShardSuccess(t *testing.T) {
 		SetReplicaFactor(2)
 
 	opts := placement.NewOptions()
-	_, err := markShardsAvailable(p, "i1", 1, opts)
+	_, err := markShardsAvailable(p, "i1", []uint32{1}, opts)
 	assert.NoError(t, err)
 
-	_, err = markShardsAvailable(p, "i1", 2, opts)
+	_, err = markShardsAvailable(p, "i1", []uint32{2}, opts)
 	assert.NoError(t, err)
 }
 
@@ -488,27 +488,27 @@ func TestMarkShardFailure(t *testing.T) {
 	opts := placement.NewOptions().
 		SetIsShardCutoverFn(genShardCutoverFn(time.Now())).
 		SetIsShardCutoffFn(genShardCutoffFn(time.Now(), time.Minute))
-	_, err := markShardsAvailable(p, "i3", 1, opts)
+	_, err := markShardsAvailable(p, "i3", []uint32{1}, opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist in placement")
 
-	_, err = markShardsAvailable(p, "i1", 3, opts)
+	_, err = markShardsAvailable(p, "i1", []uint32{3}, opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist in instance")
 
-	_, err = markShardsAvailable(p, "i1", 1, opts)
+	_, err = markShardsAvailable(p, "i1", []uint32{1}, opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not in Initializing state")
 
-	_, err = markShardsAvailable(p, "i2", 1, opts)
+	_, err = markShardsAvailable(p, "i2", []uint32{1}, opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist in placement")
 
-	_, err = markShardsAvailable(p, "i2", 3, opts)
+	_, err = markShardsAvailable(p, "i2", []uint32{3}, opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist in source instance")
 
-	_, err = markShardsAvailable(p, "i2", 2, opts)
+	_, err = markShardsAvailable(p, "i2", []uint32{2}, opts)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not leaving instance")
 }
@@ -532,11 +532,11 @@ func TestMarkShardAsAvailableWithoutValidation(t *testing.T) {
 		SetIsMirrored(true)
 
 	opts := placement.NewOptions()
-	_, err := markShardsAvailable(p.Clone(), "i2", 0, opts)
+	_, err := markShardsAvailable(p.Clone(), "i2", []uint32{0}, opts)
 	assert.NoError(t, err)
 
 	opts = placement.NewOptions().SetIsShardCutoverFn(nil).SetIsShardCutoffFn(nil)
-	_, err = markShardsAvailable(p.Clone(), "i2", 0, opts)
+	_, err = markShardsAvailable(p.Clone(), "i2", []uint32{0}, opts)
 	assert.NoError(t, err)
 }
 
@@ -565,19 +565,19 @@ func TestMarkShardAsAvailableWithValidation(t *testing.T) {
 	opts := placement.NewOptions().
 		SetIsShardCutoverFn(genShardCutoverFn(tenMinutesInThePast)).
 		SetIsShardCutoffFn(genShardCutoffFn(tenMinutesInThePast, time.Hour))
-	_, err := markShardsAvailable(p.Clone(), "i2", 0, opts)
+	_, err := markShardsAvailable(p.Clone(), "i2", []uint32{0}, opts)
 	assert.Error(t, err)
 
 	opts = placement.NewOptions().
 		SetIsShardCutoverFn(genShardCutoverFn(tenMinutesInTheFuture)).
 		SetIsShardCutoffFn(genShardCutoffFn(tenMinutesInTheFuture, time.Hour))
-	_, err = markShardsAvailable(p.Clone(), "i2", 0, opts)
+	_, err = markShardsAvailable(p.Clone(), "i2", []uint32{0}, opts)
 	assert.Error(t, err)
 
 	opts = placement.NewOptions().
 		SetIsShardCutoverFn(genShardCutoverFn(oneHourInTheFuture)).
 		SetIsShardCutoffFn(genShardCutoffFn(oneHourInTheFuture, time.Hour))
-	p, err = markShardsAvailable(p.Clone(), "i2", 0, opts)
+	p, err = markShardsAvailable(p.Clone(), "i2", []uint32{0}, opts)
 	assert.NoError(t, err)
 	assert.NoError(t, placement.Validate(p))
 }
