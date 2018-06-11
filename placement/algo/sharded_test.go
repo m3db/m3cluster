@@ -1141,6 +1141,44 @@ func TestMarkShardAsAvailableWithShardedAlgo(t *testing.T) {
 	assert.NoError(t, placement.Validate(p))
 }
 
+func TestMarkShardAsAvailableBulkWithShardedAlgo(t *testing.T) {
+	var (
+		cutoverTime        = time.Now()
+		cutoverTimeNanos   = cutoverTime.UnixNano()
+		maxTimeWindow      = time.Hour
+		oneHourInTheFuture = cutoverTime.Add(maxTimeWindow)
+	)
+	i1 := placement.NewEmptyInstance("i1", "", "", "e1", 1)
+	i1.Shards().Add(shard.NewShard(0).SetState(shard.Leaving).SetCutoffNanos(cutoverTimeNanos))
+	i1.Shards().Add(shard.NewShard(1).SetState(shard.Leaving).SetCutoffNanos(cutoverTimeNanos))
+
+	i2 := placement.NewEmptyInstance("i2", "", "", "e2", 1)
+	i2.Shards().Add(shard.NewShard(0).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(cutoverTimeNanos))
+	i2.Shards().Add(shard.NewShard(1).SetState(shard.Initializing).SetSourceID("i1").SetCutoverNanos(cutoverTimeNanos))
+
+	p := placement.NewPlacement().
+		SetInstances([]placement.Instance{i1, i2}).
+		SetShards([]uint32{0, 1}).
+		SetReplicaFactor(1).
+		SetIsSharded(true).
+		SetIsMirrored(true)
+
+	a := newShardedAlgorithm(placement.NewOptions().
+		SetIsShardCutoverFn(genShardCutoverFn(oneHourInTheFuture)).
+		SetIsShardCutoffFn(genShardCutoffFn(oneHourInTheFuture, time.Hour)))
+	p, err := a.MarkShardsAvailable(p, "i2", 0, 1)
+	assert.NoError(t, err)
+	assert.NoError(t, placement.Validate(p))
+
+	mi2, ok := p.Instance("i2")
+	assert.True(t, ok)
+	shards := mi2.Shards().All()
+	assert.Len(t, shards, 2)
+	for _, s := range shards {
+		assert.Equal(t, shard.Available, s.State())
+	}
+}
+
 func TestGoodCaseWithSimpleShardStateType(t *testing.T) {
 	i1 := placement.NewEmptyInstance("i1", "r1", "z1", "endpoint", 1)
 	i2 := placement.NewEmptyInstance("i2", "r1", "z1", "endpoint", 1)

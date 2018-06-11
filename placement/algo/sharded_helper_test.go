@@ -29,6 +29,7 @@ import (
 	"github.com/m3db/m3cluster/shard"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMoveInitializingShard(t *testing.T) {
@@ -468,6 +469,34 @@ func TestMarkShardSuccess(t *testing.T) {
 
 	_, err = markShardsAvailable(p, "i1", []uint32{2}, opts)
 	assert.NoError(t, err)
+}
+
+func TestMarkShardSuccessBulk(t *testing.T) {
+	i1 := placement.NewEmptyInstance("i1", "", "", "endpoint", 1)
+	i1.Shards().Add(shard.NewShard(1).SetState(shard.Initializing))
+	i1.Shards().Add(shard.NewShard(2).SetState(shard.Initializing).SetSourceID("i2"))
+
+	i2 := placement.NewEmptyInstance("i2", "", "", "endpoint", 1)
+	i2.Shards().Add(shard.NewShard(1).SetState(shard.Initializing))
+	i2.Shards().Add(shard.NewShard(2).SetState(shard.Leaving))
+
+	p := placement.NewPlacement().
+		SetInstances([]placement.Instance{i1, i2}).
+		SetShards([]uint32{1, 2}).
+		SetReplicaFactor(2)
+
+	opts := placement.NewOptions()
+	modifiedPlacement, err := markShardsAvailable(p, "i1", []uint32{1, 2}, opts)
+	assert.NoError(t, err)
+
+	mi1, ok := modifiedPlacement.Instance("i1")
+	require.True(t, ok)
+
+	shards := mi1.Shards().All()
+	require.Len(t, shards, 2)
+	for _, s := range shards {
+		require.Equal(t, shard.Available, s.State())
+	}
 }
 
 func TestMarkShardFailure(t *testing.T) {
