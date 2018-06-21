@@ -64,15 +64,23 @@ func (cfg Configuration) NewOptions() Options {
 
 // ElectionConfiguration is for configuring election timeouts and TTLs
 type ElectionConfiguration struct {
-	LeaderTimeout time.Duration `yaml:"leaderTimeout"`
-	ResignTimeout time.Duration `yaml:"resignTimeout"`
-	TTLSeconds    int           `yaml:"TTLSeconds"`
+	LeaderTimeout *time.Duration `yaml:"leaderTimeout"`
+	ResignTimeout *time.Duration `yaml:"resignTimeout"`
+	TTLSeconds    *int           `yaml:"TTLSeconds"`
 }
 
 // NewOptions creates an ElectionOptions.
 func (cfg ElectionConfiguration) NewOptions() ElectionOptions {
-	return NewElectionOptions().
-		SetTTLSecs(cfg.TTLSeconds).
-		SetLeaderTimeout(cfg.LeaderTimeout).
-		SetResignTimeout(cfg.ResignTimeout)
+	opts := NewElectionOptions()
+	if cfg.LeaderTimeout != nil {
+		opts = opts.SetTTLSecs(*cfg.TTLSeconds)
+	}
+	if cfg.ResignTimeout != nil {
+		opts = opts.SetLeaderTimeout(*cfg.LeaderTimeout)
+	}
+	if cfg.ResignTimeout != nil {
+		opts = opts.SetResignTimeout(*cfg.ResignTimeout)
+	}
+
+	return opts
 }
