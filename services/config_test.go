@@ -85,7 +85,7 @@ TTLSeconds: 15
 func TestServiceID(t *testing.T) {
 	configStr := `
 name: sampleName
-env: sampleEnv
+environment: sampleEnvironment
 zone: sampleZone
 `
 
@@ -94,6 +94,6 @@ zone: sampleZone
 	require.NoError(t, err)
 	sID := cfg.NewServiceID()
 	require.Equal(t, "sampleName", sID.Name())
-	require.Equal(t, "sampleEnv", sID.Environment())
+	require.Equal(t, "sampleEnvironment", sID.Environment())
 	require.Equal(t, "sampleZone", sID.Zone())
 }
