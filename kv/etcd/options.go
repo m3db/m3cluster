@@ -30,12 +30,13 @@ import (
 )
 
 var (
-	defaultRequestTimeout         = 10 * time.Second
-	defaultWatchChanCheckInterval = 10 * time.Second
-	defaultWatchChanResetInterval = 10 * time.Second
-	defaultWatchChanInitTimeout   = 10 * time.Second
-	defaultRetryOptions           = retry.NewOptions().SetMaxRetries(5)
-	defaultCacheFileFn            = func(string) string { return "" }
+	defaultRequestTimeout          = 10 * time.Second
+	defaultWatchChanCheckInterval  = 10 * time.Second
+	defaultWatchChanResetInterval  = 10 * time.Second
+	defaultWatchChanInitTimeout    = 10 * time.Second
+	defaultWatchWithProgressNotify = false
+	defaultRetryOptions            = retry.NewOptions().SetMaxRetries(5)
+	defaultCacheFileFn             = func(string) string { return "" }
 )
 
 // CacheFileFn is a function to generate cache file path
@@ -69,6 +70,12 @@ type Options interface {
 	// SetWatchChanResetInterval sets the WatchChanResetInterval
 	SetWatchChanResetInterval(t time.Duration) Options
 
+	// WatchWithProgressNotify returns whether to enable WatchWithProgressNotify
+	// on etcd watchers.
+	WatchWithProgressNotify() bool
+	// SetWatchWithProgressNotify sets the WatchWithProgressNotify.
+	SetWatchWithProgressNotify(value bool) Options
+
 	// WatchChanInitTimeout is the timeout for a watchChan initialization
 	WatchChanInitTimeout() time.Duration
 	// SetWatchChanInitTimeout sets the WatchChanInitTimeout
@@ -91,14 +98,15 @@ type Options interface {
 }
 
 type options struct {
-	requestTimeout         time.Duration
-	prefix                 string
-	iopts                  instrument.Options
-	ropts                  retry.Options
-	watchChanCheckInterval time.Duration
-	watchChanResetInterval time.Duration
-	watchChanInitTimeout   time.Duration
-	cacheFileFn            CacheFileFn
+	requestTimeout          time.Duration
+	prefix                  string
+	iopts                   instrument.Options
+	ropts                   retry.Options
+	watchChanCheckInterval  time.Duration
+	watchChanResetInterval  time.Duration
+	watchChanInitTimeout    time.Duration
+	watchWithProgressNotify bool
+	cacheFileFn             CacheFileFn
 }
 
 // NewOptions creates a sane default Option
@@ -110,6 +118,7 @@ func NewOptions() Options {
 		SetWatchChanCheckInterval(defaultWatchChanCheckInterval).
 		SetWatchChanResetInterval(defaultWatchChanResetInterval).
 		SetWatchChanInitTimeout(defaultWatchChanInitTimeout).
+		SetWatchWithProgressNotify(defaultWatchWithProgressNotify).
 		SetCacheFileFn(defaultCacheFileFn)
 }
 
@@ -180,6 +189,15 @@ func (o options) WatchChanInitTimeout() time.Duration {
 
 func (o options) SetWatchChanInitTimeout(t time.Duration) Options {
 	o.watchChanInitTimeout = t
+	return o
+}
+
+func (o options) WatchWithProgressNotify() bool {
+	return o.watchWithProgressNotify
+}
+
+func (o options) SetWatchWithProgressNotify(value bool) Options {
+	o.watchWithProgressNotify = value
 	return o
 }
 
