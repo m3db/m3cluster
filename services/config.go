@@ -83,3 +83,18 @@ func (cfg ElectionConfiguration) NewOptions() ElectionOptions {
 	}
 	return opts
 }
+
+// ServiceIDConfiguration is for configuring service id for leader election
+type ServiceIDConfiguration struct {
+	Name string `yaml:"name"`
+	Env  string `yaml:"env"`
+	Zone string `yaml:"zone"`
+}
+
+// NewServiceID create a ServiceID.
+func (cfg ServiceIDConfiguration) NewServiceID() ServiceID {
+	return NewServiceID().
+		SetName(cfg.Name).
+		SetEnvironment(cfg.Env).
+		SetZone(cfg.Zone)
+}
