@@ -78,9 +78,8 @@ func (cfg ElectionConfiguration) NewOptions() ElectionOptions {
 	if cfg.ResignTimeout != nil {
 		opts = opts.SetLeaderTimeout(*cfg.LeaderTimeout)
 	}
-	if cfg.ResignTimeout != nil {
-		opts = opts.SetResignTimeout(*cfg.ResignTimeout)
+	if cfg.TTLSeconds != nil {
+		opts = opts.SetTTLSecs(*cfg.TTLSeconds)
 	}
-
 	return opts
 }
