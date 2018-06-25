@@ -33,6 +33,7 @@ import (
 	"github.com/m3db/m3cluster/generated/proto/kvtest"
 	"github.com/m3db/m3cluster/kv"
 	"github.com/m3db/m3cluster/mocks"
+
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 )
@@ -781,9 +782,9 @@ func TestTxn_UnknownType(t *testing.T) {
 	require.Equal(t, kv.ErrUnknownCompareType, err)
 }
 
-// Test that watching from 1) an old compacted start revision and 2) a start
-// revision in the future are both safe
-func TestStartRevision(t *testing.T) {
+// TestWatchWithStartRevision that watching from 1) an old compacted start
+// revision and 2) a start revision in the future are both safe
+func TestWatchWithStartRevision(t *testing.T) {
 	tests := map[string]int64{
 		"old_revision":    1,
 		"future_revision": 100000,
@@ -794,7 +795,7 @@ func TestStartRevision(t *testing.T) {
 			ec, opts, closeFn := testStore(t)
 			defer closeFn()
 
-			opts = opts.SetWatchStartRevision(rev)
+			opts = opts.SetWatchWithRevision(rev)
 
 			store, err := NewStore(ec, ec, opts)
 			require.NoError(t, err)

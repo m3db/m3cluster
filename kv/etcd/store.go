@@ -80,7 +80,7 @@ func NewStore(etcdKV clientv3.KV, etcdWatcher clientv3.Watcher, opts Options) (k
 		clientv3.WithCreatedNotify(),
 	}
 
-	if rev := opts.WatchStartRevision(); rev > 0 {
+	if rev := opts.WatchWithRevision(); rev > 0 {
 		clientWatchOpts = append(clientWatchOpts, clientv3.WithRev(rev))
 	}
 
