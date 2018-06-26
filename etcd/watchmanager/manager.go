@@ -100,15 +100,15 @@ func (w *manager) Watch(key string) {
 	ticker := time.Tick(w.opts.WatchChanCheckInterval()) //nolint: megacheck
 
 	var (
-		startRev  int64
-		watchChan clientv3.WatchChan
-		cancelFn  context.CancelFunc
-		err       error
+		revOverride int64
+		watchChan   clientv3.WatchChan
+		cancelFn    context.CancelFunc
+		err         error
 	)
 	for {
 		if watchChan == nil {
 			w.m.etcdWatchCreate.Inc(1)
-			watchChan, cancelFn, err = w.watchChanWithTimeout(key, startRev)
+			watchChan, cancelFn, err = w.watchChanWithTimeout(key, revOverride)
 			if err != nil {
 				w.logger.Errorf("could not create etcd watch: %v", err)
 
@@ -150,7 +150,7 @@ func (w *manager) Watch(key string) {
 				// nil so the watch is recreated with a valid start revision
 				if err == rpctypes.ErrCompacted {
 					w.logger.Warnf("recreating watch at revision %d", r.CompactRevision)
-					startRev = r.CompactRevision
+					revOverride = r.CompactRevision
 					watchChan = nil
 				}
 			}
