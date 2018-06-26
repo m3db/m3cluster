@@ -152,7 +152,6 @@ func (w *manager) Watch(key string) {
 					w.logger.Warnf("recreating watch at revision %d", r.CompactRevision)
 					startRev = r.CompactRevision
 					watchChan = nil
-					continue
 				}
 			}
 

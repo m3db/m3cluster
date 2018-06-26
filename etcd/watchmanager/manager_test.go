@@ -248,6 +248,8 @@ func TestWatchCompactedRevision(t *testing.T) {
 	go wh.Watch("foo")
 	time.Sleep(3 * wh.opts.WatchChanInitTimeout())
 
+	assert.Equal(t, int32(4), atomic.LoadInt32(updateCalled))
+
 	lastRead := atomic.LoadInt32(updateCalled)
 	ec.Put(context.Background(), "foo", "bar-11")
 
