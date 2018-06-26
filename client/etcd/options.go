@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"time"
 
 	"github.com/m3db/m3cluster/services"
@@ -41,8 +42,8 @@ const (
 
 	defaultRetryInitialBackoff = 2 * time.Second
 	defaultRetryBackoffFactor  = 2.0
-	defaultRetryMaxBackoff     = 4
 	defaultRetryMaxRetries     = 3
+	defaultRetryMaxBackoff     = time.Duration(math.MaxInt64)
 	defaultRetryJitter         = true
 )
 
