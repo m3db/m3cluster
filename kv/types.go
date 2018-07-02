@@ -115,14 +115,6 @@ type OverrideOptions interface {
 	// SetEnvironment sets the environment of the KV store.
 	SetEnvironment(env string) OverrideOptions
 
-	// WatchWithRevision sets the start revision for watches created on the KV
-	// store.
-	WatchWithRevision() int64
-
-	// SetWatchWithRevision sets the start revision for watches created on the
-	// KV store.
-	SetWatchWithRevision(rev int64) OverrideOptions
-
 	// Validate validates the Options.
 	Validate() error
 }

@@ -144,7 +144,7 @@ func (c *csclient) createServices(opts services.OverrideOptions) (services.Servi
 }
 
 func (c *csclient) createTxnStore(opts kv.OverrideOptions) (kv.TxnStore, error) {
-	// validate the override options because they are user supplied
+	// validate the override options because they are user supplied.
 	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func (c *csclient) createTxnStore(opts kv.OverrideOptions) (kv.TxnStore, error) 
 func (c *csclient) kvGen(fn cacheFileForZoneFn) services.KVGen {
 	return services.KVGen(func(zone string) (kv.Store, error) {
 		// we don't validate or sanitize the options here because we're using
-		// them as a container for zone
+		// them as a container for zone.
 		opts := kv.NewOverrideOptions().SetZone(zone)
 		return c.txnGen(opts, fn)
 	})
@@ -169,7 +169,7 @@ func (c *csclient) newkvOptions(
 			SetLogger(c.logger).
 			SetMetricsScope(c.kvScope)).
 		SetCacheFileFn(cacheFileFn(opts.Zone())).
-		SetWatchWithRevision(opts.WatchWithRevision())
+		SetWatchWithRevision(c.opts.WatchWithRevision())
 
 	if ns := opts.Namespace(); ns != "" {
 		kvOpts = kvOpts.SetPrefix(kvOpts.ApplyPrefix(ns))
@@ -352,10 +352,6 @@ func (c *csclient) sanitizeOptions(opts kv.OverrideOptions) (kv.OverrideOptions,
 
 	if opts.Environment() == "" {
 		opts = opts.SetEnvironment(c.opts.Env())
-	}
-
-	if opts.WatchWithRevision() == 0 {
-		opts = opts.SetWatchWithRevision(c.opts.WatchWithRevision())
 	}
 
 	namespace := opts.Namespace()

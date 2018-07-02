@@ -33,6 +33,5 @@ func (cfg OverrideConfiguration) NewOverrideOptions() (OverrideOptions, error) {
 	return NewOverrideOptions().
 		SetZone(cfg.Zone).
 		SetEnvironment(cfg.Environment).
-		SetNamespace(cfg.Namespace).
-		SetWatchWithRevision(cfg.WatchWithRevision), nil
+		SetNamespace(cfg.Namespace), nil
 }

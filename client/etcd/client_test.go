@@ -238,7 +238,7 @@ func TestCacheFileForZone(t *testing.T) {
 }
 
 func TestSanitizeKVOverrideOptions(t *testing.T) {
-	opts := testOptions().SetWatchWithRevision(1)
+	opts := testOptions()
 	cs, err := NewConfigServiceClient(opts)
 	require.NoError(t, err)
 
@@ -248,7 +248,6 @@ func TestSanitizeKVOverrideOptions(t *testing.T) {
 	require.Equal(t, opts.Env(), opts1.Environment())
 	require.Equal(t, opts.Zone(), opts1.Zone())
 	require.Equal(t, kvPrefix, opts1.Namespace())
-	require.Equal(t, int64(1), opts1.WatchWithRevision())
 }
 
 func TestReuseKVStore(t *testing.T) {

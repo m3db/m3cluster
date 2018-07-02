@@ -27,10 +27,9 @@ import (
 )
 
 var (
-	errEmptyZone                 = errors.New("empty kv zone")
-	errEmptyEnvironment          = errors.New("empty kv environment")
-	errEmptyNamespace            = errors.New("empty kv namespace")
-	errNegativeWatchWithRevision = errors.New("negative watch with revision")
+	errEmptyZone        = errors.New("empty kv zone")
+	errEmptyEnvironment = errors.New("empty kv environment")
+	errEmptyNamespace   = errors.New("empty kv namespace")
 )
 
 type valueWatch struct {
@@ -101,10 +100,9 @@ func valueFromWatch(value interface{}) Value {
 }
 
 type overrideOptions struct {
-	zone              string
-	env               string
-	namespace         string
-	watchWithRevision int64
+	zone      string
+	env       string
+	namespace string
 }
 
 // NewOverrideOptions creates a new kv Options.
@@ -139,15 +137,6 @@ func (opts overrideOptions) SetNamespace(namespace string) OverrideOptions {
 	return opts
 }
 
-func (opts overrideOptions) WatchWithRevision() int64 {
-	return opts.watchWithRevision
-}
-
-func (opts overrideOptions) SetWatchWithRevision(rev int64) OverrideOptions {
-	opts.watchWithRevision = rev
-	return opts
-}
-
 func (opts overrideOptions) Validate() error {
 	if opts.zone == "" {
 		return errEmptyZone
@@ -157,9 +146,6 @@ func (opts overrideOptions) Validate() error {
 	}
 	if opts.namespace == "" {
 		return errEmptyNamespace
-	}
-	if opts.watchWithRevision < 0 {
-		return errNegativeWatchWithRevision
 	}
 	return nil
 }
