@@ -153,7 +153,7 @@ func (c *csclient) createTxnStore(opts kv.OverrideOptions) (kv.TxnStore, error) 
 
 func (c *csclient) kvGen(fn cacheFileForZoneFn) services.KVGen {
 	return services.KVGen(func(zone string) (kv.Store, error) {
-		// we don't validate or sanitize the options here becuase we're using
+		// we don't validate or sanitize the options here because we're using
 		// them as a container for zone
 		opts := kv.NewOverrideOptions().SetZone(zone)
 		return c.txnGen(opts, fn)
@@ -355,6 +355,7 @@ func (c *csclient) sanitizeOptions(opts kv.OverrideOptions) (kv.OverrideOptions,
 	}
 
 	if opts.WatchWithRevision() == 0 {
+		opts = opts.SetWatchWithRevision(c.opts.WatchWithRevision())
 	}
 
 	namespace := opts.Namespace()

@@ -233,12 +233,12 @@ func TestCacheFileForZone(t *testing.T) {
 	kvOpts = cs.newkvOptions(newOverrideOpts("z1", "namespace", ""), cs.cacheFileFn("f1", "", "f2"))
 	require.Equal(t, "/cacheDir/namespace_test_app_z1_f1_f2.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 
-	kvOpts = cs.newkvOptions(newOverrideOpts("z1", "", ""), cs.cacheFileFn("/r2/m3agg"))
-	require.Equal(t, "/cacheDir/test_app_z1__r2_m3agg.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
+	kvOpts = cs.newkvOptions(newOverrideOpts("z2", "", ""), cs.cacheFileFn("/r2/m3agg"))
+	require.Equal(t, "/cacheDir/test_app_z2__r2_m3agg.json", kvOpts.CacheFileFn()(kvOpts.Prefix()))
 }
 
 func TestSanitizeKVOverrideOptions(t *testing.T) {
-	opts := testOptions()
+	opts := testOptions().SetWatchWithRevision(1)
 	cs, err := NewConfigServiceClient(opts)
 	require.NoError(t, err)
 
@@ -248,6 +248,7 @@ func TestSanitizeKVOverrideOptions(t *testing.T) {
 	require.Equal(t, opts.Env(), opts1.Environment())
 	require.Equal(t, opts.Zone(), opts1.Zone())
 	require.Equal(t, kvPrefix, opts1.Namespace())
+	require.Equal(t, int64(1), opts1.WatchWithRevision())
 }
 
 func TestReuseKVStore(t *testing.T) {
