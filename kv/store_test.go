@@ -40,7 +40,4 @@ func TestOptions(t *testing.T) {
 	opts = opts.SetZone("zone")
 	// Now valid, should not have to specify a null logger yourself
 	assert.NoError(t, opts.Validate())
-
-	opts = opts.SetWatchWithRevision(-1)
-	assert.Error(t, opts.Validate())
 }

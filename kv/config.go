@@ -22,10 +22,9 @@ package kv
 
 // OverrideConfiguration is the config for OverrideOptions.
 type OverrideConfiguration struct {
-	Zone              string `yaml:"zone"`
-	Environment       string `yaml:"environment"`
-	Namespace         string `yaml:"namespace"`
-	WatchWithRevision int64  `yaml:"watchWithRevision"`
+	Zone        string `yaml:"zone"`
+	Environment string `yaml:"environment"`
+	Namespace   string `yaml:"namespace"`
 }
 
 // NewOverrideOptions creates a OverrideOptions.
