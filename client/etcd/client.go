@@ -183,7 +183,7 @@ func (c *csclient) newkvOptions(
 }
 
 // txnGen assumes the caller has validated the options passed if they are
-// user-supplied (as opposed to constructed ourselves)
+// user-supplied (as opposed to constructed ourselves).
 func (c *csclient) txnGen(
 	opts kv.OverrideOptions,
 	cacheFileFn cacheFileForZoneFn,
