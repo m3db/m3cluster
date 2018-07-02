@@ -28,9 +28,10 @@ import (
 
 func TestConfigurationNoLogger(t *testing.T) {
 	cfg := OverrideConfiguration{
-		Environment: "foo",
-		Namespace:   "bar",
-		Zone:        "zone",
+		Environment:       "foo",
+		Namespace:         "bar",
+		Zone:              "zone",
+		WatchWithRevision: 10,
 	}
 
 	opts, err := cfg.NewOverrideOptions()

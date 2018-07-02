@@ -22,9 +22,10 @@ package kv
 
 // OverrideConfiguration is the config for OverrideOptions.
 type OverrideConfiguration struct {
-	Zone        string `yaml:"zone"`
-	Environment string `yaml:"environment"`
-	Namespace   string `yaml:"namespace"`
+	Zone              string `yaml:"zone"`
+	Environment       string `yaml:"environment"`
+	Namespace         string `yaml:"namespace"`
+	WatchWithRevision int64  `yaml:"watchWithRevision"`
 }
 
 // NewOverrideOptions creates a OverrideOptions.
@@ -32,5 +33,6 @@ func (cfg OverrideConfiguration) NewOverrideOptions() (OverrideOptions, error) {
 	return NewOverrideOptions().
 		SetZone(cfg.Zone).
 		SetEnvironment(cfg.Environment).
-		SetNamespace(cfg.Namespace), nil
+		SetNamespace(cfg.Namespace).
+		SetWatchWithRevision(cfg.WatchWithRevision), nil
 }
