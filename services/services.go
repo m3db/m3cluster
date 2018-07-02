@@ -811,6 +811,9 @@ func (sid *serviceID) SetEnvironment(e string) ServiceID { sid.env = e; return s
 func (sid *serviceID) SetZone(z string) ServiceID        { sid.zone = z; return sid }
 
 func (sid *serviceID) Equal(other ServiceID) bool {
+	if other == nil {
+		return false
+	}
 	return sid.Name() == other.Name() &&
 		sid.Zone() == other.Zone() &&
 		sid.Environment() == other.Environment()

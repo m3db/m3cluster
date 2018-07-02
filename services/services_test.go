@@ -1015,6 +1015,7 @@ func TestServiceIDEqual(t *testing.T) {
 	assert.False(t, sid.Equal(NewServiceID().SetName("name").SetEnvironment("env")))
 	assert.False(t, sid.Equal(NewServiceID().SetName("name").SetZone("zone")))
 	assert.False(t, sid.Equal(NewServiceID().SetEnvironment("env").SetZone("zone")))
+	assert.False(t, sid.Equal(nil))
 }
 
 func newTestLeaderGen(mc *gomock.Controller) LeaderGen {
