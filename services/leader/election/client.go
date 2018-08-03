@@ -203,8 +203,8 @@ func (c *Client) Observe(ctx context.Context) (<-chan string, error) {
 					return
 				}
 
-				for _, v := range resp.Kvs {
-					ch <- string(v.Value)
+				if len(resp.Kvs) > 0 {
+					ch <- string(resp.Kvs[0].Value)
 				}
 
 			case <-ctx.Done():

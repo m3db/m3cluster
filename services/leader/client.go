@@ -79,8 +79,8 @@ func newClient(cli *clientv3.Client, opts Options, electionID string) (*client, 
 		return nil, err
 	}
 
-	// allow multiple observe calls with the same parent context, to be cancelled
-	// when the client is closed
+	// Allow multiple observe calls with the same parent context, to be cancelled
+	// when the client is closed.
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &client{
