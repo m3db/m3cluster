@@ -203,6 +203,8 @@ func (c *Client) Observe(ctx context.Context) (<-chan string, error) {
 					return
 				}
 
+				// Etcd only sends one value along the receive channel at a time
+				// https://git.io/fNipr.
 				if len(resp.Kvs) > 0 {
 					ch <- string(resp.Kvs[0].Value)
 				}
