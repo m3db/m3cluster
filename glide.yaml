@@ -1,7 +1,6 @@
 package: github.com/m3db/m3cluster
 import:
 - package: github.com/m3db/m3x
-  version: 29bc232d9ad2e6c4a1804ccce095bb730fb1c6bc
 
 - package: google.golang.org/grpc
   version: 1.7.3
