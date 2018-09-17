@@ -6,7 +6,6 @@ import:
   version: 1.7.3
 
 - package: github.com/coreos/etcd
-  version: ^3
   subpackages:
   - clientv3
   - integration
