@@ -25,9 +25,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/m3db/m3cluster/services"
 	"github.com/m3db/m3cluster/services/leader/campaign"
+	"go.etcd.io/etcd/clientv3"
 )
 
 const (

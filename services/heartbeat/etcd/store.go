@@ -37,8 +37,8 @@ import (
 	"github.com/m3db/m3x/retry"
 	"github.com/m3db/m3x/watch"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/uber-go/tally"
+	"go.etcd.io/etcd/clientv3"
 	"golang.org/x/net/context"
 )
 

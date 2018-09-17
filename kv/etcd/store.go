@@ -33,9 +33,9 @@ import (
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
 	"github.com/uber-go/tally"
+	"go.etcd.io/etcd/clientv3"
 	"golang.org/x/net/context"
 )
 

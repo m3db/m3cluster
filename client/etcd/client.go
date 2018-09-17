@@ -40,8 +40,8 @@ import (
 	"github.com/m3db/m3x/log"
 	"github.com/m3db/m3x/retry"
 
-	"github.com/coreos/etcd/clientv3"
 	"github.com/uber-go/tally"
+	"go.etcd.io/etcd/clientv3"
 )
 
 const (
