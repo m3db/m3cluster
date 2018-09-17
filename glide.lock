@@ -1,5 +1,5 @@
-hash: 957c853fbb6daa6ed8d776008115df51b1641bc62d9e9a1efed572fcea061446
-updated: 2018-04-23T17:56:45.384288-04:00
+hash: 0beb7e37ee239590c18b3722df249ceb0dddc044c53fec5ed132d78c6026f9fd
+updated: 2018-09-17T09:01:54.229783-04:00
 imports:
 - name: github.com/apache/thrift
   version: 9549b25c77587b29be4e0b5c258221a4ed85d37a
@@ -105,8 +105,6 @@ imports:
   - capnslog
 - name: github.com/dgrijalva/jwt-go
   version: d2709f9f1f31ebcda9651b03077758c1f3a0018c
-- name: github.com/facebookgo/clock
-  version: 600d898af40aa09a7a93ecb9265d87b0504b6f03
 - name: github.com/ghodss/yaml
   version: 0ca9ea5df5451ffdf184b4428c902747c2c11cd7
 - name: github.com/gogo/protobuf
@@ -123,7 +121,7 @@ imports:
   - gomock
   - mockgen
 - name: github.com/golang/protobuf
-  version: 5a0f697c9ed9d68fef0116532c6e05cfeae00e55
+  version: aa810b61a9c79d51363740d207bb46cf8e620ed5
   subpackages:
   - jsonpb
   - proto
@@ -179,7 +177,7 @@ imports:
   subpackages:
   - xfs
 - name: github.com/uber-go/tally
-  version: 522328b48efad0c6034dba92bf39228694e9d31f
+  version: ff17f3c43c065c3c2991f571e740eee43ea3a14a
   subpackages:
   - m3
   - m3/customtransports
@@ -192,11 +190,11 @@ imports:
 - name: github.com/xiang90/probing
   version: 07dd2e8dfe18522e9c447ba95f2fe95262f63bb2
 - name: go.uber.org/atomic
-  version: 8474b86a5a6f79c443ce4b2992817ff32cf208b8
+  version: 1ea20fb1cbb1cc08cbd0d913a96dead89aa18289
 - name: go.uber.org/multierr
   version: 3c4937480c32f4c13a875a1829af76c98ca3d40a
 - name: go.uber.org/zap
-  version: 35aad584952c3e7020db7b839f6b102de6271f89
+  version: eeedf312bc6c57391d84767a4cd413f02a917974
   subpackages:
   - buffer
   - internal/bufferpool
@@ -226,6 +224,8 @@ imports:
   version: d4feaf1a7e61e1d9e79e6c4e76c6349e9cab0a03
   repo: https://github.com/golang/sys
   vcs: git
+  subpackages:
+  - unix
 - name: golang.org/x/text
   version: 4ee4af566555f5fbe026368b75596286a312663a
   subpackages:
