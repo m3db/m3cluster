@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export CODECOV_TOKEN="$CODECOV_TOKEN_M3CLUSTER"
+
 set -ex
 
 git submodule update --init --recursive
