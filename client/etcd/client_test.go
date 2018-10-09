@@ -307,14 +307,6 @@ func TestValidateNamespace(t *testing.T) {
 			expectErr: false,
 		},
 		{
-			ns:        "_ns",
-			expectErr: true,
-		},
-		{
-			ns:        "/_ns",
-			expectErr: true,
-		},
-		{
 			ns:        "",
 			expectErr: true,
 		},
