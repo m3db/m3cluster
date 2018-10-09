@@ -46,7 +46,6 @@ import (
 
 const (
 	hierarchySeparator = "/"
-	internalPrefix     = "_"
 	cacheFileSeparator = "_"
 	cacheFileSuffix    = ".json"
 	// TODO deprecate this once all keys are migrated to per service namespace
@@ -333,13 +332,6 @@ func fileName(parts ...string) string {
 
 func validateTopLevelNamespace(namespace string) error {
 	if namespace == "" || namespace == hierarchySeparator {
-		return errInvalidNamespace
-	}
-	if strings.HasPrefix(namespace, internalPrefix) {
-		// start with _
-		return errInvalidNamespace
-	}
-	if strings.HasPrefix(namespace, hierarchySeparator+internalPrefix) {
 		return errInvalidNamespace
 	}
 	return nil
