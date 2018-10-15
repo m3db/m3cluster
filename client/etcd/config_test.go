@@ -134,7 +134,7 @@ m3sd:
 	require.True(t, exists)
 	keepAliveOpts = cluster2.KeepAliveOptions()
 	require.Equal(t, true, keepAliveOpts.KeepAliveEnabled())
-	require.Equal(t, 30*time.Minute, keepAliveOpts.KeepAlivePeriod())
-	require.Equal(t, 30*time.Minute, keepAliveOpts.KeepAlivePeriodMaxJitter())
+	require.Equal(t, 5*time.Minute, keepAliveOpts.KeepAlivePeriod())
+	require.Equal(t, 5*time.Minute, keepAliveOpts.KeepAlivePeriodMaxJitter())
 	require.Equal(t, 20*time.Second, keepAliveOpts.KeepAliveTimeout())
 }

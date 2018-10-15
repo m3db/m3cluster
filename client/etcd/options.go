@@ -36,8 +36,8 @@ import (
 
 const (
 	defaultKeepAliveEnabled         = true
-	defaultKeepAlivePeriod          = 30 * time.Minute
-	defaultKeepAlivePeriodMaxJitter = 30 * time.Minute
+	defaultKeepAlivePeriod          = 5 * time.Minute
+	defaultKeepAlivePeriodMaxJitter = 5 * time.Minute
 	defaultKeepAliveTimeout         = 20 * time.Second
 
 	defaultRetryInitialBackoff = 2 * time.Second
