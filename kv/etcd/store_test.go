@@ -665,6 +665,8 @@ func TestDelete_UpdateWatcherCache(t *testing.T) {
 	<-getW.C()
 	verifyValue(t, getW.Get(), "bar1", 1)
 	require.True(t, xclock.WaitUntil(func() bool {
+		getClient.cache.RLock()
+		defer getClient.cache.RUnlock()
 		return 1 == len(getClient.cache.Values)
 	}, 2*time.Second))
 
@@ -689,6 +691,8 @@ func TestDelete_UpdateWatcherCache(t *testing.T) {
 		updatedBytes []byte
 	)
 	require.True(t, xclock.WaitUntil(func() bool {
+		getClient.cache.RLock()
+		defer getClient.cache.RUnlock()
 		if len(getClient.cache.Values) != 0 {
 			return false
 		}
@@ -768,6 +772,9 @@ func TestStaleDelete__FromGet(t *testing.T) {
 	)
 	require.True(t, xclock.WaitUntil(func() bool {
 		fileName, cacheBytes, err = readCacheJSONAndFilename(serverCachePath)
+		if len(cacheBytes) == 0 {
+			return false
+		}
 		return err == nil
 	}, 2*time.Second), "timed out waiting to read cache file")
 	closeFn()
@@ -802,6 +809,8 @@ func TestStaleDelete__FromGet(t *testing.T) {
 	getClient := getStore.(*client)
 
 	require.True(t, xclock.WaitUntil(func() bool {
+		getClient.cache.RLock()
+		defer getClient.cache.RUnlock()
 		return 1 == len(getClient.cache.Values)
 	}, 2*time.Second), "timed out waiting for client to read values from cache")
 
@@ -883,6 +892,8 @@ func TestStaleDelete__FromWatch(t *testing.T) {
 	getClient := getStore.(*client)
 
 	require.True(t, xclock.WaitUntil(func() bool {
+		getClient.cache.RLock()
+		defer getClient.cache.RUnlock()
 		return 1 == len(getClient.cache.Values)
 	}, 2*time.Second), "timed out waiting for client to read values from cache")
 	require.Equal(t, 1, len(getClient.cache.Values))
